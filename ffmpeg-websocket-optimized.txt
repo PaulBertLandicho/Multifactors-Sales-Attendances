@@ -1,0 +1,23 @@
+To reduce camera delay with WebSocket streaming, update your ffmpeg command in server-websocket.js:
+
+// Use higher fps and lower JPEG quality for faster streaming
+const ffmpegStream = ffmpeg(RTSP_URL)
+  .addOptions([
+    '-vf', 'fps=20', // 20 frames per second
+    '-update', '1',
+    '-q:v', '7', // Lower quality, faster encoding
+    '-f', 'image2pipe',
+    '-vcodec', 'mjpeg',
+  ])
+  .format('mjpeg')
+  .on('error', (err) => {
+    console.error('FFmpeg error:', err.message);
+    socket.emit('stream-error', err.message);
+  })
+  .pipe();
+
+// This will send more frames per second and reduce encoding delay.
+// Make sure your client updates the <img> element as soon as a frame arrives.
+// Run both server and client on the same local network for best performance.
+
+// Restart your websocket server after making these changes.
