@@ -2,6 +2,14 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
+import { MdFilterList } from 'react-icons/md';
+import {
+  FiDownload,
+  FiArchive,
+  FiRotateCcw,
+  FiPlus,
+  FiX
+} from 'react-icons/fi';
 
 export default function AttendanceTable() {
     // Search, filter, and sort state
@@ -26,15 +34,14 @@ export default function AttendanceTable() {
   });
   const [showForm, setShowForm] = useState(false);
 
-    const Icons = {
-    search: '🔍',
-    filter: '⚙️',
-    download: '⬇️',
-    archive: '📦',
-    restore: '↩️',
-    add: '➕',
-    close: '✖️',
-  };
+const Icons = {
+  filter: <MdFilterList />,
+  download: <FiDownload />,
+  archive: <FiArchive />,
+  restore: <FiRotateCcw />,
+  add: <FiPlus />,
+  close: <FiX />,
+};
 
   // Light theme styles with green accent
   const styles = {
@@ -578,14 +585,15 @@ export default function AttendanceTable() {
       <div style={styles.filterBar}>
         <div style={styles.filterGroup}>
           <div style={{ position: 'relative' }}>
-            <input
-              type="text"
-              placeholder="Search name or ID"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={styles.filterInput}
-            />
-          </div>
+  <span style={styles.searchIcon}>{Icons.search}</span>
+  <input
+    type="text"
+    placeholder="Search name or ID"
+    value={search}
+    onChange={e => setSearch(e.target.value)}
+    style={styles.filterInput}
+  />
+</div>
           <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
@@ -627,18 +635,19 @@ export default function AttendanceTable() {
         </div>
 
         <div style={styles.actionButtons}>
-          <button
-            onClick={() => showArchivedModal()}
-            style={{ ...styles.button, ...styles.buttonSecondary }}
-          >
-            <span>{Icons.archive}</span> Archived
-          </button>
-          <button
-            onClick={handleExportExcel}
-            style={{ ...styles.button, ...styles.buttonPrimary }}
-          >
-            <span>{Icons.download}</span> Export Excel
-          </button>
+         <button
+  onClick={() => showArchivedModal()}
+  style={{ ...styles.button, ...styles.buttonSecondary }}
+>
+  {Icons.archive} Archived
+</button>
+
+<button
+  onClick={handleExportExcel}
+  style={{ ...styles.button, ...styles.buttonPrimary }}
+>
+  {Icons.download} Export Excel
+</button>
         </div>
       </div>
 
@@ -724,14 +733,14 @@ export default function AttendanceTable() {
                               onClick={() => handleArchive(row)}
                               style={styles.smallButton}
                             >
-                              <span>{Icons.archive}</span> Archive
+                              {Icons.archive} Archive
                             </button>
                           ) : (
                             <button
                               onClick={() => handleRestore(row)}
                               style={styles.smallButton}
                             >
-                              <span>{Icons.restore}</span> Restore
+                              {Icons.restore} Restore
                             </button>
                           )}
                         </div>

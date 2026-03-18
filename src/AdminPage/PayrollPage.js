@@ -4,6 +4,12 @@ import { calculatePayroll } from '../Payroll';
 import PayslipModal from '../AdminPage/PayslipModals/PayslipModal';
 import { getDetailedAttendance } from './attendanceDetails';
 import * as XLSX from 'xlsx';
+import { MdFilterList } from 'react-icons/md';
+import {
+  FiSearch,
+  FiEye,
+  FiDownload,
+} from 'react-icons/fi';
 
 import { supabase } from '../supabaseClient';
 
@@ -23,6 +29,13 @@ export default function PayrollPage() {
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [sortKey, setSortKey] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
+
+  const Icons = {
+    search: <FiSearch />,
+    download: <FiDownload />,
+    eye: <FiEye />
+  };
+  
 
   useEffect(() => {
     async function fetchData() {
@@ -201,11 +214,12 @@ export default function PayrollPage() {
           </select>
         </div>
         <button
-          onClick={handleExportPayslipExcel}
-          style={{ ...styles.button, ...styles.buttonPrimary }}
-        >
-          ⬇️ Export to Excel
-        </button>
+  onClick={handleExportPayslipExcel}
+  style={{ ...styles.button, ...styles.buttonPrimary }}
+>
+  {Icons.download} Export Excel
+</button>
+
       </div>
 
       {/* Table */}
@@ -262,7 +276,7 @@ export default function PayrollPage() {
                           onClick={() => handleShowPayslip(person)}
                           style={styles.viewButton}
                         >
-                          👁️ View
+                          {Icons.eye} View
                         </button>
                       </td>
                     </tr>
@@ -386,6 +400,16 @@ const styles = {
     background: '#10b981',
     color: '#ffffff',
   },
+
+  searchIcon: {
+  position: 'absolute',
+  left: '12px',
+  top: '50%',
+  transform: 'translateY(-50%)',
+  fontSize: '1rem',
+  color: '#6b7280',
+},
+
   viewButton: {
     padding: '6px 12px',
     borderRadius: '30px',

@@ -2,6 +2,12 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
+import { MdFilterList } from 'react-icons/md';
+import {
+  FiDownload,
+  FiArchive,
+  FiEdit,
+} from 'react-icons/fi';
 
 
 export default function PersonsTable() {
@@ -18,6 +24,13 @@ export default function PersonsTable() {
   const [pendingPerson, setPendingPerson] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editPerson, setEditPerson] = useState(null);
+
+  const Icons = {
+    download: <FiDownload />,
+    archive: <FiArchive />,
+    edit: <FiEdit />,
+  };
+  
 
   useEffect(() => {
     async function fetchPersons() {
@@ -218,19 +231,29 @@ export default function PersonsTable() {
               </option>
             ))}
           </select>
-          <button
-            onClick={() => setShowArchived((a) => !a)}
-            style={{ ...styles.button, ...styles.buttonSecondary }}
-          >
-            {showArchived ? '👥 Show Active' : '📦 Show Archived'}
-          </button>
-        </div>
-        <button
-          onClick={handleExportExcel}
-          style={{ ...styles.button, ...styles.buttonPrimary }}
-        >
-          ⬇️ Export to Excel
-        </button>
+         <button
+  onClick={() => setShowArchived((a) => !a)}
+  style={{ ...styles.button, ...styles.buttonSecondary }}
+>
+  {showArchived ? (
+    <>
+      {Icons.archive} Show Active
+    </>
+  ) : (
+    <>
+      {Icons.archive} Show Archived
+    </>
+  )}
+</button>
+
+</div>
+
+<button
+  onClick={handleExportExcel}
+  style={{ ...styles.button, ...styles.buttonPrimary }}
+>
+  {Icons.download} Export Excel
+</button>
       </div>
 
       {/* Table */}
@@ -301,16 +324,16 @@ export default function PersonsTable() {
                         <div style={styles.actionCell}>
                           <button
                             onClick={() => handleEdit(p)}
-                            style={{ ...styles.smallButton, ...styles.buttonSecondary }}
+                            style={{ ...styles.smallButton, ...styles.buttonSuccess }}
                           >
-                            ✏️ Edit
+                            {Icons.edit} Edit
                           </button>
                           {!p.archived && (
                             <button
                               onClick={() => handleArchive(p)}
-                              style={{ ...styles.smallButton, ...styles.buttonWarning }}
+                              style={{ ...styles.smallButton, ...styles.buttonSecondary }}
                             >
-                              📦 Archive
+                             {Icons.archive} Export Excel
                             </button>
                           )}
                         </div>
@@ -536,8 +559,8 @@ const styles = {
     color: '#1f2937',
     border: '1px solid #d1d5db',
   },
-  buttonWarning: {
-    background: '#f59e0b',
+  buttonSuccess: {
+    background: '#10b981',
     color: '#ffffff',
   },
   smallButton: {

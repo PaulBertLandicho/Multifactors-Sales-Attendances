@@ -122,14 +122,23 @@ export default function PayrollPage() {
 
     if (!selected) return;
 
-    const printWindow = window.open('', '_blank');
+    // Generate PDF from payslip container
+    import('jspdf').then(({ jsPDF }) => {
+      const doc = new jsPDF();
+      const payslipElement = document.querySelector('.payslip-container');
+      if (!payslipElement) return;
 
-    printWindow.document.write(
-      document.querySelector('.payslip-container')?.outerHTML || ''
-    );
-
-    printWindow.document.close();
-    printWindow.print();
+      // Use html2canvas for better rendering
+      import('html2canvas').then(html2canvas => {
+        html2canvas.default(payslipElement).then(canvas => {
+          const imgData = canvas.toDataURL('image/png');
+          const pdfWidth = doc.internal.pageSize.getWidth();
+          const pdfHeight = doc.internal.pageSize.getHeight();
+          doc.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+          doc.save('payslip.pdf');
+        });
+      });
+    });
 
   };
 
