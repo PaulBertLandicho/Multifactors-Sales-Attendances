@@ -9,67 +9,179 @@ const navItems = [
   { label: 'Persons', path: '/admin/persons' },
 ];
 
-function AdminSidebar({ onLogout }) {
+export default function AdminSidebar({ onLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
 
   return (
-    <div style={{
-      width: 280,
-      minHeight: '100vh',
-      background: '#181a20',
-      borderRight: '1px solid #23272f',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'stretch',
-      paddingTop: 32,
-      position: 'fixed',
-      left: 0,
-      top: 0,
-      zIndex: 100,
-    }}>
-      <div style={{ fontWeight: 700, fontSize: 22, color: '#fff', textAlign: 'center', marginBottom: 32 }}>
-        Multifactors Sales
+    <div style={styles.sidebar}>
+      {/* Logo / Brand */}
+      <div style={styles.logo}>
+          <img
+            src={process.env.PUBLIC_URL + '/image/logo/multifactorssales_logo.png'}
+            alt="Multifactors Sales Logo"
+            style={{
+              ...styles.logoIcon,
+              objectFit: 'cover',
+              padding: 6,
+            }}
+          />
+          <span style={styles.logoText}>Multifactors Sales</span>
       </div>
-      {navItems.map(item => (
-        <button
-          key={item.path}
-          onClick={() => navigate(item.path)}
-          style={{
-            background: location.pathname === item.path ? 'rgb(16 185 129)' : 'transparent',
-            color: location.pathname === item.path ? '#fff' : '#b0b3b8',
-            border: 'none',
-            borderRadius: 6,
-            margin: '0 16px 12px 16px',
-            padding: '14px 0',
-            fontSize: 16,
-            fontWeight: 600,
-            cursor: 'pointer',
-            transition: 'background 0.2s',
-          }}
-        >
-          {item.label}
-        </button>
-      ))}
-      <div style={{ flex: 1 }} />
+
+      {/* Navigation Items */}
+      <nav style={styles.nav}>
+        {navItems.map(item => {
+          const isActive = location.pathname === item.path;
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              style={{
+                ...styles.navItem,
+                ...(isActive ? styles.navItemActive : {}),
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.backgroundColor = '#e6f7f0'; // light green tint
+                  e.currentTarget.style.color = '#10b981';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                  e.currentTarget.style.color = '#4b5563';
+                }
+              }}
+            >
+              <span style={styles.navIcon}>{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* Spacer */}
+      <div style={styles.spacer} />
+
+      {/* Logout Button */}
       <button
         onClick={onLogout}
-        style={{
-          background: '#e53935',
-          color: '#fff',
-          border: 'none',
-          borderRadius: 6,
-          margin: '24px 16px 32px 16px',
-          padding: '14px 0',
-          fontSize: 16,
-          fontWeight: 600,
-          cursor: 'pointer',
+        style={styles.logoutButton}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = '#dc2626';
+          e.currentTarget.style.color = '#fff';
+          e.currentTarget.style.transform = 'translateY(-2px)';
+          e.currentTarget.style.boxShadow = '0 8px 20px rgba(220, 38, 38, 0.3)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = '#ef4444';
+          e.currentTarget.style.color = '#fff';
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = 'none';
         }}
       >
-        Logout
+        <span style={styles.logoutIcon}>🚪</span>
+        <span>Logout</span>
       </button>
     </div>
   );
 }
 
-export default AdminSidebar;
+// Light theme styles
+const styles = {
+  sidebar: {
+    width: 280,
+    minHeight: '100vh',
+    background: '#ffffff',
+    borderRight: '1px solid #e5e7eb',
+    display: 'flex',
+    flexDirection: 'column',
+    paddingTop: 32,
+    position: 'fixed',
+    left: 0,
+    top: 0,
+    zIndex: 100,
+    boxShadow: '4px 0 20px rgba(0, 0, 0, 0.05)',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  },
+  logo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '0 24px',
+    marginBottom: 40,
+  },
+  logoIcon: {
+    fontSize: '2rem',
+    background: '#10b981', // solid green
+    width: 48,
+    height: 48,
+    borderRadius: 15,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: '#fff',
+  },
+  logoText: {
+    fontSize: '1.2rem',
+    fontWeight: 700,
+    color: '#1f2937',
+    letterSpacing: '0.5px',
+  },
+  nav: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '8px',
+    padding: '0 16px',
+  },
+  navItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '14px',
+    background: 'transparent',
+    color: '#4b5563',
+    border: 'none',
+    borderRadius: 14,
+    padding: '14px 20px',
+    fontSize: '1rem',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    textAlign: 'left',
+    width: '100%',
+  },
+  navItemActive: {
+    background: '#10b981',
+    color: '#ffffff',
+    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
+  },
+  navIcon: {
+    fontSize: '1.4rem',
+    minWidth: 24,
+    display: 'inline-block',
+  },
+  spacer: {
+    flex: 1,
+  },
+  logoutButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '12px',
+    background: '#ef4444',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 14,
+    margin: '24px 16px 32px',
+    padding: '16px 0',
+    fontSize: '1.1rem',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  },
+  logoutIcon: {
+    fontSize: '1.4rem',
+  },
+};
+

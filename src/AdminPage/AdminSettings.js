@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import AttendanceTable from '../AdminPage/AttendanceTable';
 
-function AdminSettings() {
+export default function AdminSettings() {
   const [settings, setSettings] = useState({
     morning_start: '08:00',
     morning_end: '11:59',
@@ -97,59 +97,332 @@ function AdminSettings() {
 
   if (loading) return <div>Loading...</div>;
 
-  return (
-    <div style={{ maxWidth: 900, margin: '40px auto', padding: 32, background: 'rgba(24,26,32,0.98)', borderRadius: 12, boxShadow: '0 2px 24px #0008' }}>
-      <h2 style={{ textAlign: 'center', fontSize: 36, fontWeight: 700, marginBottom: 32 }}>Work Hours Settings</h2>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: 64, marginBottom: 32 }}>
-              <div style={{ marginBottom: 24, textAlign: 'center' }}>
-                <label style={{ fontWeight: 500 }}>Late Count Limit for Deduction:</label>
-                <input type="number" name="late_count_limit" value={settings.late_count_limit} onChange={handleChange} min="1" step="1" style={{ marginLeft: 8, width: 60, padding: 4, borderRadius: 4, border: '1px solid #444', background: '#23272f', color: '#fff' }} />
-                <span style={{ marginLeft: 8, fontSize: 13, color: '#aaa' }}>Late occurrences before deduction</span>
-              </div>
-        <div>
-          <h3 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16, textAlign: 'center' }}>Morning Shift</h3>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontWeight: 500 }}>Start Time:</label>
-            <input type="time" name="morning_start" value={settings.morning_start} onChange={handleChange} style={{ marginLeft: 8, padding: 4, borderRadius: 4, border: '1px solid #444', background: '#23272f', color: '#fff' }} />
+ return (
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h1 style={styles.title}>Work Hours Settings</h1>
+        <div style={styles.titleUnderline} />
+      </div>
+
+      {/* Three cards in a row */}
+      <div style={styles.cardsRow}>
+        {/* Morning Shift Card */}
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <span style={styles.cardIcon}>🌅</span>
+            <h2 style={styles.cardTitle}>Morning Shift</h2>
           </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontWeight: 500 }}>End Time:</label>
-            <input type="time" name="morning_end" value={settings.morning_end} onChange={handleChange} style={{ marginLeft: 18, padding: 4, borderRadius: 4, border: '1px solid #444', background: '#23272f', color: '#fff' }} />
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Start Time</label>
+            <input
+              type="time"
+              name="morning_start"
+              value={settings.morning_start}
+              onChange={handleChange}
+              style={styles.input}
+            />
           </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontWeight: 500 }}>Late time (minutes):</label>
-            <input type="number" name="morning_grace_minutes" value={settings.morning_grace_minutes} onChange={handleChange} min="0" step="1" style={{ marginLeft: 8, width: 60, padding: 4, borderRadius: 4, border: '1px solid #444', background: '#23272f', color: '#fff' }} />
-            <span style={{ marginLeft: 8, fontSize: 13, color: '#aaa' }}>Minutes after start considered on‑time</span>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>End Time</label>
+            <input
+              type="time"
+              name="morning_end"
+              value={settings.morning_end}
+              onChange={handleChange}
+              style={styles.input}
+            />
+          </div>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Grace Period</label>
+            <div style={styles.numberInputWrapper}>
+              <input
+                type="number"
+                name="morning_grace_minutes"
+                value={settings.morning_grace_minutes}
+                onChange={handleChange}
+                min="0"
+                step="1"
+                style={styles.numberInput}
+              />
+              <span style={styles.inputSuffix}>min</span>
+            </div>
+            <span style={styles.hint}>Minutes after start considered on-time</span>
           </div>
         </div>
-        <div>
-          <h3 style={{ fontSize: 24, fontWeight: 700, marginBottom: 16, textAlign: 'center' }}>Afternoon Shift</h3>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontWeight: 500 }}>Start Time:</label>
-            <input type="time" name="afternoon_start" value={settings.afternoon_start} onChange={handleChange} style={{ marginLeft: 8, padding: 4, borderRadius: 4, border: '1px solid #444', background: '#23272f', color: '#fff' }} />
+
+        {/* Afternoon Shift Card */}
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <span style={styles.cardIcon}>☀️</span>
+            <h2 style={styles.cardTitle}>Afternoon Shift</h2>
           </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontWeight: 500 }}>End Time:</label>
-            <input type="time" name="afternoon_end" value={settings.afternoon_end} onChange={handleChange} style={{ marginLeft: 18, padding: 4, borderRadius: 4, border: '1px solid #444', background: '#23272f', color: '#fff' }} />
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Start Time</label>
+            <input
+              type="time"
+              name="afternoon_start"
+              value={settings.afternoon_start}
+              onChange={handleChange}
+              style={styles.input}
+            />
           </div>
-          <div style={{ marginBottom: 12 }}>
-            <label style={{ fontWeight: 500 }}>Late time (minutes):</label>
-            <input type="number" name="afternoon_grace_minutes" value={settings.afternoon_grace_minutes} onChange={handleChange} min="0" step="1" style={{ marginLeft: 8, width: 60, padding: 4, borderRadius: 4, border: '1px solid #444', background: '#23272f', color: '#fff' }} />
-            <span style={{ marginLeft: 8, fontSize: 13, color: '#aaa' }}>Minutes after start considered on‑time</span>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>End Time</label>
+            <input
+              type="time"
+              name="afternoon_end"
+              value={settings.afternoon_end}
+              onChange={handleChange}
+              style={styles.input}
+            />
+          </div>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Grace Period</label>
+            <div style={styles.numberInputWrapper}>
+              <input
+                type="number"
+                name="afternoon_grace_minutes"
+                value={settings.afternoon_grace_minutes}
+                onChange={handleChange}
+                min="0"
+                step="1"
+                style={styles.numberInput}
+              />
+              <span style={styles.inputSuffix}>min</span>
+            </div>
+            <span style={styles.hint}>Minutes after start considered on-time</span>
+          </div>
+        </div>
+
+        {/* Late Count Limit Card */}
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <span style={styles.cardIcon}>⚠️</span>
+            <h2 style={styles.cardTitle}>Late Count Limit</h2>
+          </div>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Limit</label>
+            <div style={styles.numberInputWrapper}>
+              <input
+                type="number"
+                name="late_count_limit"
+                value={settings.late_count_limit}
+                onChange={handleChange}
+                min="1"
+                step="1"
+                style={styles.numberInput}
+              />
+              <span style={styles.inputSuffix}>occurrences</span>
+            </div>
+            <span style={styles.hint}>Late occurrences before deduction</span>
           </div>
         </div>
       </div>
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <button onClick={handleSave} disabled={saving} style={{ padding: '10px 24px', fontSize: 16, fontWeight: 600, borderRadius: 6, border: 'none', background: 'rgb(16 185 129)', color: '#fff', marginRight: 16, cursor: 'pointer', boxShadow: '0 2px 8px #0004' }}>
+
+      {/* Action Buttons */}
+      <div style={styles.actions}>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          style={{
+            ...styles.button,
+            ...styles.buttonPrimary,
+            opacity: saving ? 0.7 : 1,
+            cursor: saving ? 'not-allowed' : 'pointer',
+          }}
+        >
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
-        {/* <button onClick={() => navigate('/admin/payroll')} style={{ padding: '10px 24px', fontSize: 16, fontWeight: 600, borderRadius: 6, border: 'none', background: '#1976d2', color: '#fff', marginRight: 16, cursor: 'pointer', boxShadow: '0 2px 8px #0004' }}>View Payroll</button> */}
+        <button
+          onClick={() => navigate('/admin/department-rates')}
+          style={{ ...styles.button, ...styles.buttonSecondary }}
+        >
+          Department Rates
+        </button>
       </div>
-      <button onClick={() => navigate('/admin/department-rates')} style={{ padding: '10px 24px', fontSize: 16, fontWeight: 600, borderRadius: 6, border: 'none', background: 'rgb(16 185 129)', color: '#fff', marginRight: 16, cursor: 'pointer', boxShadow: '0 2px 8px #0004' }}>
-  Department Rates
-</button>
     </div>
   );
 }
 
-export default AdminSettings;
+// Light theme styles with green accent
+const styles = {
+  container: {
+    maxWidth: '1200px',
+    margin: '40px auto',
+    padding: '40px 32px',
+    background: '#ffffff',
+    borderRadius: '32px',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
+    color: '#1f2937',
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  },
+  header: {
+    textAlign: 'center',
+    marginBottom: '48px',
+  },
+  title: {
+    fontSize: '2.8rem',
+    fontWeight: 700,
+    color: '#1f2937',
+    margin: 0,
+    display: 'inline-block',
+  },
+  titleUnderline: {
+    height: '4px',
+    width: '100px',
+    background: '#10b981', // solid green
+    margin: '8px auto 0',
+    borderRadius: '2px',
+  },
+  cardsRow: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '24px',
+    marginBottom: '32px',
+  },
+  card: {
+    background: '#f9fafb',
+    borderRadius: '24px',
+    padding: '28px 24px',
+    border: '1px solid #e5e7eb',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+    transition: 'transform 0.2s, box-shadow 0.2s',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  cardHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    marginBottom: '24px',
+  },
+  cardIcon: {
+    fontSize: '2rem',
+  },
+  cardTitle: {
+    fontSize: '1.6rem',
+    fontWeight: 600,
+    margin: 0,
+    color: '#1f2937',
+  },
+  inputGroup: {
+    marginBottom: '20px',
+  },
+  label: {
+    display: 'block',
+    fontSize: '0.9rem',
+    fontWeight: 500,
+    color: '#4b5563',
+    marginBottom: '8px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  input: {
+    width: '100%',
+    padding: '12px 16px',
+    fontSize: '1rem',
+    borderRadius: '14px',
+    border: '1px solid #d1d5db',
+    background: '#ffffff',
+    color: '#1f2937',
+    outline: 'none',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+    boxSizing: 'border-box',
+  },
+  numberInputWrapper: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  numberInput: {
+    width: '100px',
+    padding: '12px 16px',
+    fontSize: '1rem',
+    borderRadius: '14px',
+    border: '1px solid #d1d5db',
+    background: '#ffffff',
+    color: '#1f2937',
+    outline: 'none',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
+  },
+  inputSuffix: {
+    color: '#6b7280',
+    fontSize: '0.95rem',
+  },
+  hint: {
+    display: 'block',
+    fontSize: '0.8rem',
+    color: '#6b7280',
+    marginTop: '6px',
+  },
+  actions: {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '20px',
+    flexWrap: 'wrap',
+  },
+  button: {
+    padding: '14px 32px',
+    fontSize: '1.1rem',
+    fontWeight: 600,
+    borderRadius: '40px',
+    border: 'none',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '200px',
+  },
+  buttonPrimary: {
+    background: '#10b981',
+    color: '#ffffff',
+  },
+  buttonSecondary: {
+    background: '#e5e7eb',
+    color: '#1f2937',
+    border: '1px solid #d1d5db',
+  },
+  spinnerContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: '300px',
+    background: '#ffffff',
+  },
+  spinner: {
+    width: '50px',
+    height: '50px',
+    border: '4px solid #e5e7eb',
+    borderTop: '4px solid #10b981',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  },
+};
+
+// Add keyframes for spinner and focus styles
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  input:focus {
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
+  }
+  button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  }
+  .buttonPrimary:hover {
+    background: #0f9e6e !important;
+  }
+  .buttonSecondary:hover {
+    background: #d1d5db !important;
+  }
+`;
+document.head.appendChild(styleSheet);
+

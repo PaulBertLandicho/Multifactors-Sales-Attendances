@@ -23,7 +23,7 @@ window.onerror = (msg, src, line, col, error) => {
   }
 };
 
-function CameraPlayer({ onFaceScan, registrationActive = false }) {
+export default function CameraPlayer({ onFaceScan, registrationActive = false }) {
   const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:4000';
   const imgRef = useRef(null);
   const overlayCanvasRef = useRef(null);
@@ -407,42 +407,272 @@ function CameraPlayer({ onFaceScan, registrationActive = false }) {
   }, [registrationActive]);
 
   // ------------------- Render -------------------
-  return (
-    <div style={{ position: 'relative', display: 'inline-block' }}>
-      {useLocalCamera ? (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          style={{ width: '100%', maxWidth: '800px', backgroundColor: 'black' }}
-        />
-      ) : (
-        <img
-          ref={imgRef}
-          alt="Camera Stream"
-          onLoad={() => setFrameReady(imgRef.current?.naturalWidth > 0 && imgRef.current?.naturalHeight > 0)}
-          style={{ width: '100%', maxWidth: '800px', backgroundColor: 'black' }}
-        />
-      )}
-      <canvas
-        ref={overlayCanvasRef}
-        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
-      />
-      {settings && validSettings && (
-        <div style={{ background: '#e3f2fd', color: '#1565c0', marginTop: 10, padding: 8, borderRadius: 8 }}>
-          <b>Morning:</b> {settings.morning_start} - {settings.morning_end}, Late: {settings.morning_grace_minutes} min<br/>
-          <b>Afternoon:</b> {settings.afternoon_start} - {settings.afternoon_end}, Late: {settings.afternoon_grace_minutes} min
+ return (
+    <div style={styles.container}>
+      {/* Camera card */}
+      <div style={styles.cameraCard}>
+        <div style={styles.cameraHeader}>
+          <span style={styles.cameraTitle}>📷 Live Feed</span>
+          <div style={styles.statusBadges}>
+            {cameraStatus === CAMERA_STATUS.CONNECTING && (
+              <span style={{ ...styles.badge, ...styles.badgeConnecting }}>
+                ⏳ Connecting...
+              </span>
+            )}
+            {cameraStatus === CAMERA_STATUS.LIVE && (
+              <span style={{ ...styles.badge, ...styles.badgeLive }}>
+                ● Live
+              </span>
+            )}
+            {cameraStatus === CAMERA_STATUS.ERROR && (
+              <span style={{ ...styles.badge, ...styles.badgeError }}>
+                ⚠️ Error
+              </span>
+            )}
+            {!modelsLoaded && (
+              <span style={{ ...styles.badge, ...styles.badgeLoading }}>
+                🔄 Loading models
+              </span>
+            )}
+            {modelsLoaded && scanning && !verifying && validSettings && (
+              <span style={{ ...styles.badge, ...styles.badgeScanning }}>
+                👤 Scanning
+              </span>
+            )}
+            {verifying && validSettings && (
+              <span style={{ ...styles.badge, ...styles.badgeVerifying }}>
+                🔍 Verifying<span style={styles.dots}>...</span>
+              </span>
+            )}
+          </div>
         </div>
-      )}
-      {!validSettings && <div style={{ color: '#ff6b6b', marginTop: 8 }}>Work hour settings missing/invalid</div>}
-      {cameraStatus === CAMERA_STATUS.CONNECTING && <div style={{ color: '#fff' }}>Connecting to camera stream...</div>}
-      {cameraStatus === CAMERA_STATUS.ERROR && <div style={{ color: '#ff6b6b' }}>{cameraError}</div>}
-      {!modelsLoaded && <div style={{ color: '#fff' }}>Loading face recognition models...</div>}
-      {scanning && !verifying && validSettings && <div style={{ color: '#0f0' }}>Scanning for faces...</div>}
-      {verifying && validSettings && <div style={{ color: '#ff0' }}>Verifying face...</div>}
+
+        {/* Camera feed area */}
+        <div style={styles.feedWrapper}>
+          {useLocalCamera ? (
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              muted
+              style={styles.feed}
+            />
+          ) : (
+            <img
+              ref={imgRef}
+              alt="Camera Stream"
+              onLoad={() => setFrameReady(imgRef.current?.naturalWidth > 0 && imgRef.current?.naturalHeight > 0)}
+              style={styles.feed}
+            />
+          )}
+          <canvas
+            ref={overlayCanvasRef}
+            style={styles.overlayCanvas}
+          />
+        </div>
+
+        {/* Settings info card */}
+        {settings && validSettings && (
+          <div style={styles.settingsCard}>
+            <div style={styles.settingRow}>
+              <span style={styles.settingIcon}>🌅</span>
+              <span style={styles.settingLabel}>Morning:</span>
+              <span style={styles.settingValue}>
+                {settings.morning_start} – {settings.morning_end}
+              </span>
+              <span style={styles.graceBadge}>
+                ⏱️ {settings.morning_grace_minutes} min grace
+              </span>
+            </div>
+            <div style={styles.settingRow}>
+              <span style={styles.settingIcon}>☀️</span>
+              <span style={styles.settingLabel}>Afternoon:</span>
+              <span style={styles.settingValue}>
+                {settings.afternoon_start} – {settings.afternoon_end}
+              </span>
+              <span style={styles.graceBadge}>
+                ⏱️ {settings.afternoon_grace_minutes} min grace
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Error or missing settings messages */}
+        {!validSettings && (
+          <div style={styles.errorMessage}>
+            ⚠️ Work hour settings are missing or invalid
+          </div>
+        )}
+        {cameraStatus === CAMERA_STATUS.ERROR && (
+          <div style={styles.errorMessage}>{cameraError}</div>
+        )}
+      </div>
     </div>
   );
 }
 
-export default CameraPlayer;
+// Modern inline styles
+const styles = {
+  container: {
+    display: 'flex',
+    justifyContent: 'center',
+    padding: '20px',
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  },
+  cameraCard: {
+    width: '100%',
+    maxWidth: '900px',
+    backgroundColor: '#ffffff',
+    borderRadius: '24px',
+    boxShadow: '0 20px 40px rgba(0,0,0,0.08), 0 6px 12px rgba(0,0,0,0.05)',
+    overflow: 'hidden',
+    transition: 'box-shadow 0.3s ease',
+  },
+  cameraHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '16px 24px',
+    backgroundColor: '#f9fafc',
+    borderBottom: '1px solid #eef2f6',
+  },
+  cameraTitle: {
+    fontSize: '1.2rem',
+    fontWeight: 600,
+    color: '#1e293b',
+    letterSpacing: '-0.01em',
+  },
+  statusBadges: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
+  badge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '6px 12px',
+    borderRadius: '30px',
+    fontSize: '0.85rem',
+    fontWeight: 500,
+    lineHeight: 1,
+    whiteSpace: 'nowrap',
+  },
+  badgeConnecting: {
+    backgroundColor: '#e9f0ff',
+    color: '#2563eb',
+  },
+  badgeLive: {
+    backgroundColor: '#e6f7e6',
+    color: '#16a34a',
+  },
+  badgeError: {
+    backgroundColor: '#fee9e7',
+    color: '#dc2626',
+  },
+  badgeLoading: {
+    backgroundColor: '#fff3cd',
+    color: '#b45309',
+  },
+  badgeScanning: {
+    backgroundColor: '#e0f2fe',
+    color: '#0284c7',
+  },
+  badgeVerifying: {
+    backgroundColor: '#fef3c7',
+    color: '#d97706',
+  },
+  dots: {
+    animation: 'blink 1.4s infinite',
+    display: 'inline-block',
+    width: '1.5em',
+    textAlign: 'left',
+  },
+  feedWrapper: {
+    position: 'relative',
+    width: '100%',
+    aspectRatio: '16/9',
+    backgroundColor: '#0b1120',
+  },
+  feed: {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    display: 'block',
+  },
+  overlayCanvas: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    pointerEvents: 'none',
+  },
+  settingsCard: {
+    margin: '16px 24px 24px',
+    padding: '18px 20px',
+    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+    borderRadius: '20px',
+    border: '1px solid #e2e8f0',
+  },
+  settingRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    flexWrap: 'wrap',
+    padding: '8px 0',
+    borderBottom: '1px dashed #cbd5e1',
+  },
+  settingRowLast: {
+    borderBottom: 'none',
+  },
+  settingIcon: {
+    fontSize: '1.3rem',
+  },
+  settingLabel: {
+    fontWeight: 600,
+    color: '#334155',
+    minWidth: '75px',
+  },
+  settingValue: {
+    color: '#0f172a',
+    fontWeight: 500,
+    background: '#ffffff',
+    padding: '4px 12px',
+    borderRadius: '30px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+  },
+  graceBadge: {
+    background: '#dbeafe',
+    color: '#1e40af',
+    padding: '4px 10px',
+    borderRadius: '30px',
+    fontSize: '0.8rem',
+    fontWeight: 500,
+    marginLeft: 'auto',
+  },
+  errorMessage: {
+    margin: '16px 24px 24px',
+    padding: '12px 16px',
+    backgroundColor: '#fee2e2',
+    color: '#b91c1c',
+    borderRadius: '12px',
+    border: '1px solid #fecaca',
+    fontSize: '0.95rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+};
+
+// Add keyframes for blinking dots (injected via style tag)
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+`;
+document.head.appendChild(styleSheet);
+

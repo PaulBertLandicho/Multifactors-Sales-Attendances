@@ -1,6 +1,6 @@
 import PayrollPage from './AdminPage/PayrollPage';
 // App.js
-import './App.css';
+// import './App.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from './supabaseClient';
@@ -81,50 +81,24 @@ function App() {
       <div className="App">
         <header className="App-header">
           {!(window.location.pathname.startsWith('/admin')) && (
-            <h1>Dahua Camera Viewer</h1>
+            <h1 style={styles.headerTitle}>Dahua Camera Viewer</h1>
           )}
           <Routes>
             <Route
               path="/"
               element={
                 <>
-                  {/* If ?ipcam=1 in URL, use CameraIframe, else use CameraPlayer */}
                   {window.location.search.includes('ipcam=1') ? (
                     <CameraIframe />
                   ) : (
                     <CameraPlayer onFaceScan={handleFaceScan} registrationActive={Boolean(pendingScan) || showModal} />
                   )}
                   {showModal && (
-                    <div style={{
-                      position: 'fixed',
-                      top: 0,
-                      left: 0,
-                      width: '100vw',
-                      height: '100vh',
-                      background: 'rgba(0,0,0,0.5)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      zIndex: 1000
-                    }}>
-                      <div style={{
-                        background: '#222',
-                        padding: '32px',
-                        borderRadius: '8px',
-                        minWidth: '340px',
-                        boxShadow: '0 2px 16px #0008',
-                        position: 'relative'
-                      }}>
-                        <button onClick={closeModal} style={{
-                          position: 'absolute',
-                          top: 8,
-                          right: 8,
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#fff',
-                          fontSize: '1.5rem',
-                          cursor: 'pointer'
-                        }}>&times;</button>
+                    <div style={styles.modalOverlay}>
+                      <div style={styles.modalContent}>
+                        <button onClick={closeModal} style={styles.modalClose}>
+                          &times;
+                        </button>
                         <PersonDetails scanPayload={pendingScan} onComplete={closeModal} />
                       </div>
                     </div>
@@ -136,9 +110,9 @@ function App() {
             <Route
               path="/admin/settings"
               element={session ? (
-                <div style={{ display: 'flex', minHeight: '100vh' }}>
+                <div style={styles.adminLayout}>
                   <AdminSidebar onLogout={async () => { await supabase.auth.signOut(); localStorage.removeItem('sb-session'); window.location.href = '/admin'; }} />
-                  <div style={{ marginLeft: 220, flex: 1 }}>
+                  <div style={styles.adminContent}>
                     <AdminSettings />
                   </div>
                 </div>
@@ -147,31 +121,20 @@ function App() {
             <Route
               path="/admin/attendance"
               element={session ? (
-                <div style={{ display: 'flex', minHeight: '100vh' }}>
+                <div style={styles.adminLayout}>
                   <AdminSidebar onLogout={async () => { await supabase.auth.signOut(); localStorage.removeItem('sb-session'); window.location.href = '/admin'; }} />
-                  <div style={{ marginLeft: 220, flex: 1, padding: 40 }}>
+                  <div style={styles.adminContent}>
                     <AttendanceTable />
                   </div>
                 </div>
               ) : <Navigate to="/admin" />}
             />
-            {/* <Route
-              path="/admin/payroll"
-              element={session ? (
-                <div style={{ display: 'flex', minHeight: '100vh' }}>
-                  <AdminSidebar onLogout={async () => { await supabase.auth.signOut(); localStorage.removeItem('sb-session'); window.location.href = '/admin'; }} />
-                  <div style={{ marginLeft: 220, flex: 1 }}>
-                    <PayrollPage />
-                  </div>
-                </div>
-              ) : <Navigate to="/admin" />}
-            /> */}
             <Route
               path="/admin/department-rates"
               element={session ? (
-                <div style={{ display: 'flex', minHeight: '100vh' }}>
+                <div style={styles.adminLayout}>
                   <AdminSidebar onLogout={async () => { await supabase.auth.signOut(); localStorage.removeItem('sb-session'); window.location.href = '/admin'; }} />
-                  <div style={{ marginLeft: 220, flex: 1 }}>
+                  <div style={styles.adminContent}>
                     <DepartmentRates />
                   </div>
                 </div>
@@ -180,9 +143,9 @@ function App() {
             <Route
               path="/admin/persons"
               element={session ? (
-                <div style={{ display: 'flex', minHeight: '100vh' }}>
+                <div style={styles.adminLayout}>
                   <AdminSidebar onLogout={async () => { await supabase.auth.signOut(); localStorage.removeItem('sb-session'); window.location.href = '/admin'; }} />
-                  <div style={{ marginLeft: 220, flex: 1, padding: 40 }}>
+                  <div style={styles.adminContent}>
                     <PersonsTable />
                   </div>
                 </div>
@@ -191,9 +154,9 @@ function App() {
             <Route
               path="/admin/payroll"
               element={session ? (
-                <div style={{ display: 'flex', minHeight: '100vh' }}>
+                <div style={styles.adminLayout}>
                   <AdminSidebar onLogout={async () => { await supabase.auth.signOut(); localStorage.removeItem('sb-session'); window.location.href = '/admin'; }} />
-                  <div style={{ marginLeft: 220, flex: 1 }}>
+                  <div style={styles.adminContent}>
                     <PayrollPage />
                   </div>
                 </div>
@@ -205,5 +168,63 @@ function App() {
     </BrowserRouter>
   );
 }
+
+// Light theme styles with green accent
+const styles = {
+  headerTitle: {
+    color: '#10b981',
+    fontSize: '2rem',
+    fontWeight: 600,
+    textAlign: 'center',
+    margin: '20px 0',
+  },
+  modalOverlay: {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    background: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+    backdropFilter: 'blur(4px)',
+  },
+  modalContent: {
+    background: '#ffffff',
+    padding: '32px',
+    borderRadius: '28px',
+    minWidth: '340px',
+    maxWidth: '500px',
+    width: '90%',
+    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)',
+    border: '1px solid #e5e7eb',
+    position: 'relative',
+  },
+  modalClose: {
+    position: 'absolute',
+    top: '12px',
+    right: '16px',
+    background: 'transparent',
+    border: 'none',
+    color: '#6b7280',
+    fontSize: '1.8rem',
+    cursor: 'pointer',
+    lineHeight: 1,
+    transition: 'color 0.2s',
+  },
+  adminLayout: {
+    display: 'flex',
+    minHeight: '100vh',
+    background: '#ffffff',
+  },
+  adminContent: {
+    marginLeft: '280px', // matches sidebar width
+    flex: 1,
+    padding: '40px',
+    background: '#ffffff',
+  },
+};
 
 export default App;

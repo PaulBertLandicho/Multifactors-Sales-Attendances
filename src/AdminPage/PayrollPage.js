@@ -163,93 +163,119 @@ export default function PayrollPage() {
   };
 
   return (
-
-    <div style={{ padding: 24 }}>
-
-      <h2>View Payroll</h2>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 20 }}>
-        <input
-          type="text"
-          placeholder="Search by name or ID"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ padding: '6px 12px', fontSize: 15, borderRadius: 6, border: '1px solid #888', minWidth: 180 }}
-        />
-        <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} style={{ padding: '6px 10px', fontSize: 15, borderRadius: 6 }}>
-          <option value="">All Departments</option>
-          {Array.from(new Set(persons.map(p => p.department).filter(Boolean))).map(dept => (
-            <option key={dept} value={dept}>{dept}</option>
-          ))}
-        </select>
-        {/* <select value={sortKey} onChange={e => setSortKey(e.target.value)} style={{ padding: '6px 10px', fontSize: 15, borderRadius: 6 }}>
-          <option value="name">Sort by Name</option>
-          <option value="department">Sort by Department</option>
-          <option value="daily_rate">Sort by Daily Rate</option>
-          <option value="late_penalty">Sort by Late Penalty</option>
-        </select> */}
-        <select value={sortOrder} onChange={e => setSortOrder(e.target.value)} style={{ padding: '6px 10px', fontSize: 15, borderRadius: 6 }}>
-          <option value="asc">Asc</option>
-          <option value="desc">Desc</option>
-        </select>
-        <button onClick={handleExportPayslipExcel} style={{ padding: '8px 18px', fontSize: 16 }}>Export to Excel</button>
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h1 style={styles.title}>Payroll Summary</h1>
+        <div style={styles.titleUnderline} />
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Department</th>
-            <th>Daily Rate (₱)</th>
-            <th>Late Penalty (₱)</th>
-            <th>Days Present</th>
-            <th>Late Count</th>
-            <th>Gross</th>
-            <th>Late Deduction</th>
-            <th>Net Pay</th>
-            <th>Payslip</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedPersons.map(person => {
-            // Find attendance for this person
-            const personAttendance = attendance.filter(r => r.person_id === person.id);
-            // Calculate days present
-            const daysPresent = personAttendance.filter(r => r.event === 'time-in').length;
-            // Calculate late count
-            const detailed = getDetailedAttendance(attendance, person.id, settings);
-            const lateCount = detailed.map(rec => rec.lateDetails || []).flat().length;
-            // Find payroll
-            const payslip = payroll.find(p => p.id === person.id) || {};
-            return (
-              <tr key={person.id}>
-                <td>{person.id}</td>
-                <td>{person.name}</td>
-                <td>{person.department}</td>
-                <td>{person.daily_rate != null ? `₱${Number(person.daily_rate).toFixed(2)}` : '-'}</td>
-                <td>{person.late_penalty != null ? `₱${Number(person.late_penalty).toFixed(2)}` : '-'}</td>
-                <td>{daysPresent}</td>
-                <td>{lateCount}</td>
-                <td>{payslip.gross != null ? `₱${payslip.gross.toLocaleString()}` : '-'}</td>
-                <td>{payslip.totalLateDeduction != null ? `₱${payslip.totalLateDeduction.toLocaleString()}` : '-'}</td>
-                <td>{payslip.net != null ? `₱${payslip.net.toLocaleString()}` : '-'}</td>
-                <td>
-                  <button onClick={() => handleShowPayslip(person)}>
-                    View
-                  </button>
-                </td>
+
+      {/* Filter Bar */}
+      <div style={styles.filterBar}>
+        <div style={styles.filterGroup}>
+          <div style={styles.searchWrapper}>
+            <input
+              type="text"
+              placeholder="Search by name or ID"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={styles.searchInput}
+            />
+          </div>
+          <select
+            value={departmentFilter}
+            onChange={e => setDepartmentFilter(e.target.value)}
+            style={styles.select}
+          >
+            <option value="">All Departments</option>
+            {Array.from(new Set(persons.map(p => p.department).filter(Boolean))).map(dept => (
+              <option key={dept} value={dept}>{dept}</option>
+            ))}
+          </select>
+          <select
+            value={sortOrder}
+            onChange={e => setSortOrder(e.target.value)}
+            style={styles.select}
+          >
+            <option value="asc">Ascending</option>
+            <option value="desc">Descending</option>
+          </select>
+        </div>
+        <button
+          onClick={handleExportPayslipExcel}
+          style={{ ...styles.button, ...styles.buttonPrimary }}
+        >
+          ⬇️ Export to Excel
+        </button>
+      </div>
+
+      {/* Table */}
+      <div style={styles.tableContainer}>
+        <div style={styles.tableWrapper}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                <th style={styles.th}>ID</th>
+                <th style={styles.th}>Name</th>
+                <th style={styles.th}>Department</th>
+                <th style={styles.th}>Daily Rate (₱)</th>
+                <th style={styles.th}>Late Penalty (₱)</th>
+                <th style={styles.th}>Days Present</th>
+                <th style={styles.th}>Late Count</th>
+                <th style={styles.th}>Gross</th>
+                <th style={styles.th}>Late Deduction</th>
+                <th style={styles.th}>Net Pay</th>
+                <th style={styles.th}>Payslip</th>
               </tr>
-            );
-          })}
-          {!sortedPersons.length && (
-            <tr>
-              <td colSpan={11}>No persons found.</td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {sortedPersons.length === 0 ? (
+                <tr>
+                  <td colSpan={11} style={styles.emptyState}>
+                    No payroll records found.
+                  </td>
+                </tr>
+              ) : (
+                sortedPersons.map((person, idx) => {
+                  const personAttendance = attendance.filter(r => r.person_id === person.id);
+                  const daysPresent = personAttendance.filter(r => r.event === 'time-in').length;
+                  const detailed = getDetailedAttendance(attendance, person.id, settings);
+                  const lateCount = detailed.map(rec => rec.lateDetails || []).flat().length;
+                  const payslip = payroll.find(p => p.id === person.id) || {};
+                  const rowStyle = {
+                    ...styles.tr,
+                    backgroundColor: idx % 2 === 0 ? '#f9fafb' : '#ffffff',
+                  };
+                  return (
+                    <tr key={person.id} style={rowStyle}>
+                      <td style={{ ...styles.td, fontFamily: 'monospace' }}>{person.id}</td>
+                      <td style={styles.td}>{person.name}</td>
+                      <td style={styles.td}>{person.department}</td>
+                      <td style={styles.td}>{person.daily_rate != null ? `₱${Number(person.daily_rate).toFixed(2)}` : '-'}</td>
+                      <td style={styles.td}>{person.late_penalty != null ? `₱${Number(person.late_penalty).toFixed(2)}` : '-'}</td>
+                      <td style={styles.td}>{daysPresent}</td>
+                      <td style={styles.td}>{lateCount}</td>
+                      <td style={styles.td}>{payslip.gross != null ? `₱${payslip.gross.toLocaleString()}` : '-'}</td>
+                      <td style={styles.td}>{payslip.totalLateDeduction != null ? `₱${payslip.totalLateDeduction.toLocaleString()}` : '-'}</td>
+                      <td style={styles.td}>{payslip.net != null ? `₱${payslip.net.toLocaleString()}` : '-'}</td>
+                      <td style={styles.td}>
+                        <button
+                          onClick={() => handleShowPayslip(person)}
+                          style={styles.viewButton}
+                        >
+                          👁️ View
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
+      {/* Payslip Modal */}
       {showPayslip && selected && (
-
         <PayslipModal
           payroll={selected.payslip}
           person={selected.person}
@@ -259,11 +285,197 @@ export default function PayrollPage() {
           onPrint={handlePrintPayslip}
           showPrintButton={true}
         />
-
       )}
-
     </div>
-
   );
-
 }
+
+// Light theme styles with green accent
+const styles = {
+  container: {
+    maxWidth: '1600px',
+    margin: '40px auto',
+    padding: '40px 32px',
+    background: '#ffffff',
+    borderRadius: '32px',
+    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
+    color: '#1f2937',
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+  },
+  header: {
+    textAlign: 'center',
+    marginBottom: '40px',
+  },
+  title: {
+    fontSize: '2.8rem',
+    fontWeight: 700,
+    color: '#1f2937',
+    margin: 0,
+    display: 'inline-block',
+  },
+  titleUnderline: {
+    height: '4px',
+    width: '100px',
+    background: '#10b981',
+    margin: '8px auto 0',
+    borderRadius: '2px',
+  },
+  filterBar: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: '16px',
+    marginBottom: '24px',
+    padding: '20px 24px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '20px',
+    border: '1px solid #e5e7eb',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+  },
+  filterGroup: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '12px',
+    alignItems: 'center',
+  },
+  searchWrapper: {
+    position: 'relative',
+  },
+  searchInput: {
+    padding: '12px 16px 12px 40px',
+    fontSize: '0.95rem',
+    borderRadius: '40px',
+    border: '1px solid #d1d5db',
+    backgroundColor: '#ffffff',
+    color: '#1f2937',
+    outline: 'none',
+    transition: 'all 0.2s',
+    backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: '16px center',
+    backgroundSize: '16px',
+    minWidth: '250px',
+  },
+  select: {
+    padding: '12px 20px',
+    fontSize: '0.95rem',
+    borderRadius: '40px',
+    border: '1px solid #d1d5db',
+    backgroundColor: '#ffffff',
+    color: '#1f2937',
+    outline: 'none',
+    cursor: 'pointer',
+    minWidth: '160px',
+  },
+  button: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '12px 28px',
+    borderRadius: '40px',
+    fontSize: '1rem',
+    fontWeight: 500,
+    border: 'none',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
+  },
+  buttonPrimary: {
+    background: '#10b981',
+    color: '#ffffff',
+  },
+  viewButton: {
+    padding: '6px 12px',
+    borderRadius: '30px',
+    border: 'none',
+    fontSize: '0.85rem',
+    fontWeight: 500,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '4px',
+    backgroundColor: '#e5e7eb',
+    color: '#1f2937',
+  },
+  tableContainer: {
+    borderRadius: '20px',
+    overflow: 'hidden',
+    border: '1px solid #e5e7eb',
+    backgroundColor: '#ffffff',
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+  },
+  tableWrapper: {
+    overflowX: 'auto',
+    maxHeight: '600px',
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    fontSize: '0.95rem',
+    minWidth: '1200px',
+  },
+  th: {
+    position: 'sticky',
+    top: 0,
+    zIndex: 10,
+    backgroundColor: '#f9fafb',
+    color: '#4b5563',
+    fontWeight: 600,
+    padding: '16px 12px',
+    textAlign: 'left',
+    borderBottom: '2px solid #e5e7eb',
+    letterSpacing: '0.03em',
+    textTransform: 'uppercase',
+    fontSize: '0.8rem',
+  },
+  td: {
+    padding: '14px 12px',
+    borderBottom: '1px solid #e5e7eb',
+    color: '#1f2937',
+  },
+  tr: {
+    transition: 'background 0.2s',
+  },
+  emptyState: {
+    textAlign: 'center',
+    padding: '60px 20px',
+    color: '#6b7280',
+    fontSize: '1.1rem',
+  },
+  spinnerContainer: {
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: '300px',
+    background: '#ffffff',
+  },
+  spinner: {
+    width: '50px',
+    height: '50px',
+    border: '4px solid #e5e7eb',
+    borderTop: '4px solid #10b981',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+  },
+};
+
+// Add global keyframes and focus styles
+const styleSheet = document.createElement('style');
+styleSheet.textContent = `
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  input:focus, select:focus {
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
+  }
+  button:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  }
+`;
+document.head.appendChild(styleSheet);

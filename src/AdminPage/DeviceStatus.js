@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-function DeviceStatus() {
+export default function DeviceStatus() {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -54,4 +54,3 @@ function DeviceStatus() {
   );
 }
 
-export default DeviceStatus;

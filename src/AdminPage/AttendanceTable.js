@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
 
-function AttendanceTable() {
+export default function AttendanceTable() {
     // Search, filter, and sort state
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState("");
@@ -26,6 +26,208 @@ function AttendanceTable() {
   });
   const [showForm, setShowForm] = useState(false);
 
+    const Icons = {
+    search: '🔍',
+    filter: '⚙️',
+    download: '⬇️',
+    archive: '📦',
+    restore: '↩️',
+    add: '➕',
+    close: '✖️',
+  };
+
+  // Light theme styles with green accent
+  const styles = {
+    container: {
+      margin: '0 auto',
+      padding: '32px 24px',
+      maxWidth: '1600px',
+      fontFamily:
+        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+      backgroundColor: '#ffffff',
+      minHeight: '100vh',
+      color: '#1f2937',
+    },
+    header: {
+      marginBottom: '32px',
+      textAlign: 'center',
+    },
+    title: {
+      fontSize: '2.5rem',
+      fontWeight: 700,
+      color: '#1f2937',
+      marginBottom: '8px',
+      display: 'inline-block',
+    },
+    titleUnderline: {
+      height: '4px',
+      width: '80px',
+      background: '#10b981',
+      margin: '0 auto',
+      borderRadius: '2px',
+    },
+    filterBar: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: '16px',
+      marginBottom: '24px',
+      padding: '20px 24px',
+      backgroundColor: '#f9fafb',
+      borderRadius: '24px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+      border: '1px solid #e5e7eb',
+    },
+    filterGroup: {
+      display: 'flex',
+      flexWrap: 'wrap',
+      gap: '12px',
+      alignItems: 'center',
+    },
+    filterInput: {
+      padding: '10px 16px 10px 36px',
+      fontSize: '0.95rem',
+      borderRadius: '40px',
+      border: '1px solid #d1d5db',
+      backgroundColor: '#ffffff',
+      color: '#1f2937',
+      outline: 'none',
+      transition: 'all 0.2s',
+      backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
+      backgroundRepeat: 'no-repeat',
+      backgroundPosition: '12px center',
+      backgroundSize: '16px',
+    },
+    filterSelect: {
+      padding: '10px 16px',
+      fontSize: '0.95rem',
+      borderRadius: '40px',
+      border: '1px solid #d1d5db',
+      backgroundColor: '#ffffff',
+      color: '#1f2937',
+      outline: 'none',
+      cursor: 'pointer',
+      minWidth: '140px',
+    },
+    actionButtons: {
+      display: 'flex',
+      gap: '12px',
+      flexWrap: 'wrap',
+    },
+    button: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '8px',
+      padding: '10px 20px',
+      borderRadius: '40px',
+      fontSize: '0.95rem',
+      fontWeight: 500,
+      border: 'none',
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+    },
+    buttonPrimary: {
+      background: '#10b981',
+      color: '#ffffff',
+    },
+    buttonSecondary: {
+      background: '#e5e7eb',
+      color: '#1f2937',
+      border: '1px solid #d1d5db',
+    },
+    buttonWarning: {
+      background: '#f59e0b',
+      color: '#ffffff',
+    },
+    buttonDanger: {
+      background: '#ef4444',
+      color: '#ffffff',
+    },
+    tableContainer: {
+      borderRadius: '24px',
+      overflow: 'hidden',
+      boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08)',
+      backgroundColor: '#ffffff',
+      border: '1px solid #e5e7eb',
+    },
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      fontSize: '0.95rem',
+      minWidth: '1200px',
+    },
+    th: {
+      position: 'sticky',
+      top: 0,
+      zIndex: 10,
+      backgroundColor: '#f9fafb',
+      color: '#4b5563',
+      fontWeight: 600,
+      padding: '16px 12px',
+      textAlign: 'left',
+      borderBottom: '2px solid #e5e7eb',
+      letterSpacing: '0.03em',
+      textTransform: 'uppercase',
+      fontSize: '0.8rem',
+    },
+    td: {
+      padding: '14px 12px',
+      borderBottom: '1px solid #e5e7eb',
+      color: '#1f2937',
+    },
+    trHover: {
+      transition: 'background 0.2s',
+    },
+    photoCell: {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '4px',
+    },
+    photo: {
+      width: '60px',
+      height: '60px',
+      objectFit: 'cover',
+      borderRadius: '12px',
+      border: '2px solid #e5e7eb',
+    },
+    photoTime: {
+      fontSize: '0.7rem',
+      color: '#6b7280',
+    },
+    lateText: {
+      color: '#ef4444',
+      fontWeight: 600,
+    },
+    actionCell: {
+      display: 'flex',
+      gap: '8px',
+      flexWrap: 'wrap',
+    },
+    smallButton: {
+      padding: '6px 12px',
+      borderRadius: '30px',
+      border: 'none',
+      fontSize: '0.8rem',
+      fontWeight: 500,
+      cursor: 'pointer',
+      transition: 'all 0.2s',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '4px',
+      backgroundColor: '#f3f4f6',
+      color: '#1f2937',
+    },
+    emptyState: {
+      textAlign: 'center',
+      padding: '60px 20px',
+      color: '#6b7280',
+      fontSize: '1.1rem',
+    },
+  };
+  
   useEffect(() => {
     async function fetchData() {
       try {
@@ -366,171 +568,183 @@ function AttendanceTable() {
   }
 
   return (
-    <div style={{ marginLeft: '32px', marginTop: '32px', width: '100%', Width: '100px' }}>
-      <h2 style={{ marginBottom: 24, textAlign: 'center', fontSize: 32, fontWeight: 700 }}>Attendance Records</h2>
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-          <input
-            type="text"
-            placeholder="Search name or ID"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            style={{ padding: '6px 12px', fontSize: 15, borderRadius: 6, border: '1px solid #888', minWidth: 180 }}
-          />
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: '6px 10px', fontSize: 15, borderRadius: 6 }}>
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <h1 style={styles.title}>Attendance Records</h1>
+        <div style={styles.titleUnderline} />
+      </div>
+
+      {/* Filter Bar */}
+      <div style={styles.filterBar}>
+        <div style={styles.filterGroup}>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="text"
+              placeholder="Search name or ID"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={styles.filterInput}
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            style={styles.filterSelect}
+          >
             <option value="">All Status</option>
             <option value="late">Late</option>
             <option value="">On-time</option>
           </select>
-          <select value={eventFilter} onChange={e => setEventFilter(e.target.value)} style={{ padding: '6px 10px', fontSize: 15, borderRadius: 6 }}>
+          <select
+            value={eventFilter}
+            onChange={e => setEventFilter(e.target.value)}
+            style={styles.filterSelect}
+          >
             <option value="">All Events</option>
             <option value="time-in">Time-in</option>
             <option value="time-out">Time-out</option>
           </select>
-          <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} style={{ padding: '6px 10px', fontSize: 15, borderRadius: 6 }}>
+          <select
+            value={departmentFilter}
+            onChange={e => setDepartmentFilter(e.target.value)}
+            style={styles.filterSelect}
+          >
             <option value="">All Departments</option>
             {Array.from(new Set(persons.map(p => p.department).filter(Boolean))).map(dept => (
-              <option key={dept} value={dept}>{dept}</option>
+              <option key={dept} value={dept}>
+                {dept}
+              </option>
             ))}
           </select>
-          {/* <select value={sortKey} onChange={e => setSortKey(e.target.value)} style={{ padding: '6px 10px', fontSize: 15, borderRadius: 6 }}>
-            <option value="device_time">Sort by Time</option>
-            <option value="name">Sort by Name</option>
-            <option value="department">Sort by Department</option>
-            <option value="status">Sort by Status</option>
-            <option value="event">Sort by Event</option>
-          </select> */}
-          <select value={sortOrder} onChange={e => setSortOrder(e.target.value)} style={{ padding: '6px 10px', fontSize: 15, borderRadius: 6 }}>
-            <option value="desc">Desc</option>
-            <option value="asc">Asc</option>
+          <select
+            value={sortOrder}
+            onChange={e => setSortOrder(e.target.value)}
+            style={styles.filterSelect}
+          >
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
           </select>
         </div>
-        <div style={{ display: 'flex', gap: 10 }}>
+
+        <div style={styles.actionButtons}>
           <button
             onClick={() => showArchivedModal()}
-            style={{ padding: '8px 18px', fontSize: 16 }}
+            style={{ ...styles.button, ...styles.buttonSecondary }}
           >
-            Show Archived
+            <span>{Icons.archive}</span> Archived
           </button>
-          <button onClick={handleExportExcel} style={{ padding: '8px 18px', fontSize: 16 }}>Export to Excel</button>
+          <button
+            onClick={handleExportExcel}
+            style={{ ...styles.button, ...styles.buttonPrimary }}
+          >
+            <span>{Icons.download}</span> Export Excel
+          </button>
         </div>
       </div>
-      {/* Edit form is now shown in a modal, not inline */}
-      {/* Show Archived and Export to Excel buttons are now together above */}
-      <div id="attendance-table-print" style={{ maxHeight: '500px', overflow: 'auto', width: '100%', border: '1px solid #333', borderRadius: 10, background: '#181a20', boxShadow: '0 2px 16px #0006' }}>
-        <table style={{ minWidth: 1200, borderCollapse: 'collapse', fontSize: 16, tableLayout: 'fixed', width: '100%' }}>
-          <thead>
-            <tr>
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  style={{
-                    position: 'sticky',
-                    top: 0,
-                    zIndex: 2,
-                    backgroundColor: '#23272f',
-                    borderBottom: '2px solid #444',
-                    padding: '14px 10px',
-                    textAlign: 'left',
-                    fontWeight: 700,
-                    letterSpacing: 0.5,
-                    minWidth:
-                      col.key === 'device_time' ? 160 :
-                      col.key === 'person_id' ? 220 :
-                      col.key === 'name' ? 160 :
-                      col.key === 'department' ? 120 :
-                      col.key === 'event' ? 120 :
-                      col.key === 'status' ? 90 :
-                      col.key === 'method' ? 140 :
-                      undefined,
-                  }}
-                >
-                  {col.label}
-                </th>
-              ))}
-              <th
-                style={{
-                  position: 'sticky',
-                  top: 0,
-                  zIndex: 2,
-                  backgroundColor: '#23272f',
-                  borderBottom: '2px solid #444',
-                  padding: '14px 10px',
-                  minWidth: 120,
-                }}
-              >
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedRecords.map((row, idx) => {
-              const person = persons.find(p => p.id === row.person_id) || {};
-              return (
-                <tr key={idx} style={{ background: idx % 2 === 0 ? '#20232a' : 'transparent' }}>
-                  {columns.map((col) => {
-                    if (col.key === 'photo') {
-                      return (
-                        <td key="photo" style={{ borderBottom: '1px solid #333', padding: '12px 8px', textAlign: 'center', minWidth: 120 }}>
-                          {row.photo ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                              <img src={row.photo} alt="scan" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, marginBottom: 4, border: '1px solid #444' }} />
-                              <span style={{ fontSize: 12, color: '#bbb' }}>
-                                {row.device_time ?
-                                  `Attendance Time: ${new Date(row.device_time).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
-                                  : ''}
-                              </span>
-                            </div>
-                          ) : ''}
-                        </td>
-                      );
-                    }
-                    let value = row[col.key];
-                    if (col.key === 'name') value = person.name || '';
-                    if (col.key === 'department') value = person.department || '';
-                    if (col.key === 'device_time' && row[col.key]) value = new Date(row[col.key]).toLocaleString();
-                    const isLate = col.key === 'status' && value === 'late';
-                    return (
-                      <td
-                        key={col.key}
-                        style={{
-                          borderBottom: '1px solid #333',
-                          padding: '12px 8px',
-                          fontFamily: col.key === 'person_id' ? 'monospace' : undefined,
-                          fontSize: 15,
-                          color: isLate ? '#f44336' : 'inherit',
-                          fontWeight: isLate ? 'bold' : 'normal',
-                        }}
-                      >
-                        {value || ''}
-                      </td>
-                    );
-                  })}
-                  <td
-                    style={{
-                      borderBottom: '1px solid #333',
-                      padding: '12px 8px',
-                      minWidth: 120,
-                      background: idx % 2 === 0 ? '#20232a' : '#181a20',
-                    }}
-                  >
-                    {!row.archived ? (
-                      <>
-                        {/* <button onClick={() => handleEdit(row)} style={{ marginRight: 8, padding: '4px 10px' }}>Edit</button> */}
-                        <button onClick={() => handleArchive(row)} style={{ padding: '4px 10px' }}>Archive</button>
-                      </>
-                    ) : (
-                      <button onClick={() => handleRestore(row)} style={{ padding: '4px 10px' }}>Restore</button>
-                    )}
+
+      {/* Table */}
+      <div style={styles.tableContainer}>
+        <div style={{ overflowX: 'auto', maxHeight: '600px' }}>
+          <table style={styles.table}>
+            <thead>
+              <tr>
+                {columns.map(col => (
+                  <th key={col.key} style={styles.th}>
+                    {col.label}
+                  </th>
+                ))}
+                <th style={styles.th}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedRecords.length === 0 ? (
+                <tr>
+                  <td colSpan={columns.length + 1} style={styles.emptyState}>
+                    No attendance records found.
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ) : (
+                sortedRecords.map((row, idx) => {
+                  const person = persons.find(p => p.id === row.person_id) || {};
+                  const rowStyle = {
+                    ...styles.trHover,
+                    backgroundColor: idx % 2 === 0 ? '#f9fafb' : '#ffffff',
+                  };
+                  return (
+                    <tr key={row.id} style={rowStyle}>
+                      {columns.map(col => {
+                        if (col.key === 'photo') {
+                          return (
+                            <td key="photo" style={styles.td}>
+                              {row.photo ? (
+                                <div style={styles.photoCell}>
+                                  <img
+                                    src={row.photo}
+                                    alt="scan"
+                                    style={styles.photo}
+                                  />
+                                  <span style={styles.photoTime}>
+                                    {row.device_time
+                                      ? new Date(row.device_time).toLocaleString(undefined, {
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                          second: '2-digit',
+                                        })
+                                      : ''}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span style={{ color: '#9ca3af' }}>No photo</span>
+                              )}
+                            </td>
+                          );
+                        }
+                        let value = row[col.key];
+                        if (col.key === 'name') value = person.name || '';
+                        if (col.key === 'department') value = person.department || '';
+                        if (col.key === 'device_time' && row[col.key])
+                          value = new Date(row[col.key]).toLocaleString();
+                        const isLate = col.key === 'status' && value === 'late';
+                        const cellStyle = {
+                          ...styles.td,
+                          fontFamily: col.key === 'person_id' ? 'monospace' : 'inherit',
+                          color: isLate ? styles.lateText.color : styles.td.color,
+                          fontWeight: isLate ? 600 : 400,
+                        };
+                        return (
+                          <td key={col.key} style={cellStyle}>
+                            {value || '-'}
+                          </td>
+                        );
+                      })}
+                      <td style={styles.td}>
+                        <div style={styles.actionCell}>
+                          {!row.archived ? (
+                            <button
+                              onClick={() => handleArchive(row)}
+                              style={styles.smallButton}
+                            >
+                              <span>{Icons.archive}</span> Archive
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleRestore(row)}
+                              style={styles.smallButton}
+                            >
+                              <span>{Icons.restore}</span> Restore
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 }
 
-export default AttendanceTable;

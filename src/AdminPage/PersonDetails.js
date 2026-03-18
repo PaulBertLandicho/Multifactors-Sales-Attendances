@@ -21,7 +21,7 @@ function euclideanDistance(a, b) {
 // Predefined department options
 const DEFAULT_DEPARTMENTS = ['HR', 'IT', 'Finance', 'Sales', 'Admin', 'Operations'];
 
-function PersonDetails({ scanPayload, onComplete }) {
+export default function PersonDetails({ scanPayload, onComplete }) {
   const descriptor = scanPayload?.descriptor || null;
   const isRegistrationMode = Array.isArray(descriptor) && descriptor.length > 0;
   const [persons, setPersons] = useState([]);
@@ -507,4 +507,3 @@ function PersonDetails({ scanPayload, onComplete }) {
   );
 }
 
-export default PersonDetails;
