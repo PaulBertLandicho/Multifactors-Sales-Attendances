@@ -1,4 +1,7 @@
 import React from 'react';
+import { useEffect, useState } from 'react';
+import { fetchHolidays } from '../../SupabaseFunctions/fetchHolidays';
+import { supabase } from '../../supabaseClient';
 
 // detailedAttendance: [{ date, morningIn, morningOut, afternoonIn, afternoonOut, lateCount, lateDetails: [{session, time, status}]}]
 export default function PayslipModal({
@@ -8,7 +11,70 @@ export default function PayslipModal({
   onClose,
   showPrintButton
 }) {
-  // PDF generation handler for payslip content only
+  // useState declarations (only once)
+  const [holidayDetails, setHolidayDetails] = useState([]);
+  const [deptHolidayRates, setDeptHolidayRates] = useState({ regular: 0, special: 0 });
+  const [loadingHoliday, setLoadingHoliday] = useState(true);
+
+  // Debug output for troubleshooting
+  React.useEffect(() => {
+    if (!loadingHoliday) {
+      console.log('Fetched holidays:', holidayDetails);
+      console.log('Department holiday rates:', deptHolidayRates);
+      console.log('Attendance dates:', detailedAttendance.map(a => a.date));
+    }
+  }, [loadingHoliday, holidayDetails, deptHolidayRates, detailedAttendance]);
+
+// ✅ FETCH DEPARTMENT RATES
+useEffect(() => {
+  async function getDeptHolidayRates() {
+    if (!person?.department) return;
+
+    const { data, error } = await supabase
+      .from('department_rates')
+      .select('*')
+      .eq('department', person.department)
+      .single();
+
+    if (!error && data) {
+      setDeptHolidayRates({
+        regular: Number(data.regular_holiday_rate ?? data.holiday_rate ?? 0),
+        special: Number(data.special_holiday_rate ?? 0)
+      });
+    }
+  }
+
+  getDeptHolidayRates();
+}, [person]);
+
+// ✅ FETCH HOLIDAYS
+useEffect(() => {
+  async function getHolidays() {
+    try {
+      if (!person || !detailedAttendance.length) return;
+
+      const firstDate = detailedAttendance[0]?.date;
+      if (!firstDate) return;
+
+      const [year, month] = firstDate.split('-');
+
+      const holidays = await fetchHolidays(
+        person.department,
+        parseInt(month),
+        parseInt(year)
+      );
+
+      setHolidayDetails(holidays || []);
+    } catch (err) {
+      console.error('Error fetching holidays:', err);
+      setHolidayDetails([]);
+    } finally {
+      setLoadingHoliday(false);
+    }
+  }
+
+  getHolidays();
+}, [person, detailedAttendance]);  // PDF generation handler for payslip content only
   const handlePdf = async () => {
     const contentElement = document.querySelector('.payslip-modal-content-inner');
     if (!contentElement) return;
@@ -34,8 +100,46 @@ export default function PayslipModal({
     pdf.save(`${person.name}_payslip.pdf`);
   };
 
+  // Helper to display hours and minutes
+  const getHourMinute = (hours) => {
+    if (!hours || hours <= 0) return '-';
+    const h = Math.floor(hours);
+    const m = Math.round((hours - h) * 60);
+    let str = '';
+    if (h > 0 && m > 0) str = `${h}hr and ${m}min`;
+    else if (h > 0) str = `${h}hr`;
+    else if (m > 0) str = `${m}min`;
+    return str || '0min';
+  };
+
   if (!payroll || !person) return null;
 
+  // Calculate holiday pay for each holiday
+  let holidayPayDetails = [];
+  let totalHolidayPay = 0;
+
+  if (!loadingHoliday && holidayDetails.length > 0) {
+    // Show all holidays for the selected month and department
+    holidayPayDetails = holidayDetails.map(h => {
+      let ratePercent = 0;
+      if (h.type === 'regular') {
+        ratePercent = deptHolidayRates.regular;
+      } else if (h.type === 'special') {
+        ratePercent = deptHolidayRates.special;
+      }
+      // skip if no rate
+      if (!ratePercent) return null;
+      const amount = (payroll.dailyRate * ratePercent) / 100;
+      totalHolidayPay += amount;
+      return {
+        date: h.date,
+        type: h.type,
+        rate: payroll.dailyRate,
+        amount,
+        ratePercent
+      };
+    }).filter(Boolean);
+  }
   const deductions = [
     { label: 'SSS', value: person.sss ? Number(payroll.sss) : 0 },
     { label: 'Pag-ibig', value: person.pag_ibig ? Number(payroll.pag_ibig) : 0 },
@@ -108,6 +212,33 @@ export default function PayslipModal({
           <h2 style={styles.title}>Payslip</h2>
           <p style={styles.subtitle}>{person.name} • {person.department} • ID: {person.id}</p>
 
+          {/* Holiday Table */}
+          {!loadingHoliday && holidayPayDetails.length > 0 && (
+            <>
+              <h3 style={styles.sectionTitle}>🎉 Holidays This Month</h3>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>Date</th>
+                    <th style={styles.th}>Type</th>
+                    <th style={styles.th}>Rate (%)</th>
+                    <th style={styles.th}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {holidayPayDetails.map((h, i) => (
+                    <tr key={h.date + h.type}>
+                      <td style={styles.td}>{h.date}</td>
+                      <td style={styles.td}>{h.type === 'regular' ? 'Regular Holiday' : 'Special Holiday'}</td>
+                      <td style={styles.td}>{h.ratePercent}</td>
+                      <td style={styles.td}>₱{h.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+
           {/* Attendance Table */}
           <h3 style={styles.sectionTitle}>📋 Attendance Details</h3>
           <table style={styles.table}>
@@ -124,9 +255,18 @@ export default function PayslipModal({
               </tr>
             </thead>
             <tbody>
-              {detailedAttendance.length ? detailedAttendance.map((rec, i) => {
-                const otHours = rec.afternoonOut ? Math.max(0, Number(rec.afternoonOut.split(':')[0]) - 17 + (Number(rec.afternoonOut.split(':')[1])/60)) : 0;
+            // ...existing code...
+
+            {detailedAttendance.length ? detailedAttendance.map((rec, i) => {
+                // Use otHours directly from rec (getDetailedAttendance)
                 const rowStyle = i % 2 === 0 ? styles.trEven : styles.trOdd;
+                // If rec.otHours is 0, but payroll.otHours > 0, show payroll.otHours for the period
+                let otDisplay = '-';
+                if (rec.otHours && rec.otHours > 0) {
+                  otDisplay = getHourMinute(rec.otHours);
+                } else if (payroll.otHours && payroll.otHours > 0) {
+                  otDisplay = getHourMinute(payroll.otHours);
+                }
                 return (
                   <tr key={i} style={rowStyle}>
                     <td style={styles.td}>{rec.date}</td>
@@ -142,7 +282,7 @@ export default function PayslipModal({
                         </ul>
                       ) : '-'}
                     </td>
-                    <td style={styles.td}>{otHours ? otHours.toFixed(2) : '-'}</td>
+                    <td style={styles.td}>{otDisplay}</td>
                   </tr>
                 )
               }) : (
@@ -180,7 +320,7 @@ export default function PayslipModal({
           </table>
 
           {/* Earnings */}
-          <h3 style={styles.sectionTitle}>💰 Earnings</h3>
+          <h3 style={styles.sectionTitle}>� Earnings</h3>
           <table style={styles.table}>
             <thead>
               <tr>
@@ -199,19 +339,44 @@ export default function PayslipModal({
               </tr>
               <tr style={styles.trOdd}>
                 <td style={styles.td}>Overtime Pay</td>
-                <td style={styles.td}>{payroll.otHours} hour(s)</td>
+                <td style={styles.td}>{getHourMinute(payroll.otHours)}</td>
                 <td style={styles.td}>₱{payroll.otHourlyRate.toFixed(2)}</td>
                 <td style={styles.td}>₱{payroll.otPay.toLocaleString()}</td>
               </tr>
-              <tr style={styles.trEven}>
-                <td style={styles.td}>Holiday Pay</td>
-                <td style={styles.td}>{payroll.holidayDays} day(s)</td>
-                <td style={styles.td}>₱{payroll.dailyRate.toFixed(2)}</td>
-                <td style={styles.td}>₱{payroll.holidayPay.toLocaleString()}</td>
-              </tr>
+             {/* ✅ Holiday Pay */}
+{holidayPayDetails.length > 0 ? (
+  <>
+    {holidayPayDetails.map((h, idx) => (
+      <tr key={idx} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+        <td style={styles.td}>Holiday Pay</td>
+        <td style={styles.td}>
+          {h.date} ({h.type === 'regular' ? 'Regular Holiday' : 'Special Holiday'})
+        </td>
+        <td style={styles.td}>
+          ₱{h.rate.toFixed(2)} 
+          <span style={{ color:'#10b981', fontWeight:600 }}>
+            {' '}({h.ratePercent}%)
+          </span>
+        </td>
+        <td style={styles.td}>₱{h.amount.toLocaleString()}</td>
+      </tr>
+    ))}
+
+    <tr style={styles.summaryRow}>
+      <td colSpan="3" style={styles.td}>Total Holiday Pay</td>
+      <td style={styles.td}>₱{totalHolidayPay.toLocaleString()}</td>
+    </tr>
+  </>
+) : (
+  <tr>
+    <td colSpan="4" style={{ textAlign:'center', color:'#9ca3af' }}>
+      No holiday pay for this period
+    </td>
+  </tr>
+)}
               <tr style={styles.summaryRow}>
                 <td colSpan="3" style={styles.td}>Gross Pay</td>
-                <td style={styles.td}>₱{payroll.gross.toLocaleString()}</td>
+                <td style={styles.td}>₱{(payroll.gross + totalHolidayPay).toLocaleString()}</td>
               </tr>
             </tbody>
           </table>
@@ -249,7 +414,7 @@ export default function PayslipModal({
             </tbody>
           </table>
 
-          <h3 style={styles.netPay}>Net Pay: ₱{(payroll.gross - totalDeductions).toLocaleString()}</h3>
+          <h3 style={styles.netPay}>Net Pay: ₱{((payroll.gross + totalHolidayPay) - totalDeductions).toLocaleString()}</h3>
         </div>
 
         {/* ✅ BUTTONS OUTSIDE PDF */}

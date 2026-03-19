@@ -30,23 +30,19 @@ export function calculatePayroll(attendance = [], persons = [], deptRates = [], 
     if (!otHourlyRate && dailyRate) otHourlyRate = dailyRate / 8;
 
     let otHours = 0;
-    // Only calculate OT if person has valid time-in for the day
-    if (personAttendance.length > 0) {
-      attendance
-        .filter(a => a.person_id === person.id && a.event === 'ot')
-        .forEach(a => {
-          otHours += Number(a.ot_hours || 0);
-        });
-
-      // If no explicit 'ot' event, estimate OT from time-out after 17:00
-      if (otHours === 0) {
-        personAttendance.forEach(dt => {
-          if (dt.getHours() >= 17) {
-            otHours += dt.getHours() - 17 + dt.getMinutes() / 60;
-          }
-        });
-      }
-    }
+    // Calculate OT from attendance records with event='time-out' and status='overtime'
+    const afternoonEnd = settings.afternoon_end || '17:00';
+    const [endHour, endMinute] = afternoonEnd.split(':').map(Number);
+    const endTotal = endHour * 60 + endMinute;
+    attendance
+      .filter(a => a.person_id === person.id && a.event === 'time-out' && a.status === 'overtime')
+      .forEach(a => {
+        const dt = new Date(a.device_time);
+        const outTotal = dt.getHours() * 60 + dt.getMinutes();
+        if (outTotal > endTotal) {
+          otHours += (outTotal - endTotal) / 60;
+        }
+      });
 
     const otPay = otHourlyRate * otHours;
 

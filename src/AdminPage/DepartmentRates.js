@@ -3,9 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import HolidayManager from './HolidayManager';
 
 export default function DepartmentRates() {
   const [rates, setRates] = useState([]);
+  // Track holiday types and dates per department
+  const [holidayTypes, setHolidayTypes] = useState({});
+  const [holidayDates, setHolidayDates] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
@@ -33,6 +37,38 @@ export default function DepartmentRates() {
     setRates(updated);
   };
 
+  // Handle holiday type checkbox
+  const handleHolidayTypeChange = (idx, type, checked) => {
+    setHolidayTypes(prev => ({
+      ...prev,
+      [idx]: {
+        ...prev[idx],
+        [type]: checked,
+      },
+    }));
+    // Clear date if unchecked
+    if (!checked) {
+      setHolidayDates(prev => ({
+        ...prev,
+        [idx]: {
+          ...prev[idx],
+          [type]: '',
+        },
+      }));
+    }
+  };
+
+  // Handle holiday date change
+  const handleHolidayDateChange = (idx, type, date) => {
+    setHolidayDates(prev => ({
+      ...prev,
+      [idx]: {
+        ...prev[idx],
+        [type]: date,
+      },
+    }));
+  };
+
   const handleSave = async (index) => {
     setSaving(true);
     const item = rates[index];
@@ -46,7 +82,8 @@ export default function DepartmentRates() {
         pag_ibig: item.pag_ibig,
         philhealth: item.philhealth,
         ot_rate: item.ot_rate,
-        holiday_rate: item.holiday_rate,
+        regular_holiday_rate: item.regular_holiday_rate || 100,
+        special_holiday_rate: item.special_holiday_rate || 30,
         updated_at: new Date(),
       });
     if (error) alert('Error: ' + error.message);
@@ -54,13 +91,13 @@ export default function DepartmentRates() {
     setSaving(false);
   };
 
-  if (loading) return <div>Loading department rates...</div>;
+  if (loading) return <div>Loading employee rates...</div>;
 
   return (
     <div style={styles.container}>
       {/* Header */}
       <div style={styles.header}>
-        <h1 style={styles.title}>Department Rates</h1>
+        <h1 style={styles.title}>Employee Rates</h1>
         <div style={styles.titleUnderline} />
       </div>
 
@@ -86,7 +123,7 @@ export default function DepartmentRates() {
               : styles.inactiveTab),
           }}
         >
-          Department Rates
+          Employee Rates
         </button>
       </div>
 
@@ -137,13 +174,22 @@ export default function DepartmentRates() {
                   />
                 </div>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Holiday Rate (%)</label>
+                  <label style={styles.label}>Regular Holiday Rate (%)</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
-                    value={row.holiday_rate || 0}
-                    onChange={(e) => handleChange(idx, 'holiday_rate', e.target.value)}
+                    value={row.regular_holiday_rate || 100}
+                    onChange={(e) => handleChange(idx, 'regular_holiday_rate', e.target.value)}
+                    style={styles.input}
+                  />
+                  <label style={styles.label}>Special Holiday Rate (%)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={row.special_holiday_rate || 30}
+                    onChange={(e) => handleChange(idx, 'special_holiday_rate', e.target.value)}
                     style={styles.input}
                   />
                 </div>
@@ -204,6 +250,18 @@ export default function DepartmentRates() {
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
+
+            {/* Holiday Manager Integration */}
+            <HolidayManager
+              department={row.department}
+              regularRate={row.regular_holiday_rate || 100}
+              specialRate={row.special_holiday_rate || 30}
+              onSave={holidayData => {
+                // You can handle saving holidayData to your database here
+                // Example: console.log('Holiday Data:', holidayData);
+                alert('Saved holidays for ' + row.department + '\n' + JSON.stringify(holidayData, null, 2));
+              }}
+            />
           </div>
         ))}
       </div>

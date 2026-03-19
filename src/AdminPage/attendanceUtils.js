@@ -89,9 +89,13 @@ export function determineAttendanceStatus(currentTime, eventToRecord, settings) 
 
   if (eventToRecord === 'time-out') {
     // Time-out: can be morning time-out or afternoon time-out
-    // Usually time-out is considered on-time if it's after end of shift
-    // But we might want to treat late time-out? Usually not.
-    // For simplicity, always on-time for time-out
+    // If after afternoon_end, mark as overtime
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const afternoonEndMinutes = settings && settings.afternoon_end ? toMinutes(settings.afternoon_end) : 0;
+    if (nowMinutes > afternoonEndMinutes) {
+      return 'overtime';
+    }
     return 'on-time';
   }
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 // import { supabase } from './supabaseClient';
 import { calculatePayroll } from '../Payroll';
+import { applyHolidayRates } from '../SupabaseFunctions/applyHolidayRates';
 import PayslipModal from '../AdminPage/PayslipModals/PayslipModal';
 import { getDetailedAttendance } from './attendanceDetails';
 import * as XLSX from 'xlsx';
@@ -58,7 +59,7 @@ export default function PayrollPage() {
       setSettings(settingsData);
 
       // Use getDetailedAttendance to get lateCount for each person (sum all late occurrences)
-      const payrollWithLate = personsData.map(person => {
+      let payrollWithLate = personsData.map(person => {
         const detailed = getDetailedAttendance(attData, person.id, settingsData);
         // Sum all late occurrences across all attendance records (flatten lateDetails)
         const lateCount = detailed.map(rec => rec.lateDetails || []).flat().length;
@@ -76,6 +77,17 @@ export default function PayrollPage() {
           net: basePayroll.gross - (basePayroll.sss + basePayroll.pag_ibig + basePayroll.philhealth + basePayroll.cashAdvance + totalLateDeduction)
         };
       });
+
+      // Apply holiday rates for each department
+      // (Assume all persons in same department for this payroll run, or loop by department if needed)
+      if (personsData.length > 0) {
+        const now = new Date();
+        const month = now.getMonth() + 1;
+        const year = now.getFullYear();
+        // If you want to support multiple departments, you can loop here
+        const department = personsData[0].department;
+        payrollWithLate = await applyHolidayRates(payrollWithLate, attData, deptData, department, month, year);
+      }
       setPayroll(payrollWithLate);
     }
     fetchData();

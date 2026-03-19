@@ -71,6 +71,23 @@ export function getDetailedAttendance(attendance, personId, settings = {}) {
         }
       }
     });
+    // Overtime calculation
+    let status = 'on-time';
+    let otHours = 0;
+    if (afternoonOut) {
+      // Always use afternoon_end from settings table (should be passed in settings)
+      let endHour = 17, endMinute = 0;
+      if (settings && typeof settings.afternoon_end === 'string') {
+        [endHour, endMinute] = settings.afternoon_end.split(':').map(Number);
+      }
+      const [outHour, outMinute] = afternoonOut.split(':').map(Number);
+      const outTotal = outHour * 60 + outMinute;
+      const endTotal = endHour * 60 + endMinute;
+      if (outTotal > endTotal) {
+        status = 'overtime';
+        otHours = (outTotal - endTotal) / 60;
+      }
+    }
     return {
       date,
       morningIn,
@@ -80,7 +97,9 @@ export function getDetailedAttendance(attendance, personId, settings = {}) {
       morningInStatus,
       afternoonInStatus,
       lateCount,
-      lateDetails
+      lateDetails,
+      status,
+      otHours
     };
   });
 }
