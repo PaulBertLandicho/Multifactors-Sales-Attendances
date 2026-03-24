@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 // import { supabase } from './supabaseClient';
+import Swal from 'sweetalert2';
 import { calculatePayroll } from '../Payroll';
 import { applyHolidayRates } from '../SupabaseFunctions/applyHolidayRates';
 import PayslipModal from '../AdminPage/PayslipModals/PayslipModal';
@@ -13,13 +14,14 @@ import {
 } from 'react-icons/fi';
 
 import { supabase } from '../supabaseClient';
+import { logPayrollRelease } from './payrollActivityLogs';
 
 export default function PayrollPage() {
 
   const [attendance, setAttendance] = useState([]);
   const [persons, setPersons] = useState([]);
   const [deptRates, setDeptRates] = useState([]);
-  const [payroll, setPayroll] = useState([]);
+  const [payrollPeriods, setPayrollPeriods] = useState([]); // [{personId, period, payroll, released}]
   const [settings, setSettings] = useState({});
   const [search, setSearch] = useState('');
 
@@ -40,55 +42,108 @@ export default function PayrollPage() {
 
   useEffect(() => {
     async function fetchData() {
-      const [attRes, personsRes, deptRes, settingsRes] = await Promise.all([
+      const [attRes, personsRes, deptRes, settingsRes, payrollRes] = await Promise.all([
         supabase.from('attendance').select('*'),
         supabase.from('persons')
           .select('id, name, department, daily_rate, late_penalty, sss, pag_ibig, philhealth, cash_advance'),
         supabase.from('department_rates').select('*'),
-        supabase.from('settings').select('*').eq('id', 1).single()
+        supabase.from('settings').select('*').eq('id', 1).single(),
+        supabase.from('payroll_periods').select('*')
       ]);
 
       const attData = attRes.data || [];
       const personsData = personsRes.data || [];
       const deptData = deptRes.data || [];
       const settingsData = settingsRes.data || {};
+      const payrollDb = payrollRes.data || [];
 
       setAttendance(attData);
       setPersons(personsData);
       setDeptRates(deptData);
       setSettings(settingsData);
 
-      // Use getDetailedAttendance to get lateCount for each person (sum all late occurrences)
-      let payrollWithLate = personsData.map(person => {
-        const detailed = getDetailedAttendance(attData, person.id, settingsData);
-        // Sum all late occurrences across all attendance records (flatten lateDetails)
+      // Group attendance by person and by dynamic payroll period length
+      let periods = [];
+      const periodDays = Number(settingsData.payroll_period_days) || 15;
+      personsData.forEach(person => {
+        // Get all attendance for this person (include both time-in and time-out)
+        const personAttendance = attData.filter(a => a.person_id === person.id);
+        // Sort attendance by date
+        const sortedAttendance = [...personAttendance].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
+        if (!sortedAttendance.length) return;
+        // Find the range of dates
+        const firstDate = new Date(sortedAttendance[0].device_time);
+        const lastDate = new Date(sortedAttendance[sortedAttendance.length - 1].device_time);
+        // Start from the firstDate, create periods of periodDays
+        let periodStart = new Date(firstDate);
+        while (periodStart <= lastDate) {
+          let periodEnd = new Date(periodStart);
+          periodEnd.setDate(periodEnd.getDate() + periodDays - 1);
+          // Get all attendance in this period
+          const periodAttendance = sortedAttendance.filter(a => {
+            const dt = new Date(a.device_time);
+            return dt >= periodStart && dt <= periodEnd;
+          });
+          // Format period string: yyyy-mm-dd_to_yyyy-mm-dd
+          const periodStr = `${periodStart.toISOString().slice(0,10)}_to_${periodEnd.toISOString().slice(0,10)}`;
+          // Check if this period is already released in payrollDb
+          const alreadyReleased = payrollDb.some(row => row.person_id === person.id && row.period === periodStr && row.released);
+          if (periodAttendance.length > 0 && !alreadyReleased) {
+            periods.push({ person, period: periodStr, attendance: periodAttendance });
+          }
+          // Move to next period
+          periodStart.setDate(periodStart.getDate() + periodDays);
+        }
+      });
+
+      // Calculate payroll for each period and sync with DB
+      const payrollPeriods = await Promise.all(periods.map(async ({ person, period, attendance }) => {
+        // Calculate payroll for this period only
+        const basePayroll = calculatePayroll(attendance, [person], deptData, settingsData)[0];
+        const detailed = getDetailedAttendance(attendance, person.id, settingsData);
         const lateCount = detailed.map(rec => rec.lateDetails || []).flat().length;
-        // Calculate deduction based on late count and limit
         const latePenalty = Number(person.late_penalty || 0);
         const lateCountLimit = Number(settingsData.late_count_limit || 5);
         const totalLateDeduction = lateCount >= lateCountLimit ? lateCount * latePenalty : 0;
-        const basePayroll = calculatePayroll(attData, [person], deptData, settingsData)[0];
+        const totalDeductions = basePayroll.sss + basePayroll.pag_ibig + basePayroll.philhealth + basePayroll.cashAdvance + totalLateDeduction;
+        const net = basePayroll.gross - totalDeductions;
+        // Find if this period exists in DB
+        let dbRow = payrollDb.find(row => row.person_id === person.id && row.period === period);
+        if (!dbRow) {
+          // Insert new row
+          const { data: inserted } = await supabase.from('payroll_periods').insert([{
+            person_id: person.id,
+            period,
+            days_present: basePayroll.daysPresent,
+            daily_rate: person.daily_rate,
+            late_penalty: person.late_penalty,
+            late_count: lateCount,
+            gross: basePayroll.gross,
+            total_late_deduction: totalLateDeduction,
+            total_deductions: totalDeductions,
+            net,
+            released: false
+          }]).select().single();
+          dbRow = inserted;
+        }
         return {
-          ...basePayroll,
-          lateCount,
-          lateCountLimit, // ensure this is always passed
-          totalLateDeduction,
-          totalDeductions: basePayroll.sss + basePayroll.pag_ibig + basePayroll.philhealth + basePayroll.cashAdvance + totalLateDeduction,
-          net: basePayroll.gross - (basePayroll.sss + basePayroll.pag_ibig + basePayroll.philhealth + basePayroll.cashAdvance + totalLateDeduction)
+          personId: person.id,
+          person,
+          period,
+          payroll: {
+            ...basePayroll,
+            lateCount,
+            lateCountLimit,
+            totalLateDeduction,
+            totalDeductions,
+            net
+          },
+          attendance,
+          released: dbRow.released,
+          dbId: dbRow.id
         };
-      });
-
-      // Apply holiday rates for each department
-      // (Assume all persons in same department for this payroll run, or loop by department if needed)
-      if (personsData.length > 0) {
-        const now = new Date();
-        const month = now.getMonth() + 1;
-        const year = now.getFullYear();
-        // If you want to support multiple departments, you can loop here
-        const department = personsData[0].department;
-        payrollWithLate = await applyHolidayRates(payrollWithLate, attData, deptData, department, month, year);
-      }
-      setPayroll(payrollWithLate);
+      }));
+      setPayrollPeriods(payrollPeriods);
     }
     fetchData();
   }, []);
@@ -120,20 +175,43 @@ export default function PayrollPage() {
     return 0;
   });
 
-  // OPEN PAYSLIP
-  const handleShowPayslip = (person) => {
-    const payslip = payroll.find(p => p.id === person.id) || {};
-    const daysWorked = attendance
-      .filter(r => r.person_id === person.id && r.event === 'time-in')
-      .map(r => new Date(r.device_time));
+
+  // OPEN PAYSLIP for a period
+  const handleShowPayslip = (payrollPeriod) => {
+    const { person, payroll, attendance, period } = payrollPeriod;
     const detailedAttendance = getDetailedAttendance(attendance, person.id, settings);
     setSelected({
       person,
-      payslip,
-      daysWorked,
-      detailedAttendance
+      payslip: payroll,
+      detailedAttendance,
+      period
     });
     setShowPayslip(true);
+  };
+  // RELEASE PAYROLL
+  const handleReleasePayroll = async (periodIdx) => {
+    const period = payrollPeriods[periodIdx];
+    if (!period || !period.dbId) return;
+    // Update released in Supabase
+    await supabase.from('payroll_periods').update({ released: true }).eq('id', period.dbId);
+    setPayrollPeriods(prev => prev.map((p, i) => i === periodIdx ? { ...p, released: true } : p));
+    // Log activity with better user info and error handling
+    let releasedBy = 'admin';
+    try {
+      const sessionStr = localStorage.getItem('sb-session');
+      if (sessionStr) {
+        const session = JSON.parse(sessionStr);
+        if (session && session.user && session.user.email) {
+          releasedBy = session.user.email;
+        }
+      }
+    } catch (e) {}
+    try {
+      await logPayrollRelease({ payrollPeriodId: period.dbId, personId: period.personId, releasedBy });
+    } catch (err) {
+      // Optionally show/log error
+      Swal.fire('Failed to log payroll release', err.message || err, 'error');
+    }
   };
 
 
@@ -161,24 +239,22 @@ export default function PayrollPage() {
 
   // Export to Excel
   const handleExportPayslipExcel = () => {
-    if (!sortedPersons.length) return;
-    const exportData = sortedPersons.map(person => {
-      const personAttendance = attendance.filter(r => r.person_id === person.id);
-      const daysPresent = personAttendance.filter(r => r.event === 'time-in').length;
-      const detailed = getDetailedAttendance(attendance, person.id, settings);
-      const lateCount = detailed.map(rec => rec.lateDetails || []).flat().length;
-      const payslip = payroll.find(p => p.id === person.id) || {};
+    if (!payrollPeriods.length) return;
+    // Export each payroll period as a row
+    const exportData = payrollPeriods.map(p => {
+      const { person, period, payroll } = p;
       return {
         ID: person.id,
         Name: person.name,
         Department: person.department,
+        Period: period,
         'Daily Rate': person.daily_rate,
         'Late Penalty': person.late_penalty,
-        'Days Present': daysPresent,
-        'Late Count': lateCount,
-        Gross: payslip.gross,
-        'Late Deduction': payslip.totalLateDeduction,
-        'Net Pay': payslip.net,
+        'Days Present': payroll.daysPresent,
+        'Late Count': payroll.lateCount,
+        Gross: payroll.gross,
+        'Late Deduction': payroll.totalLateDeduction,
+        'Net Pay': payroll.net,
       };
     });
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -192,6 +268,12 @@ export default function PayrollPage() {
       <div style={styles.header}>
         <h1 style={styles.title}>Payroll Summary</h1>
         <div style={styles.titleUnderline} />
+        {/* <button
+          style={{ ...styles.button, ...styles.buttonPrimary, marginTop: 16, float: 'right' }}
+          onClick={() => window.location.href = '/admin/released-history'}
+        >
+          Released History Payroll
+        </button> */}
       </div>
 
       {/* Filter Bar */}
@@ -231,10 +313,21 @@ export default function PayrollPage() {
 >
   {Icons.download} Export Excel
 </button>
-
+        {/* <button
+          style={{ ...styles.button, ...styles.buttonSecondary, marginLeft: 12 }}
+          onClick={() => window.location.href = '/admin/ReleasedPayrollLogs'}
+        >
+          Released Payroll Logs
+        </button> */}
+<button
+          style={{ ...styles.button, ...styles.buttonSecondary, marginTop: 16, float: 'right' }}
+          onClick={() => window.location.href = '/admin/released-history'}
+        >
+          Released History Payroll
+        </button>
       </div>
 
-      {/* Table */}
+      {/* Table: Payroll by 15-day period */}
       <div style={styles.tableContainer}>
         <div style={styles.tableWrapper}>
           <table style={styles.table}>
@@ -243,6 +336,7 @@ export default function PayrollPage() {
                 <th style={styles.th}>ID</th>
                 <th style={styles.th}>Name</th>
                 <th style={styles.th}>Department</th>
+                <th style={styles.th}>Period</th>
                 <th style={styles.th}>Daily Rate (₱)</th>
                 <th style={styles.th}>Late Penalty (₱)</th>
                 <th style={styles.th}>Days Present</th>
@@ -251,45 +345,55 @@ export default function PayrollPage() {
                 <th style={styles.th}>Late Deduction</th>
                 <th style={styles.th}>Net Pay</th>
                 <th style={styles.th}>Payslip</th>
+                <th style={styles.th}>Release</th>
               </tr>
             </thead>
             <tbody>
-              {sortedPersons.length === 0 ? (
+              {payrollPeriods.length === 0 ? (
                 <tr>
-                  <td colSpan={11} style={styles.emptyState}>
+                  <td colSpan={13} style={styles.emptyState}>
                     No payroll records found.
                   </td>
                 </tr>
               ) : (
-                sortedPersons.map((person, idx) => {
-                  const personAttendance = attendance.filter(r => r.person_id === person.id);
-                  const daysPresent = personAttendance.filter(r => r.event === 'time-in').length;
-                  const detailed = getDetailedAttendance(attendance, person.id, settings);
-                  const lateCount = detailed.map(rec => rec.lateDetails || []).flat().length;
-                  const payslip = payroll.find(p => p.id === person.id) || {};
+                payrollPeriods.map((p, idx) => {
+                  const { person, period, payroll, released } = p;
                   const rowStyle = {
                     ...styles.tr,
                     backgroundColor: idx % 2 === 0 ? '#f9fafb' : '#ffffff',
                   };
                   return (
-                    <tr key={person.id} style={rowStyle}>
+                    <tr key={person.id + period} style={rowStyle}>
                       <td style={{ ...styles.td, fontFamily: 'monospace' }}>{person.id}</td>
                       <td style={styles.td}>{person.name}</td>
                       <td style={styles.td}>{person.department}</td>
+                      <td style={styles.td}>{period}</td>
                       <td style={styles.td}>{person.daily_rate != null ? `₱${Number(person.daily_rate).toFixed(2)}` : '-'}</td>
                       <td style={styles.td}>{person.late_penalty != null ? `₱${Number(person.late_penalty).toFixed(2)}` : '-'}</td>
-                      <td style={styles.td}>{daysPresent}</td>
-                      <td style={styles.td}>{lateCount}</td>
-                      <td style={styles.td}>{payslip.gross != null ? `₱${payslip.gross.toLocaleString()}` : '-'}</td>
-                      <td style={styles.td}>{payslip.totalLateDeduction != null ? `₱${payslip.totalLateDeduction.toLocaleString()}` : '-'}</td>
-                      <td style={styles.td}>{payslip.net != null ? `₱${payslip.net.toLocaleString()}` : '-'}</td>
+                      <td style={styles.td}>{payroll.daysPresent}</td>
+                      <td style={styles.td}>{payroll.lateCount}</td>
+                      <td style={styles.td}>{payroll.gross != null ? `₱${payroll.gross.toLocaleString()}` : '-'}</td>
+                      <td style={styles.td}>{payroll.totalLateDeduction != null ? `₱${payroll.totalLateDeduction.toLocaleString()}` : '-'}</td>
+                      <td style={styles.td}>{payroll.net != null ? `₱${payroll.net.toLocaleString()}` : '-'}</td>
                       <td style={styles.td}>
                         <button
-                          onClick={() => handleShowPayslip(person)}
+                          onClick={() => handleShowPayslip(p)}
                           style={styles.viewButton}
                         >
                           {Icons.eye} View
                         </button>
+                      </td>
+                      <td style={styles.td}>
+                        {released ? (
+                          <span style={{ color: '#10b981', fontWeight: 600 }}>✔ Released</span>
+                        ) : (
+                          <button
+                            onClick={() => handleReleasePayroll(idx)}
+                            style={{ ...styles.button, ...styles.buttonPrimary, padding: '4px 12px', fontSize: '0.9em' }}
+                          >
+                            Release Payroll
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -310,6 +414,13 @@ export default function PayrollPage() {
           onClose={handleClosePayslip}
           onPrint={handlePrintPayslip}
           showPrintButton={true}
+          period={selected.period}
+          released={(() => {
+            const match = payrollPeriods.find(
+              p => p.person.id === selected.person.id && p.period === selected.period
+            );
+            return match ? match.released : false;
+          })()}
         />
       )}
     </div>

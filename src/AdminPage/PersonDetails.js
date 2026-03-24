@@ -1,8 +1,11 @@
-import { useEffect, useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import Swal from 'sweetalert2';
-import { supabase } from '../supabaseClient';
-import { recordAttendanceForPerson } from '../AdminPage/attendanceUtils';
+
+  import { useEffect, useState } from 'react';
+  import { v4 as uuidv4 } from 'uuid';
+  import Swal from 'sweetalert2';
+  import { supabase } from '../supabaseClient';
+  import { recordAttendanceForPerson } from '../AdminPage/attendanceUtils';
+
+
 
 // Face recognition threshold – adjust based on your model
 const FACE_MATCH_THRESHOLD = 0.6;
@@ -22,6 +25,13 @@ function euclideanDistance(a, b) {
 const DEFAULT_DEPARTMENTS = ['HR', 'IT', 'Finance', 'Sales', 'Admin', 'Operations'];
 
 export default function PersonDetails({ scanPayload, onComplete }) {
+  // Handler to start a new person registration (must be inside component to access state)
+  function handleNewPerson() {
+    setSelectedId('');
+    setForm({ id: '', name: '', department: '', phone_number: '', address: '', sex: '' });
+    setCustomDepartment(false);
+    setCustomDeptValue('');
+  }
   const descriptor = scanPayload?.descriptor || null;
   const isRegistrationMode = Array.isArray(descriptor) && descriptor.length > 0;
   const [persons, setPersons] = useState([]);
@@ -385,7 +395,15 @@ export default function PersonDetails({ scanPayload, onComplete }) {
           </table>
         </div>
 
-        <form onSubmit={onSave} style={{ flexBasis: '280px' }}>
+        <div style={{ flexBasis: '280px' }}>
+          {/* <button
+            type="button"
+            onClick={handleNewPerson}
+            style={{ marginBottom: '12px', padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', width: '100%' }}
+          >
+            + New Person
+          </button> */}
+          <form onSubmit={onSave}>
           <h3>{isLinkingExistingPerson ? 'Link Face To Existing Person' : selectedId ? 'Edit Person' : 'Add Person'}</h3>
           {isRegistrationMode && !selectedId && (
             <p style={{ marginTop: 0, marginBottom: '12px', color: '#cbd5e1', fontSize: '13px', lineHeight: 1.4 }}>
@@ -498,10 +516,11 @@ export default function PersonDetails({ scanPayload, onComplete }) {
             )}
           </div>
           
-          <button type="submit" disabled={saving} style={{ padding: '8px 16px' }}>
-            {saving ? 'Saving...' : 'Save'}
-          </button>
-        </form>
+            <button type="submit" disabled={saving} style={{ padding: '8px 16px' }}>
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

@@ -88,13 +88,27 @@ export function determineAttendanceStatus(currentTime, eventToRecord, settings) 
   }
 
   if (eventToRecord === 'time-out') {
-    // Time-out: can be morning time-out or afternoon time-out
-    // If after afternoon_end, mark as overtime
+    // Only allow overtime if time-out is after afternoon_end AND the person timed-in during the afternoon session
     const now = new Date();
     const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const afternoonStartMinutes = settings && settings.afternoon_start ? toMinutes(settings.afternoon_start) : 0;
     const afternoonEndMinutes = settings && settings.afternoon_end ? toMinutes(settings.afternoon_end) : 0;
+
+    // Check if time-out is after afternoon_end
     if (nowMinutes > afternoonEndMinutes) {
-      return 'overtime';
+      // Only overtime if the person timed-in during the afternoon
+      // We'll check if the last time-in was after afternoonStartMinutes
+      // This requires passing the last time-in event time (not available in current params)
+      // So, we will check scanPayload.lastTimeInMinutes if available, else fallback to on-time
+      if (typeof arguments[3] === 'object' && arguments[3] && arguments[3].lastTimeInMinutes !== undefined) {
+        if (arguments[3].lastTimeInMinutes >= afternoonStartMinutes) {
+          return 'overtime';
+        } else {
+          return 'on-time';
+        }
+      }
+      // If we can't check, fallback to on-time
+      return 'on-time';
     }
     return 'on-time';
   }

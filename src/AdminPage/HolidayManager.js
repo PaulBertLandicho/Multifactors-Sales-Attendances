@@ -2,6 +2,7 @@
 // Component for managing multiple holidays per month per department
 
 import React, { useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
 import { supabase } from '../supabaseClient';
 
 export default function HolidayManager({ department, regularRate = 100, specialRate = 30 }) {
@@ -48,7 +49,7 @@ export default function HolidayManager({ department, regularRate = 100, specialR
       .eq('department', department)
       .eq('date', holiday.date)
       .eq('type', holiday.type);
-    if (error) alert('Error deleting holiday: ' + error.message);
+    if (error) Swal.fire('Error', error.message, 'error');
     setSaving(s => !s); // trigger refresh
   };
 
@@ -79,7 +80,7 @@ export default function HolidayManager({ department, regularRate = 100, specialR
 
   const handleSave = async () => {
     if (!month) {
-      alert('Please select a month.');
+      Swal.fire('Please select a month.', '', 'warning');
       return;
     }
     setSaving(true);
@@ -94,10 +95,10 @@ export default function HolidayManager({ department, regularRate = 100, specialR
     }
     if (inserts.length) {
       const { error } = await supabase.from('holidays').insert(inserts);
-      if (error) alert('Error saving holidays: ' + error.message);
-      else alert('Holidays saved!');
+      if (error) Swal.fire('Error saving holidays', error.message, 'error');
+      else Swal.fire('Holidays saved!', '', 'success');
     } else {
-      alert('No holidays to save.');
+      Swal.fire('No holidays to save.', '', 'info');
     }
     setSaving(false);
   };

@@ -333,7 +333,7 @@ export default function PersonsTable() {
                               onClick={() => handleArchive(p)}
                               style={{ ...styles.smallButton, ...styles.buttonSecondary }}
                             >
-                             {Icons.archive} Export Excel
+                             {Icons.archive} Archive
                             </button>
                           )}
                         </div>

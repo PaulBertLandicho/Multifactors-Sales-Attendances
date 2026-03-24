@@ -1,6 +1,7 @@
 // Updated DepartmentRates.js with fixed navigation tabs
 
 import React, { useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import HolidayManager from './HolidayManager';
@@ -86,8 +87,8 @@ export default function DepartmentRates() {
         special_holiday_rate: item.special_holiday_rate || 30,
         updated_at: new Date(),
       });
-    if (error) alert('Error: ' + error.message);
-    else alert('Saved');
+    if (error) Swal.fire('Error', error.message, 'error');
+    else Swal.fire('Saved', '', 'success');
     setSaving(false);
   };
 
@@ -259,7 +260,7 @@ export default function DepartmentRates() {
               onSave={holidayData => {
                 // You can handle saving holidayData to your database here
                 // Example: console.log('Holiday Data:', holidayData);
-                alert('Saved holidays for ' + row.department + '\n' + JSON.stringify(holidayData, null, 2));
+                Swal.fire('Saved holidays for ' + row.department, JSON.stringify(holidayData, null, 2), 'success');
               }}
             />
           </div>

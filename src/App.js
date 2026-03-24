@@ -10,6 +10,8 @@ import CameraIframe from './CameraAttendance/CameraIframe';
 // import AttendanceTable from './AttendanceTable';
 import PersonDetails from './AdminPage/PersonDetails';
 import AdminLogin from './AdminPage/AdminLogin';
+import ReleasedHistoryPayroll from './AdminPage/ReleasedHistoryPayroll';
+import ReleasedPayrollLogs from './AdminPage/ReleasedPayrollLogs';
 import AdminSettings from './AdminPage/AdminSettings';
 // import PayrollPage from './PayrollPage';
 import AttendanceTable from './AdminPage/AttendanceTable';
@@ -158,6 +160,28 @@ function App() {
                   <AdminSidebar onLogout={async () => { await supabase.auth.signOut(); localStorage.removeItem('sb-session'); window.location.href = '/admin'; }} />
                   <div style={styles.adminContent}>
                     <PayrollPage />
+                  </div>
+                </div>
+              ) : <Navigate to="/admin" />}
+            />
+            <Route
+              path="/admin/released-history"
+              element={session ? (
+                <div style={styles.adminLayout}>
+                  <AdminSidebar onLogout={async () => { await supabase.auth.signOut(); localStorage.removeItem('sb-session'); window.location.href = '/admin'; }} />
+                  <div style={styles.adminContent}>
+                    <ReleasedHistoryPayroll />
+                  </div>
+                </div>
+              ) : <Navigate to="/admin" />}
+            />
+            <Route
+              path="/admin/ReleasedPayrollLogs"
+              element={session ? (
+                <div style={styles.adminLayout}>
+                  <AdminSidebar onLogout={async () => { await supabase.auth.signOut(); localStorage.removeItem('sb-session'); window.location.href = '/admin'; }} />
+                  <div style={styles.adminContent}>
+                    <ReleasedPayrollLogs />
                   </div>
                 </div>
               ) : <Navigate to="/admin" />}

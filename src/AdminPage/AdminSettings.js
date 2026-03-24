@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import AttendanceTable from '../AdminPage/AttendanceTable';
@@ -12,6 +13,7 @@ export default function AdminSettings() {
     morning_grace_minutes: 15,
     afternoon_grace_minutes: 15,
     late_count_limit: 5,
+    payroll_period_days: 15, // Default to 15 days, can be adjusted
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,6 +36,7 @@ export default function AdminSettings() {
           morning_grace_minutes: Number.isFinite(data.morning_grace_minutes) ? data.morning_grace_minutes : 15,
           afternoon_grace_minutes: Number.isFinite(data.afternoon_grace_minutes) ? data.afternoon_grace_minutes : 15,
           late_count_limit: Number.isFinite(data.late_count_limit) ? data.late_count_limit : 5,
+          payroll_period_days: Number.isFinite(data.payroll_period_days) ? data.payroll_period_days : 15,
         });
       }
       setLoading(false);
@@ -71,6 +74,7 @@ export default function AdminSettings() {
           morning_grace_minutes: settings.morning_grace_minutes,
           afternoon_grace_minutes: settings.afternoon_grace_minutes,
           late_count_limit: settings.late_count_limit,
+          payroll_period_days: settings.payroll_period_days,
           updated_at: new Date(),
         })
         .eq('id', 1));
@@ -86,11 +90,12 @@ export default function AdminSettings() {
           afternoon_end: settings.afternoon_end,
           morning_grace_minutes: settings.morning_grace_minutes,
           afternoon_grace_minutes: settings.afternoon_grace_minutes,
+          payroll_period_days: settings.payroll_period_days,
           updated_at: new Date(),
         }));
     }
-    if (error) alert('Error saving: ' + error.message);
-    else alert('Settings updated!');
+    if (error) Swal.fire('Error saving', error.message, 'error');
+    else Swal.fire('Settings updated!', '', 'success');
     setSaving(false);
   };
 
@@ -215,6 +220,31 @@ export default function AdminSettings() {
               <span style={styles.inputSuffix}>occurrences</span>
             </div>
             <span style={styles.hint}>Late occurrences before deduction</span>
+          </div>
+        </div>
+
+        {/* Payroll Period Days Card */}
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <span style={styles.cardIcon}>📆</span>
+            <h2 style={styles.cardTitle}>Payroll Period Length</h2>
+          </div>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Days per Payroll Period</label>
+            <div style={styles.numberInputWrapper}>
+              <input
+                type="number"
+                name="payroll_period_days"
+                value={settings.payroll_period_days}
+                onChange={handleChange}
+                min="1"
+                max="31"
+                step="1"
+                style={styles.numberInput}
+              />
+              <span style={styles.inputSuffix}>days</span>
+            </div>
+            <span style={styles.hint}>Number of days in each payroll period (default: 15)</span>
           </div>
         </div>
       </div>

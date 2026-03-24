@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+// import { supabase } from '../supabaseClient';
 import { supabase } from '../supabaseClient';
 import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
@@ -23,6 +24,7 @@ export default function AttendanceTable() {
   const [records, setRecords] = useState([]);
   const [persons, setPersons] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [settings, setSettings] = useState(null);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null); // record being edited
   const [form, setForm] = useState({
@@ -251,6 +253,14 @@ const Icons = {
           .select('id, name, department');
         if (personsErr) throw personsErr;
         setPersons(personsData || []);
+        // Fetch work hours settings from supabase
+        const { data: settingsData, error: settingsErr } = await supabase
+          .from('settings')
+          .select('*')
+          .eq('id', 1)
+          .single();
+        if (settingsErr) throw settingsErr;
+        setSettings(settingsData || null);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -485,6 +495,8 @@ const Icons = {
     { key: 'person_id', label: 'Person ID' },
     { key: 'name', label: 'Name' },
     { key: 'department', label: 'Department' },
+    { key: 'shift', label: 'Shift' },
+    { key: 'work_hours', label: 'Work Hours' },
     { key: 'event', label: 'Attendance Event' },
     { key: 'status', label: 'Status' },
     { key: 'method', label: 'Attendance Method' },
@@ -713,6 +725,32 @@ const Icons = {
                         if (col.key === 'department') value = person.department || '';
                         if (col.key === 'device_time' && row[col.key])
                           value = new Date(row[col.key]).toLocaleString();
+                        if (col.key === 'shift') {
+                          if (!settings) value = '-';
+                          else {
+                            const time = new Date(row.device_time);
+                            const hour = time.getHours();
+                            const minute = time.getMinutes();
+                            const totalMinutes = hour * 60 + minute;
+                            const morningStart = settings.morning_start ? settings.morning_start.split(':').map(Number) : [0,0];
+                            const morningEnd = settings.morning_end ? settings.morning_end.split(':').map(Number) : [0,0];
+                            const afternoonStart = settings.afternoon_start ? settings.afternoon_start.split(':').map(Number) : [0,0];
+                            const afternoonEnd = settings.afternoon_end ? settings.afternoon_end.split(':').map(Number) : [0,0];
+                            const morningStartMin = morningStart[0]*60+morningStart[1];
+                            const morningEndMin = morningEnd[0]*60+morningEnd[1];
+                            const afternoonStartMin = afternoonStart[0]*60+afternoonStart[1];
+                            const afternoonEndMin = afternoonEnd[0]*60+afternoonEnd[1];
+                            if (totalMinutes >= morningStartMin && totalMinutes <= morningEndMin) value = 'Morning Shift';
+                            else if (totalMinutes >= afternoonStartMin && totalMinutes <= afternoonEndMin) value = 'Afternoon Shift';
+                            else value = '-';
+                          }
+                        }
+                        if (col.key === 'work_hours') {
+                          if (!settings) value = '-';
+                          else {
+                            value = `Morning: ${settings.morning_start || '--:--'} - ${settings.morning_end || '--:--'} | Afternoon: ${settings.afternoon_start || '--:--'} - ${settings.afternoon_end || '--:--'}`;
+                          }
+                        }
                         const isLate = col.key === 'status' && value === 'late';
                         const cellStyle = {
                           ...styles.td,

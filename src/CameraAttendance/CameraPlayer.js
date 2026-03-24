@@ -293,15 +293,15 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false })
           drawDetection(fullDetection);
           const alignedDescriptor = toArray(fullDetection.descriptor);
 
-          let bestMatch = null;
           let bestDist = Infinity;
+          let bestMatch = null;
           for (const p of persons) {
             if (!p.descriptor) continue;
             const dist = faceapi.euclideanDistance(alignedDescriptor, p.descriptor);
             if (dist < bestDist) { bestDist = dist; bestMatch = p; }
           }
 
-          const FACE_MATCH_THRESHOLD = 0.7;
+          const FACE_MATCH_THRESHOLD = 0.6; // stricter
           const currentPersonId = bestMatch && bestDist < FACE_MATCH_THRESHOLD ? bestMatch.id : 'unknown';
           matchBufferRef.current.push(currentPersonId);
           if (matchBufferRef.current.length > BUFFER_SIZE) matchBufferRef.current.shift();
@@ -313,7 +313,23 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false })
           const lastScan = lastScanRef.current[currentPersonId] || 0;
           if (now - lastScan < PERSON_COOLDOWN_MS) { animationFrameRef.current = requestAnimationFrame(detect); return; }
 
+          // --- STRICT: Only allow attendance if face matches registered descriptor ---
           if (bestMatch && bestDist < FACE_MATCH_THRESHOLD) {
+            // If the person has a descriptor (from registration), compare strictly
+            if (Array.isArray(bestMatch.descriptor) && bestMatch.descriptor.length > 0) {
+              const strictDist = faceapi.euclideanDistance(alignedDescriptor, bestMatch.descriptor);
+              if (strictDist >= FACE_MATCH_THRESHOLD) {
+                Swal.fire({
+                  icon: 'warning',
+                  title: 'Face Not Recognized',
+                  text: 'Attendance not recorded. The scanned face does not match the registered person.',
+                  timer: 3000,
+                  showConfirmButton: false
+                });
+                animationFrameRef.current = requestAnimationFrame(detect);
+                return;
+              }
+            }
             lastScanRef.current[currentPersonId] = now;
             setCooldown(true);
             const scanPayload = {
