@@ -11,6 +11,7 @@ const navItems = [
   { label: 'Work Hours Settings', path: '/admin/settings', icon: <MdSettings /> },
   { label: 'View Payroll', path: '/admin/payroll', icon: <MdPayments /> },
   { label: 'Persons', path: '/admin/persons', icon: <FiUsers /> },
+  { label: 'Register Person', path: '/admin/register-person', icon: <FiUsers /> },
 ];
 
 export default function AdminSidebar({ onLogout }) {

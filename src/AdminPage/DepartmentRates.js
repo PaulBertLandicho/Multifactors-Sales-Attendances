@@ -164,7 +164,7 @@ export default function DepartmentRates() {
                   />
                 </div>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>OT Rate (₱/hr)</label>
+                  <label style={styles.label}>OT Rate (Hrs of Work)</label>
                   <input
                     type="number"
                     step="0.01"

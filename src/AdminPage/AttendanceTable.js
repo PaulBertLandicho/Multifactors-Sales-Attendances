@@ -18,7 +18,7 @@ export default function AttendanceTable() {
     const [statusFilter, setStatusFilter] = useState("");
     const [eventFilter, setEventFilter] = useState("");
     const [departmentFilter, setDepartmentFilter] = useState("");
-    const [sortKey, setSortKey] = useState("device_time");
+    const [sortKey] = useState("device_time");
     const [sortOrder, setSortOrder] = useState("desc");
   const [showArchived, setShowArchived] = useState(false);
   const [records, setRecords] = useState([]);
@@ -34,7 +34,7 @@ export default function AttendanceTable() {
     method: '',
     device_time: '',
   });
-  const [showForm, setShowForm] = useState(false);
+  // const [showForm, setShowForm] = useState(false); // Removed as unused
 
 const Icons = {
   filter: <MdFilterList />,
@@ -281,31 +281,31 @@ const Icons = {
   }
 
   // Form handlers
-  const handleFormChange = (e) => {
-    const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-  };
+  // const handleFormChange = (e) => {
+  //   const { name, value } = e.target;
+  //   setForm((prev) => ({ ...prev, [name]: value }));
+  // };
 
-  const handleAdd = () => {
-    setForm({ person_id: '', event: 'time-in', status: '', method: '', device_time: '' });
-    setEditing(null);
-    setShowForm(true);
-  };
+  // const handleAdd = () => {
+  //   setForm({ person_id: '', event: 'time-in', status: '', method: '', device_time: '' });
+  //   setEditing(null);
+  //   setShowForm(true);
+  // };
 
-  const handleEdit = (rec) => {
-    setForm({
-      person_id: rec.person_id,
-      event: rec.event,
-      status: rec.status,
-      method: rec.method,
-      device_time: rec.device_time ? new Date(rec.device_time).toISOString().slice(0, 16) : '',
-    });
-    setEditing(rec);
-    showEditModal({
-      ...rec,
-      device_time: rec.device_time ? new Date(rec.device_time).toISOString().slice(0, 16) : '',
-    });
-  };
+  // const handleEdit = (rec) => {
+  //   setForm({
+  //     person_id: rec.person_id,
+  //     event: rec.event,
+  //     status: rec.status,
+  //     method: rec.method,
+  //     device_time: rec.device_time ? new Date(rec.device_time).toISOString().slice(0, 16) : '',
+  //   });
+  //   setEditing(rec);
+  //   showEditModal({
+  //     ...rec,
+  //     device_time: rec.device_time ? new Date(rec.device_time).toISOString().slice(0, 16) : '',
+  //   });
+  // };
 
   // Show edit form in SweetAlert2 modal
   function showEditModal(editRec) {
@@ -362,7 +362,7 @@ const Icons = {
         if (upErr) {
           Swal.fire('Error', upErr.message, 'error');
         } else {
-          setShowForm(false);
+          // setShowForm(false); // Removed as showForm is not defined/used
           setEditing(null);
           setLoading(true);
           const { data: attData } = await supabase.from('attendance').select('*');
@@ -405,43 +405,43 @@ const Icons = {
     }
   };
 
-  const handleFormSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.person_id || !form.event || !form.device_time) {
-      Swal.fire('Error', 'Person, event, and time are required.', 'error');
-      return;
-    }
-    const payload = {
-      person_id: form.person_id,
-      event: form.event,
-      status: form.status,
-      method: form.method,
-      device_time: new Date(form.device_time).toISOString(),
-    };
-    if (editing) {
-      // Update
-      const { error: upErr } = await supabase.from('attendance').update(payload).eq('id', editing.id);
-      if (upErr) {
-        Swal.fire('Error', upErr.message, 'error');
-        return;
-      }
-    } else {
-      // Insert
-      const { error: inErr } = await supabase.from('attendance').insert([payload]);
-      if (inErr) {
-        Swal.fire('Error', inErr.message, 'error');
-        return;
-      }
-    }
-    setShowForm(false);
-    setEditing(null);
-    setForm({ person_id: '', event: 'time-in', status: '', method: '', device_time: '' });
-    // Refresh
-    setLoading(true);
-    const { data: attData } = await supabase.from('attendance').select('*');
-    setRecords(attData || []);
-    setLoading(false);
-  };
+  // const handleFormSubmit = async (e) => {
+  //   e.preventDefault();
+  //   if (!form.person_id || !form.event || !form.device_time) {
+  //     Swal.fire('Error', 'Person, event, and time are required.', 'error');
+  //     return;
+  //   }
+  //   const payload = {
+  //     person_id: form.person_id,
+  //     event: form.event,
+  //     status: form.status,
+  //     method: form.method,
+  //     device_time: new Date(form.device_time).toISOString(),
+  //   };
+  //   if (editing) {
+  //     // Update
+  //     const { error: upErr } = await supabase.from('attendance').update(payload).eq('id', editing.id);
+  //     if (upErr) {
+  //       Swal.fire('Error', upErr.message, 'error');
+  //       return;
+  //     }
+  //   } else {
+  //     // Insert
+  //     const { error: inErr } = await supabase.from('attendance').insert([payload]);
+  //     if (inErr) {
+  //       Swal.fire('Error', inErr.message, 'error');
+  //       return;
+  //     }
+  //   }
+  //   setShowForm(false);
+  //   setEditing(null);
+  //   setForm({ person_id: '', event: 'time-in', status: '', method: '', device_time: '' });
+  //   // Refresh
+  //   setLoading(true);
+  //   const { data: attData } = await supabase.from('attendance').select('*');
+  //   setRecords(attData || []);
+  //   setLoading(false);
+  // };
 
   // Sort by device_time descending (latest first)
   // Filter and sort records
@@ -495,7 +495,7 @@ const Icons = {
     { key: 'person_id', label: 'Person ID' },
     { key: 'name', label: 'Name' },
     { key: 'department', label: 'Department' },
-    { key: 'shift', label: 'Shift' },
+    // { key: 'shift', label: 'Shift' },
     { key: 'work_hours', label: 'Work Hours' },
     { key: 'event', label: 'Attendance Event' },
     { key: 'status', label: 'Status' },
@@ -524,67 +524,7 @@ const Icons = {
   };
 
 
-  // Show archived table in SweetAlert2 modal
-  function showArchivedModal() {
-    let html = '';
-    if (archivedRecords.length === 0) {
-      html = `<div style='color:#aaa;text-align:center;padding:24px;'>No archived records.</div>`;
-    } else {
-      html = `<div style='max-height:500px;overflow:auto;width:100%;border:1px solid #333;border-radius:10px;background:#181a20;box-shadow:0 2px 16px #0006;margin-bottom:32px;'>`;
-      html += `<table style='min-width:1200px;border-collapse:collapse;font-size:16px;table-layout:fixed;width:100%'>`;
-      html += `<thead><tr>`;
-      columns.forEach(col => {
-        html += `<th style='border-bottom:2px solid #444;padding:14px 10px;text-align:left;background-color:#23272f;font-weight:700;letter-spacing:0.5px;min-width:${
-          col.key === 'device_time' ? 160 :
-          col.key === 'person_id' ? 220 :
-          col.key === 'name' ? 160 :
-          col.key === 'department' ? 120 :
-          col.key === 'event' ? 120 :
-          col.key === 'status' ? 90 :
-          col.key === 'method' ? 140 :
-          100
-        }px;'>${col.label}</th>`;
-      });
-      html += `<th style='border-bottom:2px solid #444;padding:14px 10px;background-color:#23272f;min-width:120px;'>Actions</th>`;
-      html += `</tr></thead><tbody>`;
-      archivedRecords.forEach((row, idx) => {
-        const person = persons.find(p => p.id === row.person_id) || {};
-        html += `<tr style='background:${idx % 2 === 0 ? '#20232a' : '#181a20'};'>`;
-        columns.forEach(col => {
-          let value = row[col.key];
-          if (col.key === 'name') value = person.name || '';
-          if (col.key === 'department') value = person.department || '';
-          if (col.key === 'device_time' && row[col.key]) value = new Date(row[col.key]).toLocaleString();
-          const isLate = col.key === 'status' && value === 'late';
-          html += `<td style='border-bottom:1px solid #333;padding:12px 8px;font-family:${col.key === 'person_id' ? 'monospace' : 'inherit'};font-size:15px;color:${isLate ? '#f44336' : 'inherit'};font-weight:${isLate ? 'bold' : 'normal'};'>${value || ''}</td>`;
-        });
-        html += `<td style='border-bottom:1px solid #333;padding:12px 8px;min-width:120px;background:${idx % 2 === 0 ? '#20232a' : '#181a20'};'>`;
-        html += `<button class='restore-btn' data-idx='${idx}' style='padding:4px 10px;'>Restore</button>`;
-        html += `</td></tr>`;
-      });
-      html += `</tbody></table></div>`;
-    }
-    Swal.fire({
-      title: 'Archived Attendance Records',
-      html,
-      width: '90%',
-      showCloseButton: true,
-      showConfirmButton: false,
-      customClass: {
-        popup: 'archived-modal-popup',
-        htmlContainer: 'archived-modal-html',
-      },
-      didOpen: () => {
-        document.querySelectorAll('.restore-btn').forEach(btn => {
-          btn.onclick = () => {
-            const idx = btn.getAttribute('data-idx');
-            handleRestore(archivedRecords[idx]);
-            Swal.close();
-          };
-        });
-      },
-    });
-  }
+
 
   return (
     <div style={styles.container}>
@@ -647,19 +587,18 @@ const Icons = {
         </div>
 
         <div style={styles.actionButtons}>
-         <button
-  onClick={() => showArchivedModal()}
-  style={{ ...styles.button, ...styles.buttonSecondary }}
->
-  {Icons.archive} Archived
-</button>
-
-<button
-  onClick={handleExportExcel}
-  style={{ ...styles.button, ...styles.buttonPrimary }}
->
-  {Icons.download} Export Excel
-</button>
+          <button
+            onClick={() => setShowArchived(a => !a)}
+            style={{ ...styles.button, ...styles.buttonSecondary }}
+          >
+            {Icons.archive} {showArchived ? 'Show Active' : 'Show Archived'}
+          </button>
+          <button
+            onClick={handleExportExcel}
+            style={{ ...styles.button, ...styles.buttonPrimary }}
+          >
+            {Icons.download} Export Excel
+          </button>
         </div>
       </div>
 
@@ -678,14 +617,14 @@ const Icons = {
               </tr>
             </thead>
             <tbody>
-              {sortedRecords.length === 0 ? (
+              {(showArchived ? archivedRecords : sortedRecords).length === 0 ? (
                 <tr>
                   <td colSpan={columns.length + 1} style={styles.emptyState}>
-                    No attendance records found.
+                    {showArchived ? 'No archived attendance records found.' : 'No attendance records found.'}
                   </td>
                 </tr>
               ) : (
-                sortedRecords.map((row, idx) => {
+                (showArchived ? archivedRecords : sortedRecords).map((row, idx) => {
                   const person = persons.find(p => p.id === row.person_id) || {};
                   const rowStyle = {
                     ...styles.trHover,

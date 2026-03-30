@@ -74,15 +74,26 @@ export function getDetailedAttendance(attendance, personId, settings = {}) {
     // Overtime calculation
     let status = 'on-time';
     let otHours = 0;
-    if (afternoonOut) {
-      // Always use afternoon_end from settings table (should be passed in settings)
-      let endHour = 17, endMinute = 0;
-      if (settings && typeof settings.afternoon_end === 'string') {
-        [endHour, endMinute] = settings.afternoon_end.split(':').map(Number);
+    if (afternoonOut && settings && typeof settings.afternoon_end === 'string') {
+      // Parse both times as 24-hour minutes, fallback to 0 if invalid
+      function parseTimeToMinutes(timeStr) {
+        if (!timeStr) return 0;
+        // Try to handle both 24-hour and 12-hour with AM/PM
+        let hour = 0, minute = 0;
+        let match = timeStr.match(/(\d{1,2}):(\d{2})(?:\s*([APap][Mm]))?/);
+        if (match) {
+          hour = parseInt(match[1], 10);
+          minute = parseInt(match[2], 10);
+          const ampm = match[3];
+          if (ampm) {
+            if (/pm/i.test(ampm) && hour < 12) hour += 12;
+            if (/am/i.test(ampm) && hour === 12) hour = 0;
+          }
+        }
+        return hour * 60 + minute;
       }
-      const [outHour, outMinute] = afternoonOut.split(':').map(Number);
-      const outTotal = outHour * 60 + outMinute;
-      const endTotal = endHour * 60 + endMinute;
+      const outTotal = parseTimeToMinutes(afternoonOut);
+      const endTotal = parseTimeToMinutes(settings.afternoon_end);
       if (outTotal > endTotal) {
         status = 'overtime';
         otHours = (outTotal - endTotal) / 60;

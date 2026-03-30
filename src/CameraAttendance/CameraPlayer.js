@@ -23,12 +23,12 @@ window.onerror = (msg, src, line, col, error) => {
   }
 };
 
-export default function CameraPlayer({ onFaceScan, registrationActive = false }) {
+export default function CameraPlayer({ onFaceScan, registrationActive = false, hideSettingsCard = false }) {
   const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:4000';
   const imgRef = useRef(null);
   const overlayCanvasRef = useRef(null);
   const videoRef = useRef(null); // For local webcam fallback
-  const [currentTime, setCurrentTime] = useState(new Date());
+  // Removed: unused currentTime state
   const [frameReady, setFrameReady] = useState(false);
   const wsRef = useRef(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
@@ -41,7 +41,7 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false })
   const [cameraError, setCameraError] = useState('');
   const [useLocalCamera, setUseLocalCamera] = useState(false); // Fallback flag
   const lastScanRef = useRef({});
-  const popupLockRef = useRef(null);
+  // Removed: unused popupLockRef
   const unknownFaceLockRef = useRef(false);
   const animationFrameRef = useRef();
   const lastDetectionTimeRef = useRef(0);
@@ -77,35 +77,65 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false })
     }
   }, [useLocalCamera]);
 
-  const drawDetection = useCallback((detection) => {
-    const canvas = overlayCanvasRef.current;
-    const img = imgRef.current;
-    if (!canvas || !img || !detection || img.naturalWidth === 0 || img.naturalHeight === 0) return;
+const drawDetection = useCallback((detection) => {
+  const canvas = overlayCanvasRef.current;
+  const img = imgRef.current;
+  if (!canvas || !img || !detection) return;
 
-    // Guard: Only draw if detection box values are valid numbers
-    if (!detection.box ||
-        typeof detection.box.x !== 'number' ||
-        typeof detection.box.y !== 'number' ||
-        typeof detection.box.width !== 'number' ||
-        typeof detection.box.height !== 'number' ||
-        isNaN(detection.box.x) ||
-        isNaN(detection.box.y) ||
-        isNaN(detection.box.width) ||
-        isNaN(detection.box.height)) {
-      return;
-    }
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
 
-    canvas.width = img.naturalWidth;
-    canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const resized = faceapi.resizeResults(detection, {
+    width: canvas.width,
+    height: canvas.height
+  });
 
-    const resized = faceapi.resizeResults(detection, { width: canvas.width, height: canvas.height });
-    faceapi.draw.drawDetections(canvas, [resized]);
-    faceapi.draw.drawFaceLandmarks(canvas, [resized]);
-  }, []);
+  const landmarks = resized.landmarks;
+  if (!landmarks) return;
 
+  ctx.save();
+
+  // 🔥 ADD IT HERE
+  ctx.shadowColor = '#00eaff';
+  ctx.shadowBlur = 12;
+
+  ctx.strokeStyle = '#00eaff';
+  ctx.lineWidth = 2;
+
+  const drawPath = (points, close = false) => {
+    ctx.beginPath();
+    points.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    if (close) ctx.closePath();
+    ctx.stroke();
+  };
+
+  drawPath(landmarks.getJawOutline());
+  drawPath(landmarks.getLeftEyeBrow());
+  drawPath(landmarks.getRightEyeBrow());
+  drawPath(landmarks.getNose());
+  drawPath(landmarks.getNose().slice(4, 9), true);
+  drawPath(landmarks.getLeftEye(), true);
+  drawPath(landmarks.getRightEye(), true);
+  drawPath(landmarks.getMouth(), true);
+
+  // Points (optional glow off for cleaner look)
+  ctx.shadowBlur = 0; // 🔥 prevent glowing dots
+  ctx.fillStyle = '#ffffff';
+
+  landmarks.positions.forEach(pt => {
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 2, 0, 2 * Math.PI);
+    ctx.fill();
+  });
+
+  ctx.restore();
+}, []);
   const cleanupWs = useCallback(() => {
     if (wsRef.current) {
       wsRef.current.close();
@@ -113,11 +143,7 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false })
     }
   }, []);
 
-  const toMinutes = (timeStr) => {
-    if (!timeStr) return 0;
-    const [h, m] = timeStr.split(':').map(Number);
-    return h * 60 + m;
-  };
+  // Removed: unused toMinutes function
 
   const validSettings = settings &&
     settings.morning_start && settings.morning_end &&
@@ -146,12 +172,25 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false })
 
   // ------------------- Load settings -------------------
   useEffect(() => {
+    let subscription;
     async function loadSettings() {
       if (!supabase) return;
       const { data, error } = await supabase.from('settings').select('*').eq('id', 1).single();
       if (!error && data) setSettings(data);
     }
     loadSettings();
+
+    // Subscribe to real-time updates for settings
+    subscription = supabase
+      .channel('settings-changes')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'settings', filter: 'id=eq.1' }, (payload) => {
+        if (payload.new) setSettings(payload.new);
+      })
+      .subscribe();
+
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
   }, []);
 
   // ------------------- Load models -------------------
@@ -231,196 +270,236 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false })
     }
     startLocalCamera();
     return () => {
-      if (videoRef.current) videoRef.current.srcObject = null;
+      const videoEl = videoRef.current;
+      if (videoEl) videoEl.srcObject = null;
       if (stream) stream.getTracks().forEach(track => track.stop());
     };
   }, [useLocalCamera]);
 
   // ------------------- Detection loop -------------------
   useEffect(() => {
-    if (!modelsLoaded || !validSettings) return;
+  if (!modelsLoaded || !validSettings) return;
 
-    const detect = async () => {
-      const img = imgRef.current;
-      const canvas = overlayCanvasRef.current;
-      const now = Date.now();
+  let isMounted = true;
 
-      if (!img || !frameReady || cooldown || registrationActive || cameraStatus !== CAMERA_STATUS.LIVE) {
-        animationFrameRef.current = requestAnimationFrame(detect);
-        return;
-      }
-      if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) {
-        animationFrameRef.current = requestAnimationFrame(detect);
-        return;
-      }
-      if (now - lastDetectionTimeRef.current < DETECTION_INTERVAL_MS) {
-        animationFrameRef.current = requestAnimationFrame(detect);
-        return;
-      }
-      lastDetectionTimeRef.current = now;
+  const detect = async () => {
+    if (!isMounted) return;
 
-      try {
-        const detectionOptions = new faceapi.TinyFaceDetectorOptions({
-          inputSize: TINY_DETECTOR_INPUT_SIZE,
-          scoreThreshold: 0.45,
-        });
+    const source = useLocalCamera ? videoRef.current : imgRef.current;
+    const canvas = overlayCanvasRef.current;
+    const now = Date.now();
 
-        const fullDetection = await faceapi.detectSingleFace(img, detectionOptions)
-          .withFaceLandmarks()
-          .withFaceDescriptor();
-
-        if (fullDetection) {
-          // --- FIX: Validate detection box to avoid face-api errors ---
-          const box = fullDetection.detection?.box || fullDetection.box;
-          if (!box || 
-              typeof box.x !== 'number' || 
-              typeof box.y !== 'number' || 
-              typeof box.width !== 'number' || 
-              typeof box.height !== 'number' ||
-              isNaN(box.x) || isNaN(box.y) || isNaN(box.width) || isNaN(box.height)) {
-            // Invalid detection, skip
-            console.warn('Skipping detection with invalid box:', box);
-            if (overlayCanvasRef.current) {
-              overlayCanvasRef.current.getContext('2d')?.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
-            }
-            matchBufferRef.current = [];
-            setVerifying(false);
-            animationFrameRef.current = requestAnimationFrame(detect);
-            return;
-          }
-          // -------------------------------------------------------------
-
-          drawDetection(fullDetection);
-          const alignedDescriptor = toArray(fullDetection.descriptor);
-
-          let bestDist = Infinity;
-          let bestMatch = null;
-          for (const p of persons) {
-            if (!p.descriptor) continue;
-            const dist = faceapi.euclideanDistance(alignedDescriptor, p.descriptor);
-            if (dist < bestDist) { bestDist = dist; bestMatch = p; }
-          }
-
-          const FACE_MATCH_THRESHOLD = 0.6; // stricter
-          const currentPersonId = bestMatch && bestDist < FACE_MATCH_THRESHOLD ? bestMatch.id : 'unknown';
-          matchBufferRef.current.push(currentPersonId);
-          if (matchBufferRef.current.length > BUFFER_SIZE) matchBufferRef.current.shift();
-          const allSame = matchBufferRef.current.length === BUFFER_SIZE &&
-                          matchBufferRef.current.every(id => id === currentPersonId);
-          if (!allSame) { setVerifying(true); animationFrameRef.current = requestAnimationFrame(detect); return; }
-
-          setVerifying(false);
-          const lastScan = lastScanRef.current[currentPersonId] || 0;
-          if (now - lastScan < PERSON_COOLDOWN_MS) { animationFrameRef.current = requestAnimationFrame(detect); return; }
-
-          // --- STRICT: Only allow attendance if face matches registered descriptor ---
-          if (bestMatch && bestDist < FACE_MATCH_THRESHOLD) {
-            // If the person has a descriptor (from registration), compare strictly
-            if (Array.isArray(bestMatch.descriptor) && bestMatch.descriptor.length > 0) {
-              const strictDist = faceapi.euclideanDistance(alignedDescriptor, bestMatch.descriptor);
-              if (strictDist >= FACE_MATCH_THRESHOLD) {
-                Swal.fire({
-                  icon: 'warning',
-                  title: 'Face Not Recognized',
-                  text: 'Attendance not recorded. The scanned face does not match the registered person.',
-                  timer: 3000,
-                  showConfirmButton: false
-                });
-                animationFrameRef.current = requestAnimationFrame(detect);
-                return;
-              }
-            }
-            lastScanRef.current[currentPersonId] = now;
-            setCooldown(true);
-            const scanPayload = {
-              descriptor: alignedDescriptor,
-              photoDataUrl: captureCurrentFrame(),
-              deviceTime: new Date().toISOString()
-            };
-
-            // Correctly handle attendance recording with success/error alerts
-            recordAttendanceForPerson({
-              supabase,
-              person: bestMatch,
-              settings,
-              scanPayload,
-              method: 'face-scan'
-            })
-              .then(result => {
-                if (result.inserted) {
-                  let message = '';
-                  if (result.event === 'time-in') {
-                    message = `Time-in recorded as ${result.status}.`;
-                  } else if (result.event === 'time-out') {
-                    message = `Time-out recorded as ${result.status}.`;
-                  } else {
-                    message = `Attendance recorded: ${result.event} (${result.status})`;
-                  }
-
-                  Swal.fire({
-                    icon: 'success',
-                    title: 'Attendance Recorded',
-                    text: message,
-                    timer: 3000,
-                    showConfirmButton: false
-                  });
-                } else if (result.blocked) {
-                  Swal.fire({
-                    icon: 'warning',
-                    title: 'Attendance Not Recorded',
-                    text: result.message,
-                    timer: 3000,
-                    showConfirmButton: false
-                  });
-                }
-              })
-              .catch(error => {
-                Swal.fire({
-                  icon: 'error',
-                  title: 'Attendance Error',
-                  text: error.message
-                });
-              })
-              .finally(() => setCooldown(false));
-          } else if (!registrationActive && !unknownFaceLockRef.current && now - (lastScanRef.current.unknown || 0) > UNKNOWN_FACE_COOLDOWN_MS) {
-            lastScanRef.current.unknown = now;
-            unknownFaceLockRef.current = true;
-            matchBufferRef.current = [];
-            setCooldown(true);
-            const scanPayload = { descriptor: alignedDescriptor, photoDataUrl: captureCurrentFrame(), deviceTime: new Date().toISOString() };
-            if (onFaceScan) onFaceScan(scanPayload);
-            Swal.fire({ icon: 'info', title: 'New person detected', text: 'Face not enrolled yet.', showConfirmButton: false, timer: 2200 });
-            setTimeout(() => setCooldown(false), 1200);
-          }
-        } else {
-          if (canvas) canvas.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
-          matchBufferRef.current = [];
-          setVerifying(false);
-        }
-
-      } catch (err) {
-        console.error('Detection error:', err);
-        Swal.fire({ icon: 'error', title: 'Detection Error', text: err.message || String(err) });
-      }
-
+    // ✅ Basic guards
+    if (
+      !source ||
+      !frameReady ||
+      cooldown ||
+      registrationActive ||
+      cameraStatus !== CAMERA_STATUS.LIVE
+    ) {
       animationFrameRef.current = requestAnimationFrame(detect);
-    };
+      return;
+    }
 
-    setScanning(true);
+    // ✅ Ensure valid frame
+    const isVideo = useLocalCamera;
+    if (
+      (!isVideo && (!source.complete || source.naturalWidth === 0)) ||
+      (isVideo && source.readyState !== 4)
+    ) {
+      animationFrameRef.current = requestAnimationFrame(detect);
+      return;
+    }
+
+    // ✅ Throttle detection
+    if (now - lastDetectionTimeRef.current < DETECTION_INTERVAL_MS) {
+      animationFrameRef.current = requestAnimationFrame(detect);
+      return;
+    }
+    lastDetectionTimeRef.current = now;
+
+    try {
+      const detectionOptions = new faceapi.TinyFaceDetectorOptions({
+        inputSize: TINY_DETECTOR_INPUT_SIZE,
+        scoreThreshold: 0.5, // slightly improved accuracy
+      });
+
+      const fullDetection = await faceapi
+        .detectSingleFace(source, detectionOptions)
+        .withFaceLandmarks()
+        .withFaceDescriptor();
+
+      if (!fullDetection) {
+        canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+        matchBufferRef.current = [];
+        setVerifying(false);
+        animationFrameRef.current = requestAnimationFrame(detect);
+        return;
+      }
+
+
+      // ✅ Validate detection box
+      const box = fullDetection.detection?.box;
+      if (
+        !box ||
+        [box.x, box.y, box.width, box.height].some(v => typeof v !== 'number' || isNaN(v) || v === null)
+      ) {
+        canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
+        matchBufferRef.current = [];
+        setVerifying(false);
+        animationFrameRef.current = requestAnimationFrame(detect);
+        return;
+      }
+
+      // ✅ Draw mesh
+      drawDetection(fullDetection);
+
+      const descriptor = toArray(fullDetection.descriptor);
+
+      // ---------------- MATCHING ----------------
+      let bestMatch = null;
+      let bestDist = Infinity;
+
+      for (const p of persons) {
+        if (!p.descriptor) continue;
+
+        const dist = faceapi.euclideanDistance(descriptor, p.descriptor);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestMatch = p;
+        }
+      }
+
+      const FACE_MATCH_THRESHOLD = 0.65; // 🔥 better accuracy
+      const currentId =
+        bestMatch && bestDist < FACE_MATCH_THRESHOLD
+          ? bestMatch.id
+          : 'unknown';
+
+      // ---------------- BUFFER (ANTI-FLICKER) ----------------
+      matchBufferRef.current.push(currentId);
+      if (matchBufferRef.current.length > BUFFER_SIZE) {
+        matchBufferRef.current.shift();
+      }
+
+      const stable =
+        matchBufferRef.current.length === BUFFER_SIZE &&
+        matchBufferRef.current.every(id => id === currentId);
+
+      if (!stable) {
+        setVerifying(true);
+        animationFrameRef.current = requestAnimationFrame(detect);
+        return;
+      }
+
+      setVerifying(false);
+
+      // ---------------- COOLDOWN ----------------
+      const lastScan = lastScanRef.current[currentId] || 0;
+      if (now - lastScan < PERSON_COOLDOWN_MS) {
+        animationFrameRef.current = requestAnimationFrame(detect);
+        return;
+      }
+
+      // ---------------- KNOWN PERSON ----------------
+      if (bestMatch && bestDist < FACE_MATCH_THRESHOLD) {
+        lastScanRef.current[currentId] = now;
+        setCooldown(true);
+
+        const scanPayload = {
+          descriptor,
+          photoDataUrl: captureCurrentFrame(),
+          deviceTime: new Date().toISOString(),
+        };
+
+        recordAttendanceForPerson({
+          supabase,
+          person: bestMatch,
+          settings,
+          scanPayload,
+          method: 'face-scan',
+        })
+          .then(result => {
+            if (result.inserted) {
+              const message =
+                result.event === 'time-in'
+                  ? `Time-in (${result.status})`
+                  : result.event === 'time-out'
+                  ? `Time-out (${result.status})`
+                  : `${result.event} (${result.status})`;
+
+              Swal.fire({
+                icon: 'success',
+                title: bestMatch.name,
+                text: message,
+                timer: 2500,
+                showConfirmButton: false,
+              });
+            }
+          })
+          .catch(err => {
+            Swal.fire({
+              icon: 'error',
+              title: 'Attendance Error',
+              text: err.message,
+            });
+          })
+          .finally(() => setCooldown(false));
+      }
+
+      // ---------------- UNKNOWN PERSON ----------------
+      else {
+        // In registration mode, trigger onFaceScan for unknown faces
+        if (typeof onFaceScan === 'function') {
+          const scanPayload = {
+            descriptor,
+            photoDataUrl: captureCurrentFrame(),
+            deviceTime: new Date().toISOString(),
+          };
+          onFaceScan(scanPayload);
+        }
+        lastScanRef.current.unknown = now;
+        unknownFaceLockRef.current = true;
+        matchBufferRef.current = [];
+        setCooldown(true);
+        setTimeout(() => setCooldown(false), 1200);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+
     animationFrameRef.current = requestAnimationFrame(detect);
-    return () => { setScanning(false); cancelAnimationFrame(animationFrameRef.current); };
-  }, [modelsLoaded, validSettings, frameReady, cooldown, registrationActive, cameraStatus, persons, drawDetection, captureCurrentFrame, onFaceScan]);
+  };
+
+  setScanning(true);
+  animationFrameRef.current = requestAnimationFrame(detect);
+
+  return () => {
+    isMounted = false;
+    cancelAnimationFrame(animationFrameRef.current);
+    setScanning(false);
+  };
+}, [
+  modelsLoaded,
+  validSettings,
+  frameReady,
+  cooldown,
+  registrationActive,
+  cameraStatus,
+  persons,
+  drawDetection,
+  captureCurrentFrame,
+  onFaceScan,
+  useLocalCamera
+]);
 
   // ------------------- Update current time -------------------
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  // Removed: unused currentTime update effect
 
   // ------------------- Reset registration state -------------------
   useEffect(() => {
     if (!registrationActive) { unknownFaceLockRef.current = false; matchBufferRef.current = []; setVerifying(false); }
-  }, [registrationActive]);
+  }, [registrationActive, settings]); // Added settings as dependency for completeness
 
   // ------------------- Render -------------------
  return (
@@ -488,7 +567,8 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false })
         </div>
 
         {/* Settings info card */}
-        {settings && validSettings && (
+        {/* Hide settings info card if hideSettingsCard is true */}
+        {!hideSettingsCard && settings && validSettings && (
           <div style={styles.settingsCard}>
             <div style={styles.settingRow}>
               <span style={styles.settingIcon}>🌅</span>

@@ -3,6 +3,7 @@ import Swal from 'sweetalert2';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import AttendanceTable from '../AdminPage/AttendanceTable';
+import PersonRegistration from '../AdminPage/PersonRegistration';
 
 export default function AdminSettings() {
   const [settings, setSettings] = useState({

@@ -372,9 +372,29 @@ export default function PayrollPage() {
                       <td style={styles.td}>{person.late_penalty != null ? `₱${Number(person.late_penalty).toFixed(2)}` : '-'}</td>
                       <td style={styles.td}>{payroll.daysPresent}</td>
                       <td style={styles.td}>{payroll.lateCount}</td>
-                      <td style={styles.td}>{payroll.gross != null ? `₱${payroll.gross.toLocaleString()}` : '-'}</td>
+                      {/* Calculate and display Gross and Net Pay using payslip logic for correct rounding */}
+                      <td style={styles.td}>{(() => {
+                        // Calculate hourly rate and OT pay as in PayslipModal
+                        const dailyRate = Number(person.daily_rate) || 0;
+                        const otHours = Math.round((payroll.otHours ?? 0) * 100) / 100;
+                        const hourlyRate = Math.round((dailyRate / 8) * 100) / 100;
+                        const otPay = Math.round(hourlyRate * otHours * 100) / 100;
+                        const totalHolidayPay = Number(payroll.totalHolidayPay) || 0;
+                        const gross = Math.round((dailyRate + otPay + totalHolidayPay) * 100) / 100;
+                        return `₱${gross.toFixed(2)}`;
+                      })()}</td>
                       <td style={styles.td}>{payroll.totalLateDeduction != null ? `₱${payroll.totalLateDeduction.toLocaleString()}` : '-'}</td>
-                      <td style={styles.td}>{payroll.net != null ? `₱${payroll.net.toLocaleString()}` : '-'}</td>
+                      <td style={styles.td}>{(() => {
+                        const dailyRate = Number(person.daily_rate) || 0;
+                        const otHours = Math.round((payroll.otHours ?? 0) * 100) / 100;
+                        const hourlyRate = Math.round((dailyRate / 8) * 100) / 100;
+                        const otPay = Math.round(hourlyRate * otHours * 100) / 100;
+                        const totalHolidayPay = Number(payroll.totalHolidayPay) || 0;
+                        const gross = Math.round((dailyRate + otPay + totalHolidayPay) * 100) / 100;
+                        const totalDeductions = Number(payroll.totalLateDeduction || 0) + Number(payroll.sss || 0) + Number(payroll.pag_ibig || 0) + Number(payroll.philhealth || 0) + Number(payroll.cashAdvance || 0);
+                        const net = Math.round((gross - totalDeductions) * 100) / 100;
+                        return `₱${net.toFixed(2)}`;
+                      })()}</td>
                       <td style={styles.td}>
                         <button
                           onClick={() => handleShowPayslip(p)}

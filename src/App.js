@@ -1,3 +1,4 @@
+import PersonRegistration from './AdminPage/PersonRegistration';
 import PayrollPage from './AdminPage/PayrollPage';
 // App.js
 // import './App.css';
@@ -107,6 +108,17 @@ function App() {
                   )}
                 </>
               }
+            />
+            <Route
+              path="/admin/register-person"
+              element={session ? (
+                <div style={styles.adminLayout}>
+                  <AdminSidebar onLogout={async () => { await supabase.auth.signOut(); localStorage.removeItem('sb-session'); window.location.href = '/admin'; }} />
+                  <div style={styles.adminContent}>
+                    <PersonRegistration />
+                  </div>
+                </div>
+              ) : <Navigate to="/admin" />}
             />
             <Route path="/admin" element={<AdminLogin />} />
             <Route

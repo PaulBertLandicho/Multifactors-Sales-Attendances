@@ -16,6 +16,7 @@ export default function PayslipModal({
   // useState declarations (only once)
   const [holidayDetails, setHolidayDetails] = useState([]);
   const [deptHolidayRates, setDeptHolidayRates] = useState({ regular: 0, special: 0 });
+  const [deptOtRate, setDeptOtRate] = useState(null);
   const [loadingHoliday, setLoadingHoliday] = useState(true);
 
   // Debug output for troubleshooting
@@ -43,6 +44,7 @@ useEffect(() => {
         regular: Number(data.regular_holiday_rate ?? data.holiday_rate ?? 0),
         special: Number(data.special_holiday_rate ?? 0)
       });
+      setDeptOtRate(Number(data.ot_rate) > 0 ? Number(data.ot_rate) : null);
     }
   }
 
@@ -241,6 +243,13 @@ useEffect(() => {
       };
     }).filter(Boolean);
   }
+
+  // Overtime calculation: always use dailyRate/8 (no premium) for display and calculation, and round to 2 decimals for all math
+  const hourlyRate = Math.round(((payroll.dailyRate ?? 0) / 8) * 100) / 100;
+  // Ensure otHours is rounded to 2 decimals for precision
+  const otHours = Math.round((payroll.otHours ?? 0) * 100) / 100;
+  // Round OT pay to 2 decimals for display and math
+  const otPay = Math.round(hourlyRate * otHours * 100) / 100;
   const deductions = [
     { label: 'SSS', value: person.sss ? Number(payroll.sss) : 0 },
     { label: 'Pag-ibig', value: person.pag_ibig ? Number(payroll.pag_ibig) : 0 },
@@ -360,7 +369,7 @@ useEffect(() => {
                 <th style={styles.th}>Afternoon Out</th>
                 <th style={styles.th}>Late Count</th>
                 <th style={styles.th}>Late Details</th>
-                <th style={styles.th}>OT (hrs)</th>
+                {/* <th style={styles.th}>OT (hrs)</th> */}
               </tr>
             </thead>
             <tbody>
@@ -445,7 +454,7 @@ useEffect(() => {
                         </ul>
                       ) : '-'}
                     </td>
-                    <td style={styles.td}>{otDisplay}</td>
+                    {/* <td style={styles.td}>{otDisplay}</td> */}
                   </tr>
                 )
               }) : (
@@ -504,7 +513,8 @@ useEffect(() => {
           </table>
 
           {/* Earnings */}
-          <h3 style={styles.sectionTitle}>� Earnings</h3>
+
+          <h3 style={styles.sectionTitle}>💸 Earnings</h3>
           <table style={styles.table}>
             <thead>
               <tr>
@@ -519,13 +529,13 @@ useEffect(() => {
                 <td style={styles.td}>Standard Pay</td>
                 <td style={styles.td}>{payroll.daysPresent} day(s)</td>
                 <td style={styles.td}>₱{(payroll.dailyRate ?? 0).toFixed(2)}</td>
-                <td style={styles.td}>₱{(payroll.gross ?? 0).toLocaleString()}</td>
+                <td style={styles.td}>₱{(payroll.dailyRate ?? 0).toLocaleString()}</td>
               </tr>
               <tr style={styles.trOdd}>
                 <td style={styles.td}>Overtime Pay</td>
-                <td style={styles.td}>{getHourMinute(payroll.otHours)}</td>
-                <td style={styles.td}>₱{(payroll.otHourlyRate ?? 0).toFixed(2)}</td>
-                <td style={styles.td}>₱{(payroll.otPay ?? 0).toLocaleString()}</td>
+                <td style={styles.td}>{getHourMinute(otHours)}</td>
+                <td style={styles.td}>(Daily Rate) ÷ 8hrs =₱{hourlyRate.toFixed(2)}</td>
+                <td style={styles.td}>₱{otPay.toFixed(2)}</td>
               </tr>
              {/* ✅ Holiday Pay */}
 {holidayPayDetails.length > 0 ? (
@@ -537,7 +547,6 @@ useEffect(() => {
           {h.date} ({h.type === 'regular' ? 'Regular Holiday' : 'Special Holiday'})
         </td>
         <td style={styles.td}>
-          {/* ₱{(h.rate ?? 0).toFixed(2)}  */}
           <span style={{ color:'#10b981', fontWeight:600 }}>
             {' '}({h.ratePercent}%)
           </span>
@@ -560,7 +569,7 @@ useEffect(() => {
 )}
               <tr style={styles.summaryRow}>
                 <td colSpan="3" style={styles.td}>Gross Pay</td>
-                <td style={styles.td}>₱{(payroll.gross + totalHolidayPay).toLocaleString()}</td>
+                <td style={styles.td}>₱{(Math.round(((payroll.dailyRate ?? 0) + otPay + totalHolidayPay) * 100) / 100).toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
@@ -598,7 +607,8 @@ useEffect(() => {
             </tbody>
           </table>
 
-          <h3 style={styles.netPay}>Net Pay: ₱{((payroll.gross + totalHolidayPay) - totalDeductions).toLocaleString()}</h3>
+          {/* Net Pay: use rounded OT pay in gross calculation */}
+          <h3 style={styles.netPay}>Net Pay: ₱{(Math.round((((payroll.dailyRate ?? 0) + otPay + totalHolidayPay) - totalDeductions) * 100) / 100).toFixed(2)}</h3>
         </div>
 
         {/* ✅ BUTTONS OUTSIDE PDF */}
