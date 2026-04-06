@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
@@ -24,6 +24,7 @@ export default function PersonsTable() {
   const [pendingPerson, setPendingPerson] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editPerson, setEditPerson] = useState(null);
+  const editPhotoInputRef = useRef(null);
 
   const Icons = {
     download: <FiDownload />,
@@ -93,12 +94,7 @@ export default function PersonsTable() {
 
   // Helper to get photo for a person (latest attendance photo or registration photo)
   const getPersonPhoto = (person) => {
-    // Prefer attendance photo if available
-    if (attendanceRecords && person && person.id) {
-      const att = attendanceRecords.find(r => r.person_id === person.id && r.photo);
-      if (att && att.photo) return att.photo;
-    }
-    // Fallback: use registration photo if available
+    // Always use registration photo if available
     if (person && person.registration_photo) return person.registration_photo;
     return null;
   };
@@ -123,18 +119,64 @@ export default function PersonsTable() {
     setEditPerson(null);
   };
 
+  const handleEditPhotoChange = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      if (typeof dataUrl !== 'string') return;
+      setEditPerson((prev) => (prev ? { ...prev, registration_photo: dataUrl } : prev));
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleEditModalSave = async (e) => {
     e.preventDefault();
-    const { id, name, department, phone_number, address, sex, cash_advance } = editPerson;
+    const { id, name, department, phone_number, address, sex, cash_advance, registration_photo } = editPerson;
     // Ensure checkboxes are stored as 1/0
     const sssVal = !!Number(editPerson.sss) ? 1 : 0;
     const pagIbigVal = !!Number(editPerson.pag_ibig) ? 1 : 0;
     const philhealthVal = !!Number(editPerson.philhealth) ? 1 : 0;
-    const { error } = await supabase.from('persons').update({ name, department, phone_number, address, sex, sss: sssVal, pag_ibig: pagIbigVal, philhealth: philhealthVal, cash_advance }).eq('id', id);
+    const { error } = await supabase
+      .from('persons')
+      .update({
+        name,
+        department,
+        phone_number,
+        address,
+        sex,
+        sss: sssVal,
+        pag_ibig: pagIbigVal,
+        philhealth: philhealthVal,
+        cash_advance,
+        registration_photo: registration_photo || null,
+      })
+      .eq('id', id);
     if (error) {
       Swal.fire('Error', error.message, 'error');
     } else {
-      setPersons((prev) => prev.map(p => p.id === id ? { ...p, name, department, phone_number, address, sex, sss: sssVal, pag_ibig: pagIbigVal, philhealth: philhealthVal, cash_advance } : p));
+      setPersons((prev) =>
+        prev.map((p) =>
+          p.id === id
+            ? {
+                ...p,
+                name,
+                department,
+                phone_number,
+                address,
+                sex,
+                sss: sssVal,
+                pag_ibig: pagIbigVal,
+                philhealth: philhealthVal,
+                cash_advance,
+                registration_photo: registration_photo || null,
+              }
+            : p
+        )
+      );
       Swal.fire('Updated!', '', 'success');
       handleEditModalClose();
     }
@@ -356,6 +398,34 @@ export default function PersonsTable() {
             </button>
             <h2 style={styles.modalTitle}>Edit Person</h2>
             <form onSubmit={handleEditModalSave}>
+              <div style={styles.modalField}>
+                <label style={styles.modalLabel}>Registration Photo</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {editPerson.registration_photo ? (
+                    <img
+                      src={editPerson.registration_photo}
+                      alt="person"
+                      style={styles.photoPreview}
+                    />
+                  ) : (
+                    <span style={{ color: '#9ca3af', fontSize: '0.9rem' }}>No photo</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => editPhotoInputRef.current && editPhotoInputRef.current.click()}
+                    style={{ ...styles.button, ...styles.buttonSecondary, padding: '8px 16px' }}
+                  >
+                    Upload New Photo
+                  </button>
+                </div>
+                <input
+                  ref={editPhotoInputRef}
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={handleEditPhotoChange}
+                />
+              </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Name</label>
                 <input
@@ -620,6 +690,13 @@ const styles = {
     height: '48px',
     objectFit: 'cover',
     borderRadius: '12px',
+    border: '2px solid #e5e7eb',
+  },
+  photoPreview: {
+    width: '56px',
+    height: '56px',
+    objectFit: 'cover',
+    borderRadius: '14px',
     border: '2px solid #e5e7eb',
   },
   actionCell: {

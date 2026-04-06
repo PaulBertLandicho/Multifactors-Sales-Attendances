@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import RegistrationCamera from '../CameraAttendance/RegistrationCamera';
 
@@ -57,6 +57,18 @@ export default function PersonRegistration() {
       modalTimerRef.current = null;
     }
   };
+
+  // Prevent background page from scrolling while the Person Details modal is open
+  useEffect(() => {
+    if (!showModal) return;
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [showModal]);
 
   return (
     <div style={{ maxWidth: 600, margin: '40px auto', padding: 24, background: '#fff', borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.08)' }}>

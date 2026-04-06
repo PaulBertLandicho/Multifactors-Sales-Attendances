@@ -292,6 +292,14 @@ export default function PersonDetails({ scanPayload, onComplete }) {
 
       // --- END VALIDATION ---
 
+      // Decide whether to store a registration photo.
+      // To avoid unexpected image changes, we only ever set
+      // registration_photo when creating a brand-new person here.
+      // Existing persons keep whatever registration_photo they already have.
+      const registrationPhoto = (isNew && scanPayload && scanPayload.photoDataUrl)
+        ? scanPayload.photoDataUrl
+        : undefined;
+
       const payload = {
         id: personId,
         name: form.name || null,
@@ -302,7 +310,7 @@ export default function PersonDetails({ scanPayload, onComplete }) {
         descriptor: descriptor ? Array.from(descriptor) : null,
         daily_rate,
         late_penalty,
-        registration_photo: (!isLinkingExistingRecord && scanPayload && scanPayload.photoDataUrl) ? scanPayload.photoDataUrl : undefined,
+        registration_photo: registrationPhoto,
       };
 
       const { error: err } = await supabase

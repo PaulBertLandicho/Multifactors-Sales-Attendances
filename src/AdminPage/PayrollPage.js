@@ -5,6 +5,7 @@ import { calculatePayroll } from '../Payroll';
 import { applyHolidayRates } from '../SupabaseFunctions/applyHolidayRates';
 import PayslipModal from '../AdminPage/PayslipModals/PayslipModal';
 import { getDetailedAttendance } from './attendanceDetails';
+import { generateAllPayslipsPdf } from './PayslipModals/generatePayslipPdf';
 import * as XLSX from 'xlsx';
 import { MdFilterList } from 'react-icons/md';
 import {
@@ -22,6 +23,7 @@ export default function PayrollPage() {
   const [persons, setPersons] = useState([]);
   const [deptRates, setDeptRates] = useState([]);
   const [payrollPeriods, setPayrollPeriods] = useState([]); // [{personId, period, payroll, released}]
+  const [holidays, setHolidays] = useState([]);
   const [settings, setSettings] = useState({});
   const [search, setSearch] = useState('');
 
@@ -42,25 +44,31 @@ export default function PayrollPage() {
 
   useEffect(() => {
     async function fetchData() {
-      const [attRes, personsRes, deptRes, settingsRes, payrollRes] = await Promise.all([
+      const [attRes, personsRes, deptRes, settingsRes, payrollRes, holidaysRes] = await Promise.all([
         supabase.from('attendance').select('*'),
         supabase.from('persons')
-          .select('id, name, department, daily_rate, late_penalty, sss, pag_ibig, philhealth, cash_advance'),
+          .select('id, name, department, daily_rate, late_penalty, sss, pag_ibig, philhealth, cash_advance, registration_photo'),
         supabase.from('department_rates').select('*'),
         supabase.from('settings').select('*').eq('id', 1).single(),
-        supabase.from('payroll_periods').select('*')
+        supabase.from('payroll_periods').select('*'),
+        supabase.from('holidays').select('*'),
       ]);
 
       const attData = attRes.data || [];
       const personsData = personsRes.data || [];
       const deptData = deptRes.data || [];
       const settingsData = settingsRes.data || {};
-      const payrollDb = payrollRes.data || [];
+      const holidaysData = holidaysRes.data || [];
+      // Ensure payrollDb is always a clean array with no null/undefined entries
+      const payrollDb = Array.isArray(payrollRes.data)
+        ? payrollRes.data.filter(Boolean)
+        : [];
 
       setAttendance(attData);
       setPersons(personsData);
       setDeptRates(deptData);
       setSettings(settingsData);
+      setHolidays(holidaysData);
 
       // Group attendance by person and by dynamic payroll period length
       let periods = [];
@@ -86,8 +94,10 @@ export default function PayrollPage() {
           });
           // Format period string: yyyy-mm-dd_to_yyyy-mm-dd
           const periodStr = `${periodStart.toISOString().slice(0,10)}_to_${periodEnd.toISOString().slice(0,10)}`;
-          // Check if this period is already released in payrollDb
-          const alreadyReleased = payrollDb.some(row => row.person_id === person.id && row.period === periodStr && row.released);
+          // Check if this period is already released in payrollDb (defensive against unexpected null rows)
+          const alreadyReleased = payrollDb.some(
+            (row) => row && row.person_id === person.id && row.period === periodStr && row.released
+          );
           if (periodAttendance.length > 0 && !alreadyReleased) {
             periods.push({ person, period: periodStr, attendance: periodAttendance });
           }
@@ -97,7 +107,7 @@ export default function PayrollPage() {
       });
 
       // Calculate payroll for each period and sync with DB
-      const payrollPeriods = await Promise.all(periods.map(async ({ person, period, attendance }) => {
+      const payrollPeriods = (await Promise.all(periods.map(async ({ person, period, attendance }) => {
         // Calculate payroll for this period only
         const basePayroll = calculatePayroll(attendance, [person], deptData, settingsData)[0];
         const detailed = getDetailedAttendance(attendance, person.id, settingsData);
@@ -107,25 +117,47 @@ export default function PayrollPage() {
         const totalLateDeduction = lateCount >= lateCountLimit ? lateCount * latePenalty : 0;
         const totalDeductions = basePayroll.sss + basePayroll.pag_ibig + basePayroll.philhealth + basePayroll.cashAdvance + totalLateDeduction;
         const net = basePayroll.gross - totalDeductions;
-        // Find if this period exists in DB
-        let dbRow = payrollDb.find(row => row.person_id === person.id && row.period === period);
+        // Find if this period exists in DB (defensive against unexpected null rows)
+        let dbRow = payrollDb.find(
+          (row) => row && row.person_id === person.id && row.period === period
+        );
         if (!dbRow) {
           // Insert new row
-          const { data: inserted } = await supabase.from('payroll_periods').insert([{
-            person_id: person.id,
-            period,
-            days_present: basePayroll.daysPresent,
-            daily_rate: person.daily_rate,
-            late_penalty: person.late_penalty,
-            late_count: lateCount,
-            gross: basePayroll.gross,
-            total_late_deduction: totalLateDeduction,
-            total_deductions: totalDeductions,
-            net,
-            released: false
-          }]).select().single();
+          const { data: inserted, error: insertError } = await supabase
+            .from('payroll_periods')
+            .insert([
+              {
+                person_id: person.id,
+                period,
+                days_present: basePayroll.daysPresent,
+                // Use computed dailyRate from calculatePayroll to avoid nulls
+                daily_rate: Number(basePayroll.dailyRate ?? 0),
+                // Ensure late_penalty is always a number (NOT NULL-safe)
+                late_penalty: Number(person.late_penalty || 0),
+                late_count: lateCount,
+                gross: basePayroll.gross,
+                total_late_deduction: totalLateDeduction,
+                total_deductions: totalDeductions,
+                net,
+                released: false,
+              },
+            ])
+            .select()
+            .single();
+
+          if (insertError || !inserted) {
+            console.error('Failed to insert payroll_periods row', insertError);
+            // Skip this period rather than crashing the UI
+            return null;
+          }
           dbRow = inserted;
         }
+
+        // Extra safety: if dbRow is still somehow null, skip this entry
+        if (!dbRow) {
+          return null;
+        }
+
         return {
           personId: person.id,
           person,
@@ -136,13 +168,14 @@ export default function PayrollPage() {
             lateCountLimit,
             totalLateDeduction,
             totalDeductions,
-            net
+            net,
           },
           attendance,
-          released: dbRow.released,
-          dbId: dbRow.id
+          released: !!dbRow.released,
+          dbId: dbRow.id,
         };
-      }));
+      }))).filter(Boolean);
+
       setPayrollPeriods(payrollPeriods);
     }
     fetchData();
@@ -237,6 +270,135 @@ export default function PayrollPage() {
   };
 
 
+  // Generate one combined PDF containing payslips for all payroll records
+  const handleGenerateAllPayslipPdf = async () => {
+    if (!payrollPeriods.length) {
+      Swal.fire('No payroll records', 'There are no payroll records to generate.', 'info');
+      return;
+    }
+
+    const pdfParamsList = [];
+
+    for (const periodEntry of payrollPeriods) {
+      try {
+        const { person, payroll, attendance, period } = periodEntry;
+        if (!person || !payroll) continue;
+
+        const detailedAttendance = getDetailedAttendance(attendance, person.id, settings);
+
+        let absentDates = [];
+        if (period) {
+          const [start, end] = period.split('_to_');
+          const startDate = new Date(start);
+          const endDate = new Date(end);
+          const todayStr = new Date().toISOString().slice(0, 10);
+
+          const allDates = [];
+          for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+            if (d.getDay() !== 0 && d.getDay() !== 6) {
+              allDates.push(new Date(d));
+            }
+          }
+
+          const attendedDates = detailedAttendance.map(a => {
+            const dt = new Date(a.date);
+            return dt.toISOString().slice(0, 10);
+          });
+
+          absentDates = allDates
+            .map(d => d.toISOString().slice(0, 10))
+            .filter(dateStr => dateStr < todayStr && !attendedDates.includes(dateStr));
+        }
+        const absentCount = absentDates.length;
+
+        let holidayDetails = [];
+        try {
+          if (person && period) {
+            const [start, end] = period.split('_to_');
+            const { data: holidays, error } = await supabase
+              .from('holidays')
+              .select('*')
+              .eq('department', person.department)
+              .gte('date', start)
+              .lte('date', end);
+            if (error) throw error;
+            holidayDetails = holidays || [];
+          }
+        } catch (err) {
+          console.error('Error fetching holidays for bulk PDF:', err);
+          holidayDetails = [];
+        }
+
+        const deptRate = deptRates.find(d =>
+          (d.department || '').toLowerCase().trim() === (person.department || '').toLowerCase().trim()
+        ) || {};
+
+        const deptHolidayRates = {
+          regular: Number(deptRate.regular_holiday_rate ?? deptRate.holiday_rate ?? 0),
+          special: Number(deptRate.special_holiday_rate ?? 0),
+        };
+
+        let holidayPayDetails = [];
+        let totalHolidayPay = 0;
+        if (holidayDetails.length > 0) {
+          holidayPayDetails = holidayDetails
+            .map(h => {
+              let ratePercent = 0;
+              if (h.type === 'regular') {
+                ratePercent = deptHolidayRates.regular;
+              } else if (h.type === 'special') {
+                ratePercent = deptHolidayRates.special;
+              }
+              if (!ratePercent) return null;
+              const amount = (payroll.dailyRate * ratePercent) / 100;
+              totalHolidayPay += amount;
+              return {
+                date: h.date,
+                type: h.type,
+                rate: payroll.dailyRate,
+                amount,
+                ratePercent,
+              };
+            })
+            .filter(Boolean);
+        }
+
+        const deductions = [
+          { label: 'SSS', value: person.sss ? Number(payroll.sss) : 0 },
+          { label: 'Pag-ibig', value: person.pag_ibig ? Number(payroll.pag_ibig) : 0 },
+          { label: 'PhilHealth', value: person.philhealth ? Number(payroll.philhealth) : 0 },
+          { label: 'Cash Advance', value: Number(payroll.cashAdvance || 0) },
+        ];
+
+        const lateCountLimit = payroll.lateCountLimit || payroll.late_count_limit || 5;
+        const latePenalty = person.late_penalty || 0;
+        const lateDeduction = payroll.lateCount >= lateCountLimit ? payroll.lateCount * latePenalty : 0;
+        const totalDeductions = lateDeduction + deductions.reduce((acc, d) => acc + d.value, 0);
+
+        pdfParamsList.push({
+          payroll,
+          person,
+          period,
+          holidayPayDetails,
+          totalHolidayPay,
+          absentCount,
+          totalDeductions,
+        });
+      } catch (err) {
+        console.error('Failed to prepare payslip PDF data for', periodEntry.person?.name, err);
+      }
+    }
+
+    if (!pdfParamsList.length) {
+      Swal.fire('No data', 'Could not prepare any payslip data for PDF.', 'warning');
+      return;
+    }
+
+    await generateAllPayslipsPdf(pdfParamsList);
+    Swal.fire('PDF generated', 'A combined PDF with all payslips has been downloaded.', 'success');
+  };
+
+
   // Export to Excel
   const handleExportPayslipExcel = () => {
     if (!payrollPeriods.length) return;
@@ -313,6 +475,12 @@ export default function PayrollPage() {
 >
   {Icons.download} Export Excel
 </button>
+        <button
+          onClick={handleGenerateAllPayslipPdf}
+          style={{ ...styles.button, ...styles.buttonPrimary }}
+        >
+          🖨️ Generate All Payslips PDF
+        </button>
         {/* <button
           style={{ ...styles.button, ...styles.buttonSecondary, marginLeft: 12 }}
           onClick={() => window.location.href = '/admin/ReleasedPayrollLogs'}
@@ -345,7 +513,7 @@ export default function PayrollPage() {
                 <th style={styles.th}>Late Deduction</th>
                 <th style={styles.th}>Net Pay</th>
                 <th style={styles.th}>Payslip</th>
-                <th style={styles.th}>Release</th>
+                {/* <th style={styles.th}>Release</th> */}
               </tr>
             </thead>
             <tbody>
@@ -372,26 +540,73 @@ export default function PayrollPage() {
                       <td style={styles.td}>{person.late_penalty != null ? `₱${Number(person.late_penalty).toFixed(2)}` : '-'}</td>
                       <td style={styles.td}>{payroll.daysPresent}</td>
                       <td style={styles.td}>{payroll.lateCount}</td>
-                      {/* Calculate and display Gross and Net Pay using payslip logic for correct rounding */}
+                      {/* Calculate and display Gross and Net Pay using the exact PayslipModal formulas */}
                       <td style={styles.td}>{(() => {
-                        // Calculate hourly rate and OT pay as in PayslipModal
-                        const dailyRate = Number(person.daily_rate) || 0;
+                        // Holiday pay within this period and department
+                        let totalHolidayPay = 0;
+                        if (holidays && holidays.length && period) {
+                          const [start, end] = period.split('_to_');
+                          const deptRate = deptRates.find(d =>
+                            (d.department || '').toLowerCase().trim() === (person.department || '').toLowerCase().trim()
+                          ) || {};
+                          const regularRate = Number(deptRate.regular_holiday_rate ?? deptRate.holiday_rate ?? 0);
+                          const specialRate = Number(deptRate.special_holiday_rate ?? 0);
+
+                          holidays.forEach(h => {
+                            if (h.department !== person.department) return;
+                            if (h.date < start || h.date > end) return;
+                            let ratePercent = 0;
+                            if (h.type === 'regular') ratePercent = regularRate;
+                            else if (h.type === 'special') ratePercent = specialRate;
+                            if (!ratePercent) return;
+                            totalHolidayPay += (payroll.dailyRate ?? 0) * (ratePercent / 100);
+                          });
+                        }
+
+                        const hourlyRate = Math.round(((payroll.dailyRate ?? 0) / 8) * 100) / 100;
                         const otHours = Math.round((payroll.otHours ?? 0) * 100) / 100;
-                        const hourlyRate = Math.round((dailyRate / 8) * 100) / 100;
                         const otPay = Math.round(hourlyRate * otHours * 100) / 100;
-                        const totalHolidayPay = Number(payroll.totalHolidayPay) || 0;
-                        const gross = Math.round((dailyRate + otPay + totalHolidayPay) * 100) / 100;
+                        const gross = Math.round(((payroll.dailyRate ?? 0) + otPay + totalHolidayPay) * 100) / 100;
                         return `₱${gross.toFixed(2)}`;
                       })()}</td>
-                      <td style={styles.td}>{payroll.totalLateDeduction != null ? `₱${payroll.totalLateDeduction.toLocaleString()}` : '-'}</td>
                       <td style={styles.td}>{(() => {
-                        const dailyRate = Number(person.daily_rate) || 0;
+                        // Same total deductions logic as in PayslipModal
+                        const lateCountLimit = payroll.lateCountLimit || payroll.late_count_limit || 5;
+                        const latePenalty = person.late_penalty || 0;
+                        const lateDeduction = payroll.lateCount >= lateCountLimit ? payroll.lateCount * latePenalty : 0;
+                        const deductions = [
+                          person.sss ? Number(payroll.sss) : 0,
+                          person.pag_ibig ? Number(payroll.pag_ibig) : 0,
+                          person.philhealth ? Number(payroll.philhealth) : 0,
+                          Number(payroll.cashAdvance || 0),
+                        ];
+                        const totalDeductions = lateDeduction + deductions.reduce((acc, v) => acc + v, 0);
+
+                        // Reuse the same gross calculation as above
+                        let totalHolidayPay = 0;
+                        if (holidays && holidays.length && period) {
+                          const [start, end] = period.split('_to_');
+                          const deptRate = deptRates.find(d =>
+                            (d.department || '').toLowerCase().trim() === (person.department || '').toLowerCase().trim()
+                          ) || {};
+                          const regularRate = Number(deptRate.regular_holiday_rate ?? deptRate.holiday_rate ?? 0);
+                          const specialRate = Number(deptRate.special_holiday_rate ?? 0);
+
+                          holidays.forEach(h => {
+                            if (h.department !== person.department) return;
+                            if (h.date < start || h.date > end) return;
+                            let ratePercent = 0;
+                            if (h.type === 'regular') ratePercent = regularRate;
+                            else if (h.type === 'special') ratePercent = specialRate;
+                            if (!ratePercent) return;
+                            totalHolidayPay += (payroll.dailyRate ?? 0) * (ratePercent / 100);
+                          });
+                        }
+
+                        const hourlyRate = Math.round(((payroll.dailyRate ?? 0) / 8) * 100) / 100;
                         const otHours = Math.round((payroll.otHours ?? 0) * 100) / 100;
-                        const hourlyRate = Math.round((dailyRate / 8) * 100) / 100;
                         const otPay = Math.round(hourlyRate * otHours * 100) / 100;
-                        const totalHolidayPay = Number(payroll.totalHolidayPay) || 0;
-                        const gross = Math.round((dailyRate + otPay + totalHolidayPay) * 100) / 100;
-                        const totalDeductions = Number(payroll.totalLateDeduction || 0) + Number(payroll.sss || 0) + Number(payroll.pag_ibig || 0) + Number(payroll.philhealth || 0) + Number(payroll.cashAdvance || 0);
+                        const gross = Math.round(((payroll.dailyRate ?? 0) + otPay + totalHolidayPay) * 100) / 100;
                         const net = Math.round((gross - totalDeductions) * 100) / 100;
                         return `₱${net.toFixed(2)}`;
                       })()}</td>

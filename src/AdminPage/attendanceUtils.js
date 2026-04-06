@@ -104,15 +104,15 @@ export function determineAttendanceStatus(currentTime, eventToRecord, settings) 
 
 function buildBlockedMessage(eventToRecord, settings) {
   if (eventToRecord === 'already-timed-in') {
-    return 'You must time out before timing in again.';
+    return 'You have already timed in for this work window. Please time out before scanning again.';
   }
 
   if (eventToRecord === 'attendance-closed') {
-    return 'Attendance is closed for this work window.';
+    return 'You have already completed your attendance for this work window, or the attendance window is closed.';
   }
 
   if (eventToRecord === 'time-out') {
-    return 'You must time in before timing out.';
+    return 'You must time in before you can time out.';
   }
 
   if (settings?.morning_start && settings?.afternoon_end) {

@@ -8,7 +8,7 @@ import { supabase, SUPABASE_CONFIGURED } from '../supabaseClient';
 import { toFloat32Array, normalizeDescriptor, euclideanDistance, averageDescriptors } from '../utils/faceUtils';
 
 export default function RegistrationCamera({ onFaceScan, disabled }) {
-    const [persons, setPersons] = useState([]);
+  const [persons, setPersons] = useState([]);
 
     // Load persons with descriptors from Supabase
     useEffect(() => {
@@ -46,6 +46,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
   const imgRef = useRef(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const fileInputRef = useRef(null);
   const [useLocalCamera, setUseLocalCamera] = useState(false);
   const [frameReady, setFrameReady] = useState(false);
   const wsRef = useRef(null);
@@ -65,6 +66,94 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
     }
     loadModels();
   }, []);
+
+  // Handle manual 2x2-style photo upload for registration
+  async function handleImageUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    // Allow selecting the same file again later
+    event.target.value = '';
+
+    if (!modelsLoaded) {
+      Swal.fire({ icon: 'info', title: 'Please wait', text: 'Face recognition models are still loading. Try again in a moment.' });
+      return;
+    }
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result;
+        if (typeof dataUrl !== 'string') {
+          Swal.fire({ icon: 'error', title: 'Upload Failed', text: 'Could not read the selected image file.' });
+          return;
+        }
+
+        const img = new Image();
+        img.onload = async () => {
+          try {
+            const detection = await faceapi
+              .detectSingleFace(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 }))
+              .withFaceLandmarks()
+              .withFaceDescriptor();
+
+            if (!detection || !detection.descriptor) {
+              Swal.fire({ icon: 'warning', title: 'No Face Detected', text: 'No clear single face was detected in the uploaded photo. Please use a clear 2x2-style image with the face centered.' });
+              return;
+            }
+
+            // Normalize descriptor and run the same duplicate check used for live camera
+            const newDesc = normalizeDescriptor(toFloat32Array(detection.descriptor));
+            const FACE_MATCH_THRESHOLD = 0.35;
+
+            const candidates = persons
+              .filter(p => p.descriptor)
+              .map(p => ({ p, dist: euclideanDistance(newDesc, p.descriptor) }))
+              .sort((a, b) => a.dist - b.dist);
+
+            const best = candidates.length ? candidates[0] : null;
+            const second = candidates.length > 1 ? candidates[1] : null;
+            const margin = second ? (second.dist - best.dist) : Infinity;
+
+            const isConfidentDuplicate = best && best.dist < FACE_MATCH_THRESHOLD && margin >= 0.05 && best.p.registration_photo;
+
+            if (isConfidentDuplicate) {
+              const res = await Swal.fire({
+                icon: 'info',
+                title: 'Possible Duplicate',
+                html: `This face is similar to <strong>${best.p.name || 'a person'}</strong> (ID: ${best.p.id}) with distance <strong>${best.dist.toFixed(3)}</strong>.<br/>Registering a new person may create a duplicate.`,
+                showCancelButton: true,
+                confirmButtonText: 'Register Anyway',
+                cancelButtonText: 'Cancel',
+                focusCancel: true,
+              });
+
+              if (!res.isConfirmed) {
+                return;
+              }
+            }
+
+            if (typeof onFaceScan === 'function') {
+              onFaceScan({ descriptor: newDesc, photoDataUrl: dataUrl });
+            }
+          } catch (err) {
+            console.error('Error processing uploaded image:', err);
+            Swal.fire({ icon: 'error', title: 'Processing Error', text: 'There was a problem analyzing the uploaded photo. Please try a clearer image.' });
+          }
+        };
+        img.onerror = () => {
+          Swal.fire({ icon: 'error', title: 'Invalid Image', text: 'The selected file is not a valid image.' });
+        };
+        img.src = dataUrl;
+      };
+      reader.onerror = () => {
+        Swal.fire({ icon: 'error', title: 'Read Error', text: 'Could not read the selected file.' });
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Upload handler error:', err);
+      Swal.fire({ icon: 'error', title: 'Upload Error', text: 'Unexpected error while handling the uploaded image.' });
+    }
+  }
 
   // Setup Dahua stream via WebSocket or fallback to webcam
   useEffect(() => {
@@ -261,13 +350,33 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
   }, [modelsLoaded, useLocalCamera, disabled, onFaceScan]);
 
   return (
-    <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', background: '#0b1120' }}>
-      {useLocalCamera ? (
-        <video ref={videoRef} style={{ width: '100%', borderRadius: 12 }} autoPlay muted playsInline />
-      ) : (
-        <img ref={imgRef} alt="Camera Stream" onLoad={() => setFrameReady(true)} style={{ width: '100%', borderRadius: 12 }} />
-      )}
-      <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />
+    <div>
+      <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', background: '#0b1120' }}>
+        {useLocalCamera ? (
+          <video ref={videoRef} style={{ width: '100%', borderRadius: 12 }} autoPlay muted playsInline />
+        ) : (
+          <img ref={imgRef} alt="Camera Stream" onLoad={() => setFrameReady(true)} style={{ width: '100%', borderRadius: 12 }} />
+        )}
+        <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />
+      </div>
+
+      {/* Optional: manual photo upload for registration (e.g., 2x2 ID photo) */}
+      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 8 }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleImageUpload}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current && fileInputRef.current.click()}
+          style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #4b5563', background: '#111827', color: '#e5e7eb', cursor: 'pointer', fontSize: 13 }}
+        >
+          Upload 2x2 Photo Instead
+        </button>
+      </div>
     </div>
   );
 }

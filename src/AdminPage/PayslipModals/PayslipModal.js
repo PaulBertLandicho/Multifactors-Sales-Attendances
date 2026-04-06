@@ -2,6 +2,7 @@ import React from 'react';
 import { useEffect, useState } from 'react';
 import { fetchHolidays } from '../../SupabaseFunctions/fetchHolidays';
 import { supabase } from '../../supabaseClient';
+import { generatePayslipPdf } from './generatePayslipPdf';
 
 // detailedAttendance: [{ date, morningIn, morningOut, afternoonIn, afternoonOut, lateCount, lateDetails: [{session, time, status}]}]
 export default function PayslipModal({
@@ -76,104 +77,15 @@ useEffect(() => {
   getHolidays();
 }, [person, period]);
   const handlePdf = async () => {
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-    const left = 10;
-    const right = 200;
-    const lineHeight = 7;
-    let y = 10;
-
-    // Header
-    doc.setFontSize(10);
-    doc.text(`Date: ${(new Date()).toISOString().slice(0,10)}`, right - 50, y);
-    y += lineHeight * 1.5;
-
-    doc.setFontSize(12);
-    doc.text('Full Name:', left, y);
-    doc.text(person.name || '', left + 35, y);
-    // Person image (if available and valid data URL)
-    let imageDrawn = false;
-    if (person.registration_photo && typeof person.registration_photo === 'string' && person.registration_photo.startsWith('data:image/')) {
-      try {
-        doc.addImage(person.registration_photo, 'JPEG', right - 50, y - 8, 30, 20);
-        imageDrawn = true;
-      } catch (e) {
-        try {
-          doc.addImage(person.registration_photo, 'PNG', right - 50, y - 8, 30, 20);
-          imageDrawn = true;
-        } catch (e2) {
-          // fallback below
-        }
-      }
-    }
-    if (!imageDrawn) {
-      doc.rect(right - 50, y - 8, 30, 20, 'S');
-      doc.text('image', right - 35, y - 5, { align: 'center' });
-    }
-
-    y += lineHeight;
-    doc.setFontSize(10);
-    doc.text('Period:', left, y);
-    doc.text(period || '', left + 50, y);
-    y += lineHeight;
-    doc.text('Total Days:', left, y);
-    doc.text(String(payroll.daysPresent || ''), left + 35, y);
-
-    y += lineHeight * 1.5;
-    // Use Unicode peso sign (U+20B1), fallback to 'PHP' if not supported
-    let peso = 'PHP';
-    // Test if peso sign is supported by jsPDF font
-    try {
-      doc.getStringUnitWidth(peso);
-    } catch (e) {
-      peso = 'PHP';
-    }
-    doc.text('Basic Salary Rate:', left, y);
-    doc.text(`${peso} ${(payroll.dailyRate ?? 0).toFixed(2)}`, left + 50, y);
-    y += lineHeight;
-    doc.text('Total of days worked (present):', left, y);
-    doc.text(String(payroll.daysPresent || ''), left + 70, y);
-    y += lineHeight;
-    doc.text('Overtime hrs:', left, y);
-    doc.text(String(payroll.otHours || ''), left + 35, y);
-    y += lineHeight;
-    doc.text('Holiday Day(s):', left, y);
-    doc.text(String(holidayPayDetails.length || ''), left + 35, y);
-    y += lineHeight;
-    doc.text('Allowance:', left, y);
-    doc.text('_____________', left + 35, y);
-    y += lineHeight;
-    doc.text('Total:', left, y);
-    doc.text(`${peso} ${(payroll.gross + totalHolidayPay).toLocaleString()}`, left + 35, y);
-
-    y += lineHeight * 2;
-    doc.setFont(undefined, 'bold');
-    doc.text('Late / Absent', left, y);
-    doc.setFont(undefined, 'normal');
-    y += lineHeight;
-    doc.text('Total numbers of Late:', left, y);
-    doc.text(String(payroll.lateCount || 0), left + 50, y);
-    y += lineHeight;
-    doc.text('Total numbers of Absent:', left, y);
-    doc.text(String(absentCount || 0), left + 60, y);
-    y += lineHeight;
-    // Monthly Share = SSS + Pag-ibig + PhilHealth
-    const monthlyShare = (person.sss ? Number(payroll.sss) : 0) + (person.pag_ibig ? Number(payroll.pag_ibig) : 0) + (person.philhealth ? Number(payroll.philhealth) : 0);
-    doc.text('Monthly Share:', left, y);
-    doc.text(`${peso} ${monthlyShare.toLocaleString()}`, left + 35, y);
-    y += lineHeight;
-    doc.text('Cash Advance:', left, y);
-    doc.text(`${peso} ${Number(payroll.cashAdvance || 0).toLocaleString()}`, left + 35, y);
-    y += lineHeight;
-    doc.text('Total:', left, y);
-    doc.text(`${peso} ${totalDeductions.toLocaleString()}`, left + 35, y);
-
-    y += lineHeight * 2;
-    doc.text('Received from MULTIFACTORS SALES', left, y);
-    // doc.text('Received from MULTIFACTORS SALES', left + 70, y);
-
-    doc.save(`${person.name}_payslip.pdf`);
+    await generatePayslipPdf({
+      payroll,
+      person,
+      period,
+      holidayPayDetails,
+      totalHolidayPay,
+      absentCount,
+      totalDeductions,
+    });
   };
 
   // Helper to display hours and minutes

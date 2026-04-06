@@ -5,10 +5,13 @@ import { supabase } from '../supabaseClient';
 import { recordAttendanceForPerson } from '../AdminPage/attendanceUtils';
 import { toFloat32Array, normalizeDescriptor, euclideanDistance, averageDescriptors } from '../utils/faceUtils';
 
-const DETECTION_INTERVAL_MS = 80;
+const DETECTION_INTERVAL_MS = 50;
 const PERSON_COOLDOWN_MS = 1200;
 // const UNKNOWN_FACE_COOLDOWN_MS = 3500; // Removed: unused constant
+// Require several consecutive high-confidence matches before accepting a face
 const BUFFER_SIZE = 2;
+// Require the same face to be stable for at least this long (0 = no extra delay beyond BUFFER_SIZE)
+const MIN_VERIFICATION_MS = 0;
 const TINY_DETECTOR_INPUT_SIZE = 320;
 const CAMERA_STATUS = {
   CONNECTING: 'connecting',
@@ -49,6 +52,8 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false, h
   const animationFrameRef = useRef();
   const lastDetectionTimeRef = useRef(0);
   const matchBufferRef = useRef([]);
+  const verificationIdRef = useRef(null);
+  const verificationStartRef = useRef(0);
 
   // ------------------- Helpers -------------------
   const toArray = (desc) => {
@@ -82,8 +87,13 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false, h
 
 const drawDetection = useCallback((detection) => {
   const canvas = overlayCanvasRef.current;
+  // Support both image (Dahua stream) and video (local webcam)
   const img = imgRef.current;
-  if (!canvas || !img || !detection) return;
+  const video = videoRef.current;
+
+  // Prefer video if it is playing, otherwise fall back to image
+  const source = (video && video.readyState === 4) ? video : img;
+  if (!canvas || !source || !detection) return;
 
   // Defensive: ensure detection has a valid bounding box before resizing/drawing
   const box = detection?.detection?.box;
@@ -95,8 +105,13 @@ const drawDetection = useCallback((detection) => {
     return;
   }
 
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
+  // Size canvas to match the current source frame
+  const width = source.videoWidth || source.naturalWidth || 0;
+  const height = source.videoHeight || source.naturalHeight || 0;
+  if (!width || !height) return;
+
+  canvas.width = width;
+  canvas.height = height;
 
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -371,6 +386,8 @@ const drawDetection = useCallback((detection) => {
       if (!fullDetection) {
         canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
         matchBufferRef.current = [];
+        verificationIdRef.current = null;
+        verificationStartRef.current = 0;
         setVerifying(false);
         animationFrameRef.current = requestAnimationFrame(detect);
         return;
@@ -385,6 +402,8 @@ const drawDetection = useCallback((detection) => {
       ) {
         canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
         matchBufferRef.current = [];
+        verificationIdRef.current = null;
+        verificationStartRef.current = 0;
         setVerifying(false);
         animationFrameRef.current = requestAnimationFrame(detect);
         return;
@@ -406,11 +425,13 @@ const drawDetection = useCallback((detection) => {
       const second = candidates.length > 1 ? candidates[1] : null;
 
       // Use same stricter threshold as registration to avoid mis-assignments
-      const FACE_MATCH_THRESHOLD = 0.35;
+      // Tighter threshold: distance must be very close to the
+      // stored descriptor (built from the registration_photo)
+      const FACE_MATCH_THRESHOLD = 0.28;
       const margin = second ? (second.dist - best.dist) : Infinity;
 
-      // Require a small margin for confidence
-      const CONFIDENCE_MARGIN = 0.05;
+      // Require a clear separation between best and second-best match
+      const CONFIDENCE_MARGIN = 0.07;
 
       const currentId = (best && best.dist < FACE_MATCH_THRESHOLD && margin >= CONFIDENCE_MARGIN)
         ? best.p.id
@@ -419,15 +440,23 @@ const drawDetection = useCallback((detection) => {
       const bestMatch = best ? best.p : null;
       const bestDist = best ? best.dist : Infinity;
 
+      // Track how long the currentId has been consistently seen
+      if (verificationIdRef.current !== currentId) {
+        verificationIdRef.current = currentId;
+        verificationStartRef.current = now;
+      }
+
       // ---------------- BUFFER (ANTI-FLICKER) ----------------
       matchBufferRef.current.push(currentId);
       if (matchBufferRef.current.length > BUFFER_SIZE) {
         matchBufferRef.current.shift();
       }
 
+      const verificationElapsed = now - (verificationStartRef.current || 0);
       const stable =
         matchBufferRef.current.length === BUFFER_SIZE &&
-        matchBufferRef.current.every(id => id === currentId);
+        matchBufferRef.current.every(id => id === currentId) &&
+        verificationElapsed >= MIN_VERIFICATION_MS;
 
       if (!stable) {
         setVerifying(true);
@@ -493,7 +522,13 @@ const drawDetection = useCallback((detection) => {
               });
             } else if (result.blocked) {
               console.info('ATTENDANCE INFO: blocked=', result.message);
-              Swal.fire({ icon: 'info', title: 'Attendance', text: result.message, timer: 2200, showConfirmButton: false });
+              Swal.fire({
+                icon: 'info',
+                title: bestMatch.name,
+                text: result.message,
+                timer: 2200,
+                showConfirmButton: false,
+              });
             }
           })
           .catch(err => {
