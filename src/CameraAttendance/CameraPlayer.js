@@ -3,10 +3,11 @@ import * as faceapi from 'face-api.js/build/commonjs/index.js';
 import Swal from 'sweetalert2';
 import { supabase } from '../supabaseClient';
 import { recordAttendanceForPerson } from '../AdminPage/attendanceUtils';
+import { toFloat32Array, normalizeDescriptor, euclideanDistance, averageDescriptors } from '../utils/faceUtils';
 
 const DETECTION_INTERVAL_MS = 80;
 const PERSON_COOLDOWN_MS = 1200;
-const UNKNOWN_FACE_COOLDOWN_MS = 3500;
+// const UNKNOWN_FACE_COOLDOWN_MS = 3500; // Removed: unused constant
 const BUFFER_SIZE = 2;
 const TINY_DETECTOR_INPUT_SIZE = 320;
 const CAMERA_STATUS = {
@@ -24,7 +25,8 @@ window.onerror = (msg, src, line, col, error) => {
 };
 
 export default function CameraPlayer({ onFaceScan, registrationActive = false, hideSettingsCard = false }) {
-  const wsUrl = process.env.REACT_APP_WS_URL || 'ws://localhost:4000';
+  // If REACT_APP_WS_URL is not set, we skip WebSocket entirely and use local webcam.
+  const wsUrl = (process.env.REACT_APP_WS_URL || '').trim() || null;
   const imgRef = useRef(null);
   const overlayCanvasRef = useRef(null);
   const videoRef = useRef(null); // For local webcam fallback
@@ -37,6 +39,7 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false, h
   const [persons, setPersons] = useState([]);
   const [settings, setSettings] = useState(null);
   const [verifying, setVerifying] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
   const [cameraStatus, setCameraStatus] = useState(CAMERA_STATUS.CONNECTING);
   const [cameraError, setCameraError] = useState('');
   const [useLocalCamera, setUseLocalCamera] = useState(false); // Fallback flag
@@ -82,16 +85,32 @@ const drawDetection = useCallback((detection) => {
   const img = imgRef.current;
   if (!canvas || !img || !detection) return;
 
+  // Defensive: ensure detection has a valid bounding box before resizing/drawing
+  const box = detection?.detection?.box;
+  const boxValid = box && [box.x, box.y, box.width, box.height].every(v => typeof v === 'number' && !isNaN(v));
+  if (!boxValid) {
+    const ctx = canvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    console.warn('Skipping drawDetection due to invalid detection box:', box);
+    return;
+  }
+
   canvas.width = img.naturalWidth;
   canvas.height = img.naturalHeight;
 
   const ctx = canvas.getContext('2d');
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const resized = faceapi.resizeResults(detection, {
-    width: canvas.width,
-    height: canvas.height
-  });
+  let resized;
+  try {
+    resized = faceapi.resizeResults(detection, {
+      width: canvas.width,
+      height: canvas.height
+    });
+  } catch (err) {
+    console.warn('faceapi.resizeResults failed, skipping draw:', err);
+    return;
+  }
 
   const landmarks = resized.landmarks;
   if (!landmarks) return;
@@ -157,7 +176,14 @@ const drawDetection = useCallback((detection) => {
       if (!supabase) return;
       const { data, error } = await supabase.from('persons').select('id, name, department, descriptor');
       if (!error && data) {
-        setPersons(data.map(p => ({ ...p, descriptor: toArray(p.descriptor) })));
+        setPersons(data.map(p => ({
+          ...p,
+          descriptor: p.descriptor
+            ? (Array.isArray(p.descriptor) && Array.isArray(p.descriptor[0])
+                ? averageDescriptors(p.descriptor)
+                : normalizeDescriptor(toFloat32Array(p.descriptor)))
+            : null,
+        })));
       }
     }
 
@@ -224,10 +250,20 @@ const drawDetection = useCallback((detection) => {
   // ------------------- WebSocket -------------------
   useEffect(() => {
     let disposed = false;
-    setCameraStatus(CAMERA_STATUS.CONNECTING);
     setCameraError('');
     cleanupWs();
+    // If no WebSocket URL is configured, go straight to local webcam.
+    if (!wsUrl) {
+      setUseLocalCamera(true);
+      setCameraStatus(CAMERA_STATUS.CONNECTING);
+      return () => {
+        disposed = true;
+        cleanupWs();
+      };
+    }
+
     setUseLocalCamera(false);
+    setCameraStatus(CAMERA_STATUS.CONNECTING);
     const ws = new window.WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -262,6 +298,8 @@ const drawDetection = useCallback((detection) => {
           videoRef.current.onloadedmetadata = () => {
             videoRef.current.play();
             setFrameReady(true);
+            // When falling back to local webcam, mark camera as live so detection can run.
+            setCameraStatus(CAMERA_STATUS.LIVE);
           };
         }
       } catch (err) {
@@ -270,6 +308,7 @@ const drawDetection = useCallback((detection) => {
     }
     startLocalCamera();
     return () => {
+      // Copy ref to variable to avoid stale closure
       const videoEl = videoRef.current;
       if (videoEl) videoEl.srcObject = null;
       if (stream) stream.getTracks().forEach(track => track.stop());
@@ -354,27 +393,31 @@ const drawDetection = useCallback((detection) => {
       // ✅ Draw mesh
       drawDetection(fullDetection);
 
-      const descriptor = toArray(fullDetection.descriptor);
+      const descriptor = normalizeDescriptor(toFloat32Array(fullDetection.descriptor));
 
       // ---------------- MATCHING ----------------
-      let bestMatch = null;
-      let bestDist = Infinity;
+      // Compute distances to all persons and pick best candidate
+      const candidates = persons
+        .filter(p => p.descriptor)
+        .map(p => ({ p, dist: euclideanDistance(descriptor, p.descriptor) }))
+        .sort((a, b) => a.dist - b.dist);
 
-      for (const p of persons) {
-        if (!p.descriptor) continue;
+      const best = candidates.length ? candidates[0] : null;
+      const second = candidates.length > 1 ? candidates[1] : null;
 
-        const dist = faceapi.euclideanDistance(descriptor, p.descriptor);
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestMatch = p;
-        }
-      }
+      // Use same stricter threshold as registration to avoid mis-assignments
+      const FACE_MATCH_THRESHOLD = 0.35;
+      const margin = second ? (second.dist - best.dist) : Infinity;
 
-      const FACE_MATCH_THRESHOLD = 0.65; // 🔥 better accuracy
-      const currentId =
-        bestMatch && bestDist < FACE_MATCH_THRESHOLD
-          ? bestMatch.id
-          : 'unknown';
+      // Require a small margin for confidence
+      const CONFIDENCE_MARGIN = 0.05;
+
+      const currentId = (best && best.dist < FACE_MATCH_THRESHOLD && margin >= CONFIDENCE_MARGIN)
+        ? best.p.id
+        : 'unknown';
+
+      const bestMatch = best ? best.p : null;
+      const bestDist = best ? best.dist : Infinity;
 
       // ---------------- BUFFER (ANTI-FLICKER) ----------------
       matchBufferRef.current.push(currentId);
@@ -406,12 +449,24 @@ const drawDetection = useCallback((detection) => {
         lastScanRef.current[currentId] = now;
         setCooldown(true);
 
+        // Do NOT update registration_photo when recording attendance
         const scanPayload = {
           descriptor,
+          // photoDataUrl is still captured for attendance logs, but should NOT be used to update registration_photo
           photoDataUrl: captureCurrentFrame(),
           deviceTime: new Date().toISOString(),
         };
 
+          // Debug: log match info before recording attendance
+          console.log('ATTENDANCE DEBUG: bestMatch=', bestMatch, 'bestDist=', bestDist, 'threshold=', FACE_MATCH_THRESHOLD);
+          console.log('ATTENDANCE DEBUG: candidates=', candidates.map(c=>({id:c.p.id,name:c.p.name,dist:c.dist})).slice(0,5));
+          console.log('ATTENDANCE DEBUG: settings=', settings);
+          console.log('ATTENDANCE DEBUG: scanPayload present=', Boolean(scanPayload.photoDataUrl), scanPayload.deviceTime);
+          // Update debug overlay if present
+          try { if (debugMode) { const el = document.getElementById('face-debug-pre'); if (el) el.textContent = JSON.stringify(candidates.slice(0,8).map(c=>({ id:c.p.id, name:c.p.name, dist: c.dist.toFixed(3) })), null, 2); } } catch (e) {}
+
+        // Ensure recordAttendanceForPerson or any attendance logic does NOT update registration_photo
+        // (Assumes recordAttendanceForPerson does not update registration_photo for existing persons)
         recordAttendanceForPerson({
           supabase,
           person: bestMatch,
@@ -420,6 +475,7 @@ const drawDetection = useCallback((detection) => {
           method: 'face-scan',
         })
           .then(result => {
+            console.log('ATTENDANCE DEBUG: recordAttendance result=', result);
             if (result.inserted) {
               const message =
                 result.event === 'time-in'
@@ -435,13 +491,17 @@ const drawDetection = useCallback((detection) => {
                 timer: 2500,
                 showConfirmButton: false,
               });
+            } else if (result.blocked) {
+              console.info('ATTENDANCE INFO: blocked=', result.message);
+              Swal.fire({ icon: 'info', title: 'Attendance', text: result.message, timer: 2200, showConfirmButton: false });
             }
           })
           .catch(err => {
+            console.error('ATTENDANCE ERROR:', err);
             Swal.fire({
               icon: 'error',
               title: 'Attendance Error',
-              text: err.message,
+              text: err.message || String(err),
             });
           })
           .finally(() => setCooldown(false));
@@ -449,14 +509,18 @@ const drawDetection = useCallback((detection) => {
 
       // ---------------- UNKNOWN PERSON ----------------
       else {
-        // In registration mode, trigger onFaceScan for unknown faces
-        if (typeof onFaceScan === 'function') {
-          const scanPayload = {
-            descriptor,
-            photoDataUrl: captureCurrentFrame(),
-            deviceTime: new Date().toISOString(),
-          };
-          onFaceScan(scanPayload);
+        // Only trigger onFaceScan for unknown faces if NOT in registrationActive mode
+        // (registrationActive disables scanning to avoid duplicate popups)
+        if (!registrationActive && typeof onFaceScan === 'function') {
+          const photoDataUrl = captureCurrentFrame();
+          if (photoDataUrl) {
+            const scanPayload = {
+              descriptor,
+              photoDataUrl,
+              deviceTime: new Date().toISOString(),
+            };
+            onFaceScan(scanPayload);
+          }
         }
         lastScanRef.current.unknown = now;
         unknownFaceLockRef.current = true;
@@ -499,7 +563,7 @@ const drawDetection = useCallback((detection) => {
   // ------------------- Reset registration state -------------------
   useEffect(() => {
     if (!registrationActive) { unknownFaceLockRef.current = false; matchBufferRef.current = []; setVerifying(false); }
-  }, [registrationActive, settings]); // Added settings as dependency for completeness
+  }, [registrationActive, settings]); // settings dependency included for completeness
 
   // ------------------- Render -------------------
  return (
@@ -519,6 +583,7 @@ const drawDetection = useCallback((detection) => {
                 ● Live
               </span>
             )}
+                <button onClick={() => setDebugMode(d => !d)} style={{ marginLeft: 8, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef2ff', color: '#2563eb' }}>{debugMode ? 'Hide' : 'Debug'}</button>
             {cameraStatus === CAMERA_STATUS.ERROR && (
               <span style={{ ...styles.badge, ...styles.badgeError }}>
                 ⚠️ Error
@@ -592,6 +657,13 @@ const drawDetection = useCallback((detection) => {
             </div>
           </div>
         )}
+
+          {debugMode && (
+            <div style={{ padding: '8px 16px', fontSize: '12px', color: '#062b6d' }}>
+              <div><strong>DEBUG — Top candidates</strong></div>
+              <pre style={{ whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'auto', margin: 0 }} id="face-debug-pre">(waiting...)</pre>
+            </div>
+          )}
 
         {/* Error or missing settings messages */}
         {!validSettings && (

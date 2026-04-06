@@ -94,17 +94,7 @@ function App() {
                   {window.location.search.includes('ipcam=1') ? (
                     <CameraIframe />
                   ) : (
-                    <CameraPlayer onFaceScan={handleFaceScan} registrationActive={Boolean(pendingScan) || showModal} />
-                  )}
-                  {showModal && (
-                    <div style={styles.modalOverlay}>
-                      <div style={styles.modalContent}>
-                        <button onClick={closeModal} style={styles.modalClose}>
-                          &times;
-                        </button>
-                        <PersonDetails scanPayload={pendingScan} onComplete={closeModal} />
-                      </div>
-                    </div>
+                    <CameraPlayer />
                   )}
                 </>
               }

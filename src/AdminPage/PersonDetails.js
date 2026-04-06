@@ -1,29 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import Swal from 'sweetalert2';
-import { supabase } from '../supabaseClient';
+import { supabase, SUPABASE_CONFIGURED } from '../supabaseClient';
+import { toFloat32Array, normalizeDescriptor, euclideanDistance, averageDescriptors } from '../utils/faceUtils';
 import { recordAttendanceForPerson } from '../AdminPage/attendanceUtils';
 
 // Face recognition threshold – adjust based on your model
-const FACE_MATCH_THRESHOLD = 0.6;
-
-// Euclidean distance between two vectors
-function euclideanDistance(a, b) {
-  if (!a || !b || a.length !== b.length) return Infinity;
-  let sum = 0;
-  for (let i = 0; i < a.length; i++) {
-    const diff = a[i] - b[i];
-    sum += diff * diff;
-  }
-  return Math.sqrt(sum);
-}
+const FACE_MATCH_THRESHOLD = 0.35;
 
 // Predefined department options
 const DEFAULT_DEPARTMENTS = ['HR', 'IT', 'Finance', 'Sales', 'Admin', 'Operations'];
 
 export default function PersonDetails({ scanPayload, onComplete }) {
-  const descriptor = scanPayload?.descriptor || null;
-  const isRegistrationMode = Array.isArray(descriptor) && descriptor.length > 0;
+  const rawDescriptor = scanPayload?.descriptor || null;
+  const descriptor = rawDescriptor ? normalizeDescriptor(toFloat32Array(rawDescriptor)) : null;
+  const isRegistrationMode = descriptor && descriptor.length > 0;
+
   const [persons, setPersons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -34,78 +26,139 @@ export default function PersonDetails({ scanPayload, onComplete }) {
   const [customDepartment, setCustomDepartment] = useState(false);
   const [customDeptValue, setCustomDeptValue] = useState('');
   const [settings, setSettings] = useState(null);
+  const [matchedCandidate, setMatchedCandidate] = useState(null);
+
   const selectedPerson = persons.find((person) => person.id === selectedId) || null;
   const isLinkingExistingPerson = isRegistrationMode && Boolean(selectedId);
-  const selectedPersonHasFace = Boolean(selectedPerson?.descriptor && Array.isArray(selectedPerson.descriptor) && selectedPerson.descriptor.length);
+  const selectedPersonHasFace = Boolean(selectedPerson?.descriptor && selectedPerson.descriptor.length);
 
-  useEffect(() => {
-    if (!supabase) {
-      setError('Supabase not configured in frontend (.env REACT_APP_SUPABASE_URL / REACT_APP_SUPABASE_ANON_KEY).');
+  // Guard refs to avoid overlapping fetches
+  const fetchInProgressRef = useRef(false);
+  const lastFetchAtRef = useRef(0);
+  const rejectedMatchRef = useRef(false);
+
+  const loadPersons = useCallback(async (opts = { force: false }) => {
+    if (!SUPABASE_CONFIGURED || !supabase) {
+      setError('Supabase not configured in frontend. Please set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.');
       setLoading(false);
       return;
     }
 
-    async function loadPersons() {
-      try {
-        setError(null);
-        setLoading(true);
-        const { data, error: err } = await supabase
-          .from('persons')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(200);
+    const now = Date.now();
+    if (!opts.force && fetchInProgressRef.current) return;
+    if (!opts.force && now - lastFetchAtRef.current < 2000) return; // rate-limit
 
-        if (err) throw err;
-        const list = data || [];
-        setPersons(list);
+    fetchInProgressRef.current = true;
+    setError(null);
+    setLoading(true);
+    try {
+      const { data, error: err } = await supabase
+        .from('persons')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(200);
 
-        // Only auto-select the first person if we are NOT in registration mode (i.e., no descriptor)
-        if (!selectedId && list.length && !descriptor) {
-          const first = list[0];
-          setSelectedId(first.id);
-          setForm({
-            id: first.id || '',
-            name: first.name || '',
-            department: first.department || '',
-            phone_number: first.phone_number || '',
-            address: first.address || '',
-            sex: first.sex || '',
-          });
-          // If the department is not in the default list, treat as custom
-          if (first.department && !DEFAULT_DEPARTMENTS.includes(first.department)) {
-            setCustomDepartment(true);
-            setCustomDeptValue(first.department);
+      if (err) throw err;
+      const list = data || [];
+
+      const mapped = list.map(p => ({
+        ...p,
+        descriptor: p.descriptor
+          ? (Array.isArray(p.descriptor) && Array.isArray(p.descriptor[0])
+              ? averageDescriptors(p.descriptor)
+              : normalizeDescriptor(toFloat32Array(p.descriptor)))
+          : null,
+      }));
+      setPersons(mapped);
+
+      // Auto-select first person if appropriate (only when NOT in registration mode)
+      if (!selectedId && mapped.length && !descriptor) {
+        const first = mapped[0];
+        setSelectedId(first.id);
+        setForm({
+          id: first.id || '',
+          name: first.name || '',
+          department: first.department || '',
+          phone_number: first.phone_number || '',
+          address: first.address || '',
+          sex: first.sex || '',
+        });
+        if (first.department && !DEFAULT_DEPARTMENTS.includes(first.department)) {
+          setCustomDepartment(true);
+          setCustomDeptValue(first.department);
+        } else {
+          setCustomDepartment(false);
+          setCustomDeptValue('');
+        }
+      }
+
+      // If we have a live descriptor (registration scan), try to find a confident match and pre-select it
+      if (descriptor && mapped.length) {
+        if (rejectedMatchRef.current) {
+          setMatchedCandidate(null);
+        } else {
+          const candidates = mapped
+            .filter(p => p.descriptor)
+            .map(p => ({ p, dist: euclideanDistance(descriptor, p.descriptor) }))
+            .sort((a, b) => a.dist - b.dist);
+          const best = candidates.length ? candidates[0] : null;
+          const second = candidates.length > 1 ? candidates[1] : null;
+          const margin = second ? (second.dist - best.dist) : Infinity;
+          if (best && best.dist < FACE_MATCH_THRESHOLD && margin >= 0.05) {
+            // pre-select the matched person but allow user to change
+            setSelectedId(best.p.id);
+            setMatchedCandidate({ id: best.p.id, name: best.p.name || '', dist: best.dist });
+            setForm(prev => ({ ...prev, id: best.p.id, name: best.p.name || prev.name, department: best.p.department || prev.department, phone_number: best.p.phone_number || prev.phone_number, address: best.p.address || prev.address, sex: best.p.sex || prev.sex }));
           } else {
-            setCustomDepartment(false);
-            setCustomDeptValue('');
+            setMatchedCandidate(null);
           }
         }
-      } catch (e) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
+      } else {
+        setMatchedCandidate(null);
+      }
+
+      lastFetchAtRef.current = Date.now();
+    } catch (e) {
+      const msg = (e && e.message) ? e.message : String(e);
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+        setError('Network error: unable to reach Supabase. Check your internet connection and REACT_APP_SUPABASE_URL.');
+      } else {
+        setError(msg);
+      }
+      console.error('Error loading persons:', e);
+    } finally {
+      fetchInProgressRef.current = false;
+      setLoading(false);
+    }
+  }, [descriptor, selectedId]);
+
+  useEffect(() => {
+    // initial load
+    loadPersons();
+
+    // fetch department rates and settings once
+    async function fetchDeptRates() {
+      if (!SUPABASE_CONFIGURED || !supabase) return;
+      try {
+        const { data, error } = await supabase.from('department_rates').select('*');
+        if (!error && data) setDeptRates(data);
+      } catch (err) {
+        console.error('Error fetching department rates:', err);
+      }
+    }
+    async function fetchSettings() {
+      if (!SUPABASE_CONFIGURED || !supabase) return;
+      try {
+        const { data, error } = await supabase.from('settings').select('*').eq('id', 1).single();
+        if (!error && data) setSettings(data);
+      } catch (err) {
+        console.error('Error fetching settings:', err);
       }
     }
 
-    loadPersons();
-    // Fetch department rates
-    async function fetchDeptRates() {
-      const { data, error } = await supabase
-        .from('department_rates')
-        .select('*');
-      if (!error && data) setDeptRates(data);
-    }
-    async function fetchSettings() {
-      const { data, error } = await supabase
-        .from('settings')
-        .select('*')
-        .eq('id', 1)
-        .single();
-      if (!error && data) setSettings(data);
-    }
     fetchDeptRates();
     fetchSettings();
-  }, [selectedId, descriptor]); // Re-run if descriptor changes
+  }, [loadPersons]);
 
   function onSelect(person) {
     setSelectedId(person.id);
@@ -117,7 +170,6 @@ export default function PersonDetails({ scanPayload, onComplete }) {
       address: person.address || '',
       sex: person.sex || '',
     });
-    // Handle department type (custom or predefined)
     if (person.department && !DEFAULT_DEPARTMENTS.includes(person.department)) {
       setCustomDepartment(true);
       setCustomDeptValue(person.department);
@@ -148,16 +200,28 @@ export default function PersonDetails({ scanPayload, onComplete }) {
     setCustomDeptValue(e.target.value);
   }
 
+  function handleRejectMatch() {
+    rejectedMatchRef.current = true;
+    setMatchedCandidate(null);
+    setSelectedId('');
+    setForm({ id: '', name: '', department: '', phone_number: '', address: '', sex: '' });
+  }
+
+  useEffect(() => {
+    // When a new scan payload arrives, clear any previous "reject" state so matching can run again
+    rejectedMatchRef.current = false;
+  }, [scanPayload]);
+
   async function onSave(e) {
     e.preventDefault();
-    if (!supabase) return;
-
+    if (!SUPABASE_CONFIGURED || !supabase) {
+      setError('Supabase not configured in frontend. Please set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.');
+      return;
+    }
 
     let personId = form.id;
     const isNew = !personId;
-    if (isNew) {
-      personId = uuidv4(); // auto-generate ID
-    }
+    if (isNew) personId = uuidv4();
 
     // Determine final department value
     let finalDepartment = form.department;
@@ -185,12 +249,11 @@ export default function PersonDetails({ scanPayload, onComplete }) {
       const isLinkingFaceEnrollment = isRegistrationMode && isLinkingExistingRecord && !existingPersonForSave?.descriptor;
 
       // --- FACE DUPLICATE VALIDATION ---
-      if (descriptor && Array.isArray(descriptor)) {
-        const newDesc = Array.from(descriptor);
-
+      if (descriptor) {
+        const newDesc = descriptor; // already normalized Float32Array
         const duplicateFace = persons.find(p => {
           if (p.id === personId) return false; // skip current person
-          if (!p.descriptor || !Array.isArray(p.descriptor)) return false;
+          if (!p.descriptor) return false;
           const dist = euclideanDistance(newDesc, p.descriptor);
           return dist < FACE_MATCH_THRESHOLD;
         });
@@ -239,7 +302,6 @@ export default function PersonDetails({ scanPayload, onComplete }) {
         descriptor: descriptor ? Array.from(descriptor) : null,
         daily_rate,
         late_penalty,
-        // Save registration photo if available (for new registration only)
         registration_photo: (!isLinkingExistingRecord && scanPayload && scanPayload.photoDataUrl) ? scanPayload.photoDataUrl : undefined,
       };
 
@@ -266,6 +328,7 @@ export default function PersonDetails({ scanPayload, onComplete }) {
         address: form.address,
         sex: form.sex,
       });
+
       // Reset custom department state
       if (finalDepartment && !DEFAULT_DEPARTMENTS.includes(finalDepartment)) {
         setCustomDepartment(true);
@@ -336,12 +399,31 @@ export default function PersonDetails({ scanPayload, onComplete }) {
     <div style={{ marginTop: '32px', width: '100%', maxWidth: '960px' }}>
       <h2>Person Details Registration</h2>
       {isRegistrationMode && (
-        <div style={{ marginBottom: '16px', padding: '12px 16px', borderRadius: '6px', background: '#1f3b2f', border: '1px solid #2f855a', color: '#e6fffa' }}>
-          Face not enrolled yet. Complete registration first, or select an existing person without a saved face to link this scan before attendance can be logged.
+        matchedCandidate ? (
+          <div style={{ marginBottom: '16px', padding: '12px 16px', borderRadius: '6px', background: '#1e3a8a', border: '1px solid #1e40af', color: '#e6f0ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              Face appears to match <strong>{matchedCandidate.name || matchedCandidate.id}</strong> (distance {matchedCandidate.dist.toFixed(3)}). You can confirm or choose another person.
+            </div>
+            <div style={{ marginLeft: '12px' }}>
+              <button type="button" onClick={handleRejectMatch} style={{ padding: '6px 10px', background: '#f97316', color: '#fff', border: 'none', borderRadius: 4, cursor: 'pointer' }}>Not my face</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ marginBottom: '16px', padding: '12px 16px', borderRadius: '6px', background: '#1f3b2f', border: '1px solid #2f855a', color: '#e6fffa' }}>
+            Face not enrolled yet. Complete registration first, or select an existing person without a saved face to link this scan before attendance can be logged.
+          </div>
+        )
+      )}
+
+      {loading && <p>Loading persons...</p>}
+      {error && (
+        <div style={{ marginBottom: 12 }}>
+          <p style={{ color: 'red', margin: 0 }}>{error}</p>
+          <div style={{ marginTop: 8 }}>
+            <button onClick={() => { setError(null); loadPersons({ force: true }); }} style={{ padding: '6px 10px' }}>Retry</button>
+          </div>
         </div>
       )}
-      {loading && <p>Loading persons...</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
 
       <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', width: '100%' }}>
         <div style={{ flex: 1, maxHeight: '360px', overflowY: 'auto' }}>
@@ -376,7 +458,7 @@ export default function PersonDetails({ scanPayload, onComplete }) {
               ))}
               {!persons.length && !loading && (
                 <tr>
-                  <td colSpan={3} style={{ padding: '8px' }}>
+                  <td colSpan={6} style={{ padding: '8px' }}>
                     No persons yet. They will appear after the first scan or you can add one manually.
                   </td>
                 </tr>
@@ -397,7 +479,7 @@ export default function PersonDetails({ scanPayload, onComplete }) {
               You are linking this scanned face to the selected existing person record.
             </p>
           )}
-          
+
           {/* Person ID - only show when editing, read-only */}
           {selectedId && (
             <div style={{ marginBottom: '8px', textAlign: 'left' }}>
@@ -412,7 +494,7 @@ export default function PersonDetails({ scanPayload, onComplete }) {
               </label>
             </div>
           )}
-          
+
           {/* Name field */}
           <div style={{ marginBottom: '8px', textAlign: 'left' }}>
             <label>
@@ -425,7 +507,7 @@ export default function PersonDetails({ scanPayload, onComplete }) {
               />
             </label>
           </div>
-          
+
           {/* Phone number field */}
           <div style={{ marginBottom: '8px', textAlign: 'left' }}>
             <label>
@@ -497,7 +579,7 @@ export default function PersonDetails({ scanPayload, onComplete }) {
               </div>
             )}
           </div>
-          
+
           <button type="submit" disabled={saving} style={{ padding: '8px 16px' }}>
             {saving ? 'Saving...' : 'Save'}
           </button>

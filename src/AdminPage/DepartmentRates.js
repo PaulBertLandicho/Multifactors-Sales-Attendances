@@ -103,7 +103,7 @@ export default function DepartmentRates() {
       </div>
 
       {/* Navigation Tabs */}
-      <div style={styles.tabContainer}>
+      {/* <div style={styles.tabContainer}>
         <button
           onClick={() => navigate('/admin/settings')}
           style={{
@@ -126,7 +126,7 @@ export default function DepartmentRates() {
         >
           Employee Rates
         </button>
-      </div>
+      </div> */}
 
       {/* Horizontal scrollable cards */}
       <div style={styles.cardsContainer}>

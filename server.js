@@ -179,6 +179,22 @@ app.get('/health/stream', (req, res) => {
     ...getStreamHealth(),
   });
 });
+
+// Compatibility endpoint expected by the frontend DeviceStatus component
+app.get('/api/device/status', (req, res) => {
+  try {
+    const health = getStreamHealth();
+    res.json({
+      online: streamState.status === 'running' && health.playlistExists && health.segmentsUpdating,
+      deviceIp: process.env.DAHUA_DEVICE_IP || null,
+      statusCode: streamState.status,
+      error: streamState.lastError || null,
+      ...health,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to read stream status.' });
+  }
+});
 // Supabase-backed attendance API
 app.get('/api/attendance', async (req, res) => {
   if (!supabase) {

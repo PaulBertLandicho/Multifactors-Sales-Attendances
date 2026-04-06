@@ -264,12 +264,12 @@ export default function AdminSettings() {
         >
           {saving ? 'Saving...' : 'Save Settings'}
         </button>
-        <button
+        {/* <button
           onClick={() => navigate('/admin/department-rates')}
           style={{ ...styles.button, ...styles.buttonSecondary }}
         >
           Department Rates
-        </button>
+        </button> */}
       </div>
     </div>
   );
