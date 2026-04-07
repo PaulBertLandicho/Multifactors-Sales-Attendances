@@ -1,13 +1,16 @@
 import { supabase } from '../supabaseClient';
 import Swal from 'sweetalert2';
 
-export async function logPayrollRelease({ payrollPeriodId, personId, releasedBy }) {
+// Insert a release activity log. personName is stored for readability;
+// personId is no longer required so this works even if that column
+// does not exist in the payroll_activity_logs table.
+export async function logPayrollRelease({ payrollPeriodId, personName, releasedBy }) {
   const { error } = await supabase.from('payroll_activity_logs').insert([
     {
       payroll_period_id: payrollPeriodId,
-      person_id: personId,
+      person_name: personName || null,
       released_by: releasedBy,
-      action: 'release',
+      action: 'Released',
       timestamp: new Date().toISOString(),
     },
   ]);
@@ -17,5 +20,4 @@ export async function logPayrollRelease({ payrollPeriodId, personId, releasedBy 
     throw error;
   }
 }
-
-// Usage: logPayrollRelease({ payrollPeriodId, personId, releasedBy })
+// Usage: logPayrollRelease({ payrollPeriodId, personName, releasedBy })

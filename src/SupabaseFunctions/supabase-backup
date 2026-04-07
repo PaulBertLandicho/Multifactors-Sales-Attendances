@@ -52,6 +52,7 @@ create index IF not exists idx_holidays_dept_month_year on public.holidays using
 payroll_activity_logs --> create table public.payroll_activity_logs (
   id uuid not null default extensions.uuid_generate_v4 (),
   person_id text null,
+  person_name text null,
   released_by text not null,
   action text not null,
   timestamp timestamp with time zone not null default now(),

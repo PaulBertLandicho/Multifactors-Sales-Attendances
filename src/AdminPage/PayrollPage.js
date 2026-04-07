@@ -240,7 +240,11 @@ export default function PayrollPage() {
       }
     } catch (e) {}
     try {
-      await logPayrollRelease({ payrollPeriodId: period.dbId, personId: period.personId, releasedBy });
+      await logPayrollRelease({
+        payrollPeriodId: period.dbId,
+        personName: period.person?.name || null,
+        releasedBy,
+      });
     } catch (err) {
       // Optionally show/log error
       Swal.fire('Failed to log payroll release', err.message || err, 'error');
@@ -487,8 +491,8 @@ export default function PayrollPage() {
         >
           Released Payroll Logs
         </button> */}
-<button
-          style={{ ...styles.button, ...styles.buttonSecondary, marginTop: 16, float: 'right' }}
+      <button
+          style={{ ...styles.button, ...styles.buttonSecondary }}
           onClick={() => window.location.href = '/admin/released-history'}
         >
           Released History Payroll

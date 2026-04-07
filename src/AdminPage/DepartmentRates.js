@@ -4,10 +4,11 @@ import React, { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
-import HolidayManager from './HolidayManager';
 
 export default function DepartmentRates() {
   const [rates, setRates] = useState([]);
+  // Track original department names for rename
+  const [originalNames, setOriginalNames] = useState([]);
   // Track holiday types and dates per department
   const [holidayTypes, setHolidayTypes] = useState({});
   const [holidayDates, setHolidayDates] = useState({});
@@ -24,8 +25,52 @@ export default function DepartmentRates() {
       .from('department_rates')
       .select('*')
       .order('department');
-    if (!error && data) setRates(data);
+    if (!error && data) {
+      setRates(data);
+      setOriginalNames(data.map(row => row.department));
+    }
     setLoading(false);
+  };
+
+  // Add Department (modal version)
+  const handleAddDepartment = async () => {
+    const { value: deptName } = await Swal.fire({
+      title: 'Add Department',
+      input: 'text',
+      inputLabel: 'Department Name',
+      inputPlaceholder: 'Enter department name',
+      showCancelButton: true,
+    });
+
+    if (!deptName) return;
+
+    // Check duplicate
+    const exists = rates.find(
+      r => r.department.toLowerCase() === deptName.toLowerCase()
+    );
+
+    if (exists) {
+      return Swal.fire('Error', 'Department already exists', 'error');
+    }
+
+    const { error } = await supabase.from('department_rates').insert({
+      department: deptName,
+      daily_rate: 0,
+      late_penalty: 0,
+      sss: 0,
+      pag_ibig: 0,
+      philhealth: 0,
+      ot_rate: 0,
+      regular_holiday_rate: 100,
+      special_holiday_rate: 30,
+    });
+
+    if (error) {
+      Swal.fire('Error', error.message, 'error');
+    } else {
+      Swal.fire('Success', 'Department added', 'success');
+      fetchRates();
+    }
   };
 
   const handleChange = (index, field, value) => {
@@ -73,23 +118,53 @@ export default function DepartmentRates() {
   const handleSave = async (index) => {
     setSaving(true);
     const item = rates[index];
-    const { error } = await supabase
-      .from('department_rates')
-      .upsert({
-        department: item.department,
-        daily_rate: item.daily_rate,
-        late_penalty: item.late_penalty,
-        sss: item.sss,
-        pag_ibig: item.pag_ibig,
-        philhealth: item.philhealth,
-        ot_rate: item.ot_rate,
-        regular_holiday_rate: item.regular_holiday_rate || 100,
-        special_holiday_rate: item.special_holiday_rate || 30,
-        updated_at: new Date(),
-      });
+    const originalName = originalNames[index];
+    let error = null;
+    // If department name changed, update by filtering on original name
+    if (item.department !== originalName) {
+      // Check for duplicate
+      if (rates.some((r, i) => i !== index && r.department.toLowerCase() === item.department.toLowerCase())) {
+        Swal.fire('Error', 'Department name already exists', 'error');
+        setSaving(false);
+        return;
+      }
+      const { error: updateError } = await supabase
+        .from('department_rates')
+        .update({
+          department: item.department,
+          daily_rate: item.daily_rate,
+          late_penalty: item.late_penalty,
+          sss: item.sss,
+          pag_ibig: item.pag_ibig,
+          philhealth: item.philhealth,
+          ot_rate: item.ot_rate,
+          regular_holiday_rate: item.regular_holiday_rate || 100,
+          special_holiday_rate: item.special_holiday_rate || 30,
+          updated_at: new Date(),
+        })
+        .eq('department', originalName);
+      error = updateError;
+    } else {
+      const { error: updateError } = await supabase
+        .from('department_rates')
+        .update({
+          daily_rate: item.daily_rate,
+          late_penalty: item.late_penalty,
+          sss: item.sss,
+          pag_ibig: item.pag_ibig,
+          philhealth: item.philhealth,
+          ot_rate: item.ot_rate,
+          regular_holiday_rate: item.regular_holiday_rate || 100,
+          special_holiday_rate: item.special_holiday_rate || 30,
+          updated_at: new Date(),
+        })
+        .eq('department', item.department);
+      error = updateError;
+    }
     if (error) Swal.fire('Error', error.message, 'error');
     else Swal.fire('Saved', '', 'success');
     setSaving(false);
+    fetchRates();
   };
 
   if (loading) return <div>Loading employee rates...</div>;
@@ -102,39 +177,68 @@ export default function DepartmentRates() {
         <div style={styles.titleUnderline} />
       </div>
 
-      {/* Navigation Tabs */}
-      {/* <div style={styles.tabContainer}>
+
+      {/* Add Department Button (modal) */}
+      <div style={{ marginBottom: 24 }}>
         <button
-          onClick={() => navigate('/admin/settings')}
-          style={{
-            ...styles.tab,
-            ...(window.location.pathname === '/admin/settings'
-              ? styles.activeTab
-              : styles.inactiveTab),
-          }}
+          onClick={handleAddDepartment}
+          style={{ ...styles.saveButton, minWidth: 180 }}
         >
-          Work Hours Settings
+          Add Department
         </button>
-        <button
-          onClick={() => navigate('/admin/department-rates')}
-          style={{
-            ...styles.tab,
-            ...(window.location.pathname === '/admin/department-rates'
-              ? styles.activeTab
-              : styles.inactiveTab),
-          }}
-        >
-          Employee Rates
-        </button>
-      </div> */}
+      </div>
 
       {/* Horizontal scrollable cards */}
       <div style={styles.cardsContainer}>
         {rates.map((row, idx) => (
           <div key={row.department} style={styles.card}>
+
             <div style={styles.cardHeader}>
               <span style={styles.cardIcon}>🏢</span>
-              <h2 style={styles.departmentName}>{row.department}</h2>
+              <input
+                type="text"
+                value={row.department}
+                onChange={e => handleChange(idx, 'department', e.target.value)}
+                style={{ ...styles.departmentName, border: '1px solid #d1d5db', borderRadius: 8, padding: '2px 8px', minWidth: 120 }}
+              />
+              <button
+                onClick={() => handleSave(idx)}
+                disabled={saving}
+                style={{ marginLeft: 8, background: '#10b981', color: '#fff', border: 'none', borderRadius: 8, padding: '4px 12px', cursor: saving ? 'not-allowed' : 'pointer', fontWeight: 600 }}
+                title="Save Department Name"
+              >
+                Save
+              </button>
+              <button
+                onClick={async () => {
+                  const confirm = await Swal.fire({
+                    title: `Delete ${row.department}?`,
+                    text: 'This will remove the department and all its rates.',
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonText: 'Delete',
+                    cancelButtonText: 'Cancel',
+                  });
+                  if (confirm.isConfirmed) {
+                    setSaving(true);
+                    const { error } = await supabase
+                      .from('department_rates')
+                      .delete()
+                      .eq('department', row.department);
+                    if (error) Swal.fire('Error', error.message, 'error');
+                    else {
+                      Swal.fire('Deleted', '', 'success');
+                      fetchRates();
+                    }
+                    setSaving(false);
+                  }
+                }}
+                style={{ marginLeft: 8, background: '#ef4444', color: '#fff', border: 'none', borderRadius: 8, padding: '4px 12px', cursor: 'pointer', fontWeight: 600 }}
+                disabled={saving}
+                title="Delete Department"
+              >
+                Delete
+              </button>
             </div>
 
             {/* Rates Section */}
@@ -163,7 +267,7 @@ export default function DepartmentRates() {
                     style={styles.input}
                   />
                 </div>
-                <div style={styles.inputGroup}>
+                {/* <div style={styles.inputGroup}>
                   <label style={styles.label}>OT Rate (Hrs of Work)</label>
                   <input
                     type="number"
@@ -173,7 +277,7 @@ export default function DepartmentRates() {
                     onChange={(e) => handleChange(idx, 'ot_rate', e.target.value)}
                     style={styles.input}
                   />
-                </div>
+                </div> */}
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Regular Holiday Rate (%)</label>
                   <input
@@ -253,7 +357,7 @@ export default function DepartmentRates() {
             </div>
 
             {/* Holiday Manager Integration */}
-            <HolidayManager
+            {/* <HolidayManager
               department={row.department}
               regularRate={row.regular_holiday_rate || 100}
               specialRate={row.special_holiday_rate || 30}
@@ -262,7 +366,7 @@ export default function DepartmentRates() {
                 // Example: console.log('Holiday Data:', holidayData);
                 Swal.fire('Saved holidays for ' + row.department, JSON.stringify(holidayData, null, 2), 'success');
               }}
-            />
+            /> */}
           </div>
         ))}
       </div>
@@ -443,6 +547,8 @@ const styles = {
     animation: 'spin 1s linear infinite',
   },
 };
+
+
 
 // Add global keyframes and focus styles
 const styleSheet = document.createElement('style');

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import AttendanceTable from '../AdminPage/AttendanceTable';
 import PersonRegistration from '../AdminPage/PersonRegistration';
+import HolidayManagerGlobal from './HolidayManager';
 
 export default function AdminSettings() {
   const [settings, setSettings] = useState({
@@ -222,10 +223,29 @@ export default function AdminSettings() {
             </div>
             <span style={styles.hint}>Late occurrences before deduction</span>
           </div>
+          <span style={styles.cardIcon}>📆</span>
+          <h2 style={styles.cardTitle}>Payroll Period Length</h2>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Days per Payroll Period</label>
+            <div style={styles.numberInputWrapper}>
+              <input
+                type="number"
+                name="payroll_period_days"
+                value={settings.payroll_period_days}
+                onChange={handleChange}
+                min="1"
+                max="31"
+                step="1"
+                style={styles.numberInput}
+              />
+              <span style={styles.inputSuffix}>days</span>
+            </div>
+            <span style={styles.hint}>Number of days in each payroll period (default: 15)</span>
+          </div>
         </div>
 
         {/* Payroll Period Days Card */}
-        <div style={styles.card}>
+        {/* <div style={styles.card}>
           <div style={styles.cardHeader}>
             <span style={styles.cardIcon}>📆</span>
             <h2 style={styles.cardTitle}>Payroll Period Length</h2>
@@ -247,9 +267,13 @@ export default function AdminSettings() {
             </div>
             <span style={styles.hint}>Number of days in each payroll period (default: 15)</span>
           </div>
-        </div>
+        </div> */}
       </div>
 
+      {/* Global Holiday Manager (applies to all departments) */}
+      <div style={{ margin: '40px 0' }}>
+        <HolidayManagerGlobal />
+      </div>
       {/* Action Buttons */}
       <div style={styles.actions}>
         <button

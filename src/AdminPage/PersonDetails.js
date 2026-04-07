@@ -11,7 +11,7 @@ const FACE_MATCH_THRESHOLD = 0.35;
 // Predefined department options
 const DEFAULT_DEPARTMENTS = ['HR', 'IT', 'Finance', 'Sales', 'Admin', 'Operations'];
 
-export default function PersonDetails({ scanPayload, onComplete }) {
+export default function PersonDetails({ scanPayload, onComplete, hidePersonTable = false }) {
   const rawDescriptor = scanPayload?.descriptor || null;
   const descriptor = rawDescriptor ? normalizeDescriptor(toFloat32Array(rawDescriptor)) : null;
   const isRegistrationMode = descriptor && descriptor.length > 0;
@@ -404,7 +404,7 @@ export default function PersonDetails({ scanPayload, onComplete }) {
   }
 
   return (
-    <div style={{ marginTop: '32px', width: '100%', maxWidth: '960px' }}>
+    <div style={{ marginTop: '24px', width: '100%', maxWidth: '100%' }}>
       <h2>Person Details Registration</h2>
       {isRegistrationMode && (
         matchedCandidate ? (
@@ -423,8 +423,8 @@ export default function PersonDetails({ scanPayload, onComplete }) {
         )
       )}
 
-      {loading && <p>Loading persons...</p>}
-      {error && (
+      {!hidePersonTable && loading && <p>Loading persons...</p>}
+      {!hidePersonTable && error && (
         <div style={{ marginBottom: 12 }}>
           <p style={{ color: 'red', margin: 0 }}>{error}</p>
           <div style={{ marginTop: 8 }}>
@@ -434,48 +434,53 @@ export default function PersonDetails({ scanPayload, onComplete }) {
       )}
 
       <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start', width: '100%' }}>
-        <div style={{ flex: 1, maxHeight: '360px', overflowY: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-            <thead>
-              <tr>
-                <th style={{ borderBottom: '1px solid #444', padding: '8px', textAlign: 'left' }}>ID</th>
-                <th style={{ borderBottom: '1px solid #444', padding: '8px', textAlign: 'left' }}>Name</th>
-                <th style={{ borderBottom: '1px solid #444', padding: '8px', textAlign: 'left' }}>Department</th>
-                <th style={{ borderBottom: '1px solid #444', padding: '8px', textAlign: 'left' }}>Phone</th>
-                <th style={{ borderBottom: '1px solid #444', padding: '8px', textAlign: 'left' }}>Address</th>
-                <th style={{ borderBottom: '1px solid #444', padding: '8px', textAlign: 'left' }}>Sex</th>
-              </tr>
-            </thead>
-            <tbody>
-              {persons.map((p) => (
-                <tr
-                  key={p.id}
-                  onClick={() => onSelect(p)}
-                  style={{
-                    cursor: 'pointer',
-                    backgroundColor: selectedId === p.id ? '#333' : 'transparent',
-                  }}
-                >
-                  <td style={{ borderBottom: '1px solid #333', padding: '6px' }}>{p.id}</td>
-                  <td style={{ borderBottom: '1px solid #333', padding: '6px' }}>{p.name || ''}</td>
-                  <td style={{ borderBottom: '1px solid #333', padding: '6px' }}>{p.department || ''}</td>
-                  <td style={{ borderBottom: '1px solid #333', padding: '6px' }}>{p.phone_number || ''}</td>
-                  <td style={{ borderBottom: '1px solid #333', padding: '6px' }}>{p.address || ''}</td>
-                  <td style={{ borderBottom: '1px solid #333', padding: '6px' }}>{p.sex || ''}</td>
-                </tr>
-              ))}
-              {!persons.length && !loading && (
+        {!hidePersonTable && (
+          <div style={{ flex: 1, maxHeight: '360px', overflowY: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+              <thead>
                 <tr>
-                  <td colSpan={6} style={{ padding: '8px' }}>
-                    No persons yet. They will appear after the first scan or you can add one manually.
-                  </td>
+                  <th style={{ borderBottom: '1px solid #444', padding: '8px', textAlign: 'left' }}>ID</th>
+                  <th style={{ borderBottom: '1px solid #444', padding: '8px', textAlign: 'left' }}>Name</th>
+                  <th style={{ borderBottom: '1px solid #444', padding: '8px', textAlign: 'left' }}>Department</th>
+                  <th style={{ borderBottom: '1px solid #444', padding: '8px', textAlign: 'left' }}>Phone</th>
+                  <th style={{ borderBottom: '1px solid #444', padding: '8px', textAlign: 'left' }}>Address</th>
+                  <th style={{ borderBottom: '1px solid #444', padding: '8px', textAlign: 'left' }}>Sex</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {persons.map((p) => (
+                  <tr
+                    key={p.id}
+                    onClick={() => onSelect(p)}
+                    style={{
+                      cursor: 'pointer',
+                      backgroundColor: selectedId === p.id ? '#333' : 'transparent',
+                    }}
+                  >
+                    <td style={{ borderBottom: '1px solid #333', padding: '6px' }}>{p.id}</td>
+                    <td style={{ borderBottom: '1px solid #333', padding: '6px' }}>{p.name || ''}</td>
+                    <td style={{ borderBottom: '1px solid #333', padding: '6px' }}>{p.department || ''}</td>
+                    <td style={{ borderBottom: '1px solid #333', padding: '6px' }}>{p.phone_number || ''}</td>
+                    <td style={{ borderBottom: '1px solid #333', padding: '6px' }}>{p.address || ''}</td>
+                    <td style={{ borderBottom: '1px solid #333', padding: '6px' }}>{p.sex || ''}</td>
+                  </tr>
+                ))}
+                {!persons.length && !loading && (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '8px' }}>
+                      No persons yet. They will appear after the first scan or you can add one manually.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-        <form onSubmit={onSave} style={{ flexBasis: '280px' }}>
+        <form
+          onSubmit={onSave}
+          style={{ flexBasis: hidePersonTable ? '100%' : '280px', flex: hidePersonTable ? 1 : undefined }}
+        >
           <h3>{isLinkingExistingPerson ? 'Link Face To Existing Person' : selectedId ? 'Edit Person' : 'Add Person'}</h3>
           {isRegistrationMode && !selectedId && (
             <p style={{ marginTop: 0, marginBottom: '12px', color: '#cbd5e1', fontSize: '13px', lineHeight: 1.4 }}>

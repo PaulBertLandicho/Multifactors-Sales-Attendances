@@ -5,13 +5,14 @@ import { supabase } from '../supabaseClient';
 import { recordAttendanceForPerson } from '../AdminPage/attendanceUtils';
 import { toFloat32Array, normalizeDescriptor, euclideanDistance, averageDescriptors } from '../utils/faceUtils';
 
-const DETECTION_INTERVAL_MS = 50;
+const DETECTION_INTERVAL_MS = 70;
 const PERSON_COOLDOWN_MS = 1200;
 // const UNKNOWN_FACE_COOLDOWN_MS = 3500; // Removed: unused constant
 // Require several consecutive high-confidence matches before accepting a face
 const BUFFER_SIZE = 2;
-// Require the same face to be stable for at least this long (0 = no extra delay beyond BUFFER_SIZE)
-const MIN_VERIFICATION_MS = 0;
+// Require the same face to be stable for at least this long
+// Shortened to make verification feel faster while still filtering flicker
+const MIN_VERIFICATION_MS = 500;
 const TINY_DETECTOR_INPUT_SIZE = 320;
 const CAMERA_STATUS = {
   CONNECTING: 'connecting',
@@ -54,15 +55,9 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false, h
   const matchBufferRef = useRef([]);
   const verificationIdRef = useRef(null);
   const verificationStartRef = useRef(0);
+  const settingsAlertShownRef = useRef(false);
 
   // ------------------- Helpers -------------------
-  const toArray = (desc) => {
-    if (!desc) return null;
-    if (Array.isArray(desc)) return desc;
-    if (desc.buffer && typeof desc.length === 'number') return Array.from(desc);
-    return desc;
-  };
-
   const captureCurrentFrame = useCallback(() => {
     if (useLocalCamera) {
       const video = videoRef.current;
@@ -185,6 +180,19 @@ const drawDetection = useCallback((detection) => {
     !isNaN(Number(settings.morning_grace_minutes)) &&
     !isNaN(Number(settings.afternoon_grace_minutes));
 
+  // Quickly surface a clear warning if settings are loaded but invalid,
+  // so the user doesn't wait wondering why scanning isn't working.
+  useEffect(() => {
+    if (settings && !validSettings && !settingsAlertShownRef.current) {
+      settingsAlertShownRef.current = true;
+      Swal.fire({
+        icon: 'warning',
+        title: 'Work Hour Settings',
+        text: 'Work hour settings are missing or invalid. Please configure them in Admin \\u003e Settings before using face attendance.',
+      });
+    }
+  }, [settings, validSettings]);
+
   // ------------------- Load persons -------------------
   useEffect(() => {
     async function loadPersons() {
@@ -305,13 +313,15 @@ const drawDetection = useCallback((detection) => {
   useEffect(() => {
     if (!useLocalCamera) return;
     let stream = null;
+    let videoEl = null;
     async function startLocalCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current.play();
+          videoEl = videoRef.current;
+          videoEl.srcObject = stream;
+          videoEl.onloadedmetadata = () => {
+            videoEl.play();
             setFrameReady(true);
             // When falling back to local webcam, mark camera as live so detection can run.
             setCameraStatus(CAMERA_STATUS.LIVE);
@@ -323,8 +333,6 @@ const drawDetection = useCallback((detection) => {
     }
     startLocalCamera();
     return () => {
-      // Copy ref to variable to avoid stale closure
-      const videoEl = videoRef.current;
       if (videoEl) videoEl.srcObject = null;
       if (stream) stream.getTracks().forEach(track => track.stop());
     };
@@ -589,7 +597,9 @@ const drawDetection = useCallback((detection) => {
   drawDetection,
   captureCurrentFrame,
   onFaceScan,
-  useLocalCamera
+  useLocalCamera,
+  debugMode,
+  settings
 ]);
 
   // ------------------- Update current time -------------------

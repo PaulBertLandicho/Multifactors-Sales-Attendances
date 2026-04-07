@@ -36,6 +36,24 @@ export default function AttendanceTable() {
   });
   // const [showForm, setShowForm] = useState(false); // Removed as unused
 
+  // Helper to format ISO date/time as "April 07, 2026 10:15:30"
+  const formatDateTime = (value) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const datePart = date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: '2-digit',
+      year: 'numeric',
+    });
+    const timePart = date.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    return `${datePart} ${timePart}`;
+  };
+
 const Icons = {
   filter: <MdFilterList />,
   download: <FiDownload />,
@@ -508,7 +526,7 @@ const Icons = {
     const exportData = sortedRecords.map(row => {
       const person = persons.find(p => p.id === row.person_id) || {};
       return {
-        Time: row.device_time ? new Date(row.device_time).toLocaleString() : '',
+        Time: row.device_time ? formatDateTime(row.device_time) : '',
         'Person ID': row.person_id,
         Name: person.name || '',
         Department: person.department || '',
@@ -663,7 +681,7 @@ const Icons = {
                         if (col.key === 'name') value = person.name || '';
                         if (col.key === 'department') value = person.department || '';
                         if (col.key === 'device_time' && row[col.key])
-                          value = new Date(row[col.key]).toLocaleString();
+                          value = formatDateTime(row[col.key]);
                         if (col.key === 'shift') {
                           if (!settings) value = '-';
                           else {
@@ -685,9 +703,44 @@ const Icons = {
                           }
                         }
                         if (col.key === 'work_hours') {
-                          if (!settings) value = '-';
-                          else {
-                            value = `Morning: ${settings.morning_start || '--:--'} - ${settings.morning_end || '--:--'} | Afternoon: ${settings.afternoon_start || '--:--'} - ${settings.afternoon_end || '--:--'}`;
+                          if (!settings) {
+                            value = '-';
+                          } else {
+                            let label = '';
+                            let configTime = '';
+                            if (row.event === 'time-in') {
+                              // Show Morning In or Afternoon In based on device_time proximity
+                              label = 'Morning In';
+                              configTime = settings.morning_start;
+                              // If device_time is after morning_end, use Afternoon In
+                              if (settings.morning_end && settings.afternoon_start) {
+                                const d = new Date(row.device_time);
+                                const minutes = d.getHours() * 60 + d.getMinutes();
+                                const morningEnd = settings.morning_end.split(':').map(Number);
+                                const morningEndMin = morningEnd[0] * 60 + morningEnd[1];
+                                if (minutes > morningEndMin) {
+                                  label = 'Afternoon In';
+                                  configTime = settings.afternoon_start;
+                                }
+                              }
+                            } else if (row.event === 'time-out') {
+                              label = 'Morning Out';
+                              configTime = settings.morning_end;
+                              // If device_time is after morning_end, use Afternoon Out
+                              if (settings.morning_end && settings.afternoon_end) {
+                                const d = new Date(row.device_time);
+                                const minutes = d.getHours() * 60 + d.getMinutes();
+                                const morningEnd = settings.morning_end.split(':').map(Number);
+                                const morningEndMin = morningEnd[0] * 60 + morningEnd[1];
+                                if (minutes > morningEndMin) {
+                                  label = 'Afternoon Out';
+                                  configTime = settings.afternoon_end;
+                                }
+                              }
+                            } else {
+                              value = '-';
+                            }
+                            value = label && configTime ? `${label}: ${configTime}` : '-';
                           }
                         }
                         const isLate = col.key === 'status' && value === 'late';

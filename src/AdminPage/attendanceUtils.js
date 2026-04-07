@@ -28,9 +28,13 @@ export function determineExpectedEvent(currentTime, lastEvent, settings) {
     if (lastEvent === 'time-in') return 'already-timed-in';
     return 'attendance-closed';
   }
-  // Morning shift: time-out only after end
+  // Morning shift: time-out after morning window
   if (nowMinutes > morningEndMinutes && nowMinutes < afternoonStartMinutes) {
+    // Allow time-out even if there was no prior morning time-in,
+    // but prevent multiple time-outs in the same window.
+    if (!lastEvent) return 'time-out';
     if (lastEvent === 'time-in') return 'time-out';
+    if (lastEvent === 'time-out') return 'attendance-closed';
     return 'attendance-closed';
   }
   if (nowMinutes <= morningEndMinutes && lastEvent === 'time-in') {
@@ -43,10 +47,18 @@ export function determineExpectedEvent(currentTime, lastEvent, settings) {
     if (lastEvent === 'time-in') return 'already-timed-in';
     return 'attendance-closed';
   }
-  // Afternoon shift: time-out only after end
+  // Afternoon shift: time-out after afternoon window
   if (nowMinutes > afternoonEndMinutes) {
+    // Allow time-out even if there was no prior afternoon time-in or any time-in,
+    // but prevent multiple time-outs in the same window.
+    if (!lastEvent) return 'time-out';
     if (lastEvent === 'time-in') return 'time-out';
-    return 'attendance-closed';
+    if (lastEvent === 'time-out') return 'attendance-closed';
+    return 'time-out'; // Fallback: allow time-out
+  }
+  // Allow time-out in afternoon window even if no prior time-in
+  if (nowMinutes >= afternoonStartMinutes && nowMinutes <= afternoonEndMinutes && (!lastEvent || lastEvent === 'time-in')) {
+    return 'time-out';
   }
   if (nowMinutes <= afternoonEndMinutes && lastEvent === 'time-in') {
     return 'attendance-closed';
@@ -55,7 +67,7 @@ export function determineExpectedEvent(currentTime, lastEvent, settings) {
   return 'attendance-closed';
 }
 
-export function determineAttendanceStatus(currentTime, eventToRecord, settings) {
+export function determineAttendanceStatus(currentTime, eventToRecord, settings, hadMorningTimeIn = false) {
   const nowMinutes = toMinutes(currentTime);
   const morningStart = toMinutes(settings.morning_start);
   const morningEnd = toMinutes(settings.morning_end);
@@ -88,8 +100,9 @@ export function determineAttendanceStatus(currentTime, eventToRecord, settings) 
   }
 
   if (eventToRecord === 'time-out') {
-    // If time-out is after afternoon_end, mark as overtime
-    if (nowMinutes > afternoonEnd) {
+    // Only mark overtime when time-out is after afternoon_end
+    // AND the person already had a morning time-in this day.
+    if (nowMinutes > afternoonEnd && hadMorningTimeIn) {
       return 'overtime';
     }
     // Otherwise, on-time
@@ -112,7 +125,7 @@ function buildBlockedMessage(eventToRecord, settings) {
   }
 
   if (eventToRecord === 'time-out') {
-    return 'You must time in before you can time out.';
+    return 'You have already timed out for this work window, or the attendance window is closed.';
   }
 
   if (settings?.morning_start && settings?.afternoon_end) {
@@ -145,15 +158,24 @@ export async function recordAttendanceForPerson({
   const deviceDate = new Date(deviceTime);
   const currentTime = deviceDate.toTimeString().slice(0,5);
 
+  // Compute current workday window (local day based on deviceTime) so
+  // we only consider today's attendance when deciding already-timed-in.
+  const year = deviceDate.getFullYear();
+  const month = String(deviceDate.getMonth() + 1).padStart(2, '0');
+  const day = String(deviceDate.getDate()).padStart(2, '0');
+  const dayStartIso = `${year}-${month}-${day}T00:00:00.000Z`;
+  const dayEndIso = `${year}-${month}-${day}T23:59:59.999Z`;
+
   // Debug output: show current time and settings values
   console.log('DEBUG: Current time for attendance:', currentTime);
   console.log('DEBUG: Settings used:', settings);
   const { data: attData, error: lastAttendanceError } = await supabase
     .from('attendance')
-    .select('event')
+    .select('event, device_time')
     .eq('person_id', person.id)
-    .order('device_time', { ascending: false })
-    .limit(1);
+    .gte('device_time', dayStartIso)
+    .lte('device_time', dayEndIso)
+    .order('device_time', { ascending: false });
 
   if (lastAttendanceError) {
     throw lastAttendanceError;
@@ -162,8 +184,9 @@ export async function recordAttendanceForPerson({
   const lastEvent = attData?.[0]?.event || null;
   const event = determineExpectedEvent(currentTime, lastEvent, settings);
 
-  // Allow time-out if event is 'time-out' and last event is 'time-in'
-  if (event === 'already-timed-in' || event === 'attendance-closed' || (event === 'time-out' && lastEvent !== 'time-in')) {
+  // Block only when rules say already-timed-in or attendance-closed;
+  // time-out is now allowed even without a prior time-in.
+  if (event === 'already-timed-in' || event === 'attendance-closed') {
     return {
       inserted: false,
       blocked: true,
@@ -174,7 +197,24 @@ export async function recordAttendanceForPerson({
 
     // Debug output: show last event for this person
     console.log('DEBUG: Last attendance event for person', person.id, '=', attData?.[0]?.event);
-  const status = determineAttendanceStatus(currentTime, event, settings);
+  // Determine if there was any morning time-in earlier today
+  let hadMorningTimeIn = false;
+  if (Array.isArray(attData) && attData.length > 0) {
+    const morningStartMinutes = toMinutes(settings.morning_start);
+    const morningEndMinutes = toMinutes(settings.morning_end);
+    for (const row of attData) {
+      if (row.event !== 'time-in' || !row.device_time) continue;
+      const dt = new Date(row.device_time);
+      const hhmm = dt.toTimeString().slice(0,5);
+      const minutes = toMinutes(hhmm);
+      if (minutes >= morningStartMinutes && minutes <= morningEndMinutes) {
+        hadMorningTimeIn = true;
+        break;
+      }
+    }
+  }
+
+  const status = determineAttendanceStatus(currentTime, event, settings, hadMorningTimeIn);
 
   const { error } = await supabase
     .from('attendance')

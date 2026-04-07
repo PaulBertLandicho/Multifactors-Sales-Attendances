@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 // ✅ Icons
 import { FiLogOut, FiUsers } from 'react-icons/fi';
-import { MdOutlineAccessTime, MdSettings, MdPayments, MdPersonAddAlt1 } from 'react-icons/md';
+import { MdOutlineAccessTime, MdSettings, MdPayments, MdPersonAddAlt1, MdBusiness } from 'react-icons/md';
 
 // ✅ Navigation Items with Icons
 const navItems = [
@@ -12,7 +12,7 @@ const navItems = [
   { label: 'View Payroll', path: '/admin/payroll', icon: <MdPayments /> },
   { label: 'Persons', path: '/admin/persons', icon: <FiUsers /> },
   { label: 'Register Person', path: '/admin/register-person', icon: <MdPersonAddAlt1 /> },
-  { label: 'Department rates', path: '/admin/department-rates', icon: <MdPersonAddAlt1 /> },
+  { label: 'Department rates', path: '/admin/department-rates', icon: <MdBusiness /> },
   { label: 'Payroll Released Activity Logs', path: '/admin/ReleasedPayrollLogs', icon: <MdPersonAddAlt1 /> },
 ];
 

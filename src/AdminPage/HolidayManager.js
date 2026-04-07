@@ -5,7 +5,8 @@ import React, { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { supabase } from '../supabaseClient';
 
-export default function HolidayManager({ department, regularRate = 100, specialRate = 30 }) {
+// Global HolidayManager for all departments
+export default function HolidayManagerGlobal({ regularRate = 100, specialRate = 30 }) {
   const [regularHolidays, setRegularHolidays] = useState([]);
   const [specialHolidays, setSpecialHolidays] = useState([]);
   // Set default month to current month (YYYY-MM)
@@ -26,27 +27,28 @@ export default function HolidayManager({ department, regularRate = 100, specialR
   const [allHolidays, setAllHolidays] = useState([]);
   useEffect(() => {
     async function fetchAllHolidays() {
-      if (!department || !month) return;
+      if (!month) return;
       const [year, monthNum] = month.split('-');
+      // Fetch only global holidays (department is null) for this month
       const { data, error } = await supabase
         .from('holidays')
         .select('date, type, id')
-        .eq('department', department)
+        .is('department', null)
         .eq('month', parseInt(monthNum))
         .eq('year', parseInt(year));
       if (!error && data) setAllHolidays(data);
       else setAllHolidays([]);
     }
     fetchAllHolidays();
-  }, [department, month, saving]);
+  }, [month, saving]);
 
   // Delete a saved holiday from DB
   const handleDeleteSavedHoliday = async (holiday) => {
-    if (!window.confirm(`Delete holiday on ${holiday.date} (${holiday.type})?`)) return;
+    if (!window.confirm(`Delete holiday on ${holiday.date} (${holiday.type}) for all departments?`)) return;
     const { error } = await supabase
       .from('holidays')
       .delete()
-      .eq('department', department)
+      .is('department', null)
       .eq('date', holiday.date)
       .eq('type', holiday.type);
     if (error) Swal.fire('Error', error.message, 'error');
@@ -85,18 +87,17 @@ export default function HolidayManager({ department, regularRate = 100, specialR
     }
     setSaving(true);
     const [year, monthNum] = month.split('-');
-    // Insert new holidays (append, do not delete existing)
     const inserts = [];
     for (const date of regularHolidays.filter(Boolean)) {
-      inserts.push({ department, date, type: 'regular', month: parseInt(monthNum), year: parseInt(year) });
+      inserts.push({ department: null, date, type: 'regular', month: parseInt(monthNum), year: parseInt(year) });
     }
     for (const date of specialHolidays.filter(Boolean)) {
-      inserts.push({ department, date, type: 'special', month: parseInt(monthNum), year: parseInt(year) });
+      inserts.push({ department: null, date, type: 'special', month: parseInt(monthNum), year: parseInt(year) });
     }
     if (inserts.length) {
       const { error } = await supabase.from('holidays').insert(inserts);
       if (error) Swal.fire('Error saving holidays', error.message, 'error');
-      else Swal.fire('Holidays saved!', '', 'success');
+      else Swal.fire('Global holidays saved!', '', 'success');
     } else {
       Swal.fire('No holidays to save.', '', 'info');
     }
@@ -108,7 +109,7 @@ export default function HolidayManager({ department, regularRate = 100, specialR
       {/* Display all holidays for selected month from DB */}
       {month && allHolidays.length > 0 && (
         <div style={{ marginBottom: 16 }}>
-          <strong>All Holidays for {month} (Saved):</strong>
+          <strong>All Global Holidays for {month} (Saved):</strong>
           <ul style={{ marginTop: 8 }}>
             {allHolidays.map((h, idx) => (
               <li key={h.id || idx} style={{ color: h.type === 'regular' ? '#10b981' : '#f59e42', display: 'flex', alignItems: 'center' }}>
@@ -137,7 +138,7 @@ export default function HolidayManager({ department, regularRate = 100, specialR
           </ul>
         </div>
       )}
-      <h3>Manage Holidays for {department}</h3>
+      <h3>Manage Holidays (applies to all departments)</h3>
       <label>Month:
         <input type="month" value={month} onChange={e => setMonth(e.target.value)} style={{ marginLeft: 8 }} />
       </label>

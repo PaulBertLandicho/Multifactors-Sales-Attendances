@@ -7,7 +7,6 @@ import { useEffect, useRef, useState } from 'react';
 import { supabase } from './supabaseClient';
 
 import CameraPlayer from './CameraAttendance/CameraPlayer';
-import CameraIframe from './CameraAttendance/CameraIframe';
 // import AttendanceTable from './AttendanceTable';
 import PersonDetails from './AdminPage/PersonDetails';
 import AdminLogin from './AdminPage/AdminLogin';
@@ -24,6 +23,7 @@ function App() {
   const [showModal, setShowModal] = useState(false);
   const [pendingScan, setPendingScan] = useState(null);
   const modalTimerRef = useRef(null);
+  const [cameraActive, setCameraActive] = useState(false);
   const [session, setSession] = useState(() => {
     // Try to get session from localStorage if available
     const stored = localStorage.getItem('sb-session');
@@ -84,19 +84,67 @@ function App() {
       <div className="App">
         <header className="App-header">
           {!(window.location.pathname.startsWith('/admin')) && (
-            <h1 style={styles.headerTitle}>Dahua Camera Viewer</h1>
+            <h1 style={styles.headerTitle}>Employee Attendance Camera</h1>
           )}
           <Routes>
             <Route
               path="/"
               element={
-                <>
-                  {window.location.search.includes('ipcam=1') ? (
-                    <CameraIframe />
-                  ) : (
+                <div style={{ maxWidth: 900, margin: '0 auto' }}>
+                  {cameraActive ? (
                     <CameraPlayer />
+                  ) : (
+                    <div
+                      style={{
+                        marginTop: 24,
+                        padding: '40px 24px',
+                        borderRadius: 24,
+                        background: '#0b1120',
+                        color: '#e5e7eb',
+                        textAlign: 'center',
+                      }}
+                    >
+                      <p style={{ marginBottom: 12, fontSize: 15 }}>
+                        Camera is currently off. Click below to open the camera.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setCameraActive(true)}
+                        style={{
+                          padding: '10px 24px',
+                          borderRadius: 999,
+                          border: '1px solid #10b981',
+                          background: '#10b981',
+                          color: '#ffffff',
+                          cursor: 'pointer',
+                          fontSize: 14,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Open Camera
+                      </button>
+                    </div>
                   )}
-                </>
+                  {cameraActive && (
+                    <div style={{ marginTop: 12, textAlign: 'right' }}>
+                      <button
+                        type="button"
+                        onClick={() => setCameraActive(false)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 999,
+                          border: '1px solid #d1d5db',
+                          background: '#f9fafb',
+                          color: '#4b5563',
+                          cursor: 'pointer',
+                          fontSize: 12,
+                        }}
+                      >
+                        Close Camera
+                      </button>
+                    </div>
+                  )}
+                </div>
               }
             />
             <Route

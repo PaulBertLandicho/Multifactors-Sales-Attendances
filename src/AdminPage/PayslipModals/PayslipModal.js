@@ -58,15 +58,17 @@ useEffect(() => {
     try {
       if (!person || !period) return;
       const [start, end] = period.split('_to_');
-      // Fetch all holidays for the department within the period
+      // Fetch holidays for the department or global (department is null) within the period
       const { data: holidays, error } = await supabase
         .from('holidays')
         .select('*')
-        .eq('department', person.department)
+        .or(`department.eq.${person.department},department.is.null`)
         .gte('date', start)
         .lte('date', end);
       if (error) throw error;
-      setHolidayDetails(holidays || []);
+      // Sort by date
+      const all = (holidays || []).sort((a, b) => a.date.localeCompare(b.date));
+      setHolidayDetails(all);
     } catch (err) {
       console.error('Error fetching holidays:', err);
       setHolidayDetails([]);
