@@ -13,6 +13,7 @@ import {
   FiEye,
   FiDownload,
 } from 'react-icons/fi';
+import { MdHistory } from 'react-icons/md';
 
 import { supabase } from '../supabaseClient';
 import { logPayrollRelease } from './payrollActivityLogs';
@@ -491,10 +492,11 @@ export default function PayrollPage() {
         >
           Released Payroll Logs
         </button> */}
-      <button
+        <button
           style={{ ...styles.button, ...styles.buttonSecondary }}
           onClick={() => window.location.href = '/admin/released-history'}
         >
+          <MdHistory style={{ marginRight: 8, fontSize: '1.2em' }} />
           Released History Payroll
         </button>
       </div>

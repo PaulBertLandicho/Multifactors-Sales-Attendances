@@ -564,15 +564,16 @@ const Icons = {
     style={styles.filterInput}
   />
 </div>
-          <select
+          {/* <select
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
             style={styles.filterSelect}
           >
             <option value="">All Status</option>
             <option value="late">Late</option>
-            <option value="">On-time</option>
-          </select>
+            <option value="on-time">On-time</option>
+            <option value="overtime">Overtime</option>
+          </select> */}
           <select
             value={eventFilter}
             onChange={e => setEventFilter(e.target.value)}
@@ -581,6 +582,7 @@ const Icons = {
             <option value="">All Events</option>
             <option value="time-in">Time-in</option>
             <option value="time-out">Time-out</option>
+            <option value="overtime">Overtime</option>
           </select>
           <select
             value={departmentFilter}

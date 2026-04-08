@@ -223,12 +223,12 @@ export default function ReleasedHistoryPayroll() {
               <option key={dept} value={dept}>{dept}</option>
             ))}
           </select>
-          <button
+          {/* <button
             style={{ ...styles.button, background: '#e5e7eb', color: '#1f2937', border: '1px solid #d1d5db' }}
             onClick={() => window.location.href = '/admin/ReleasedPayrollLogs'}
           >
             View Released Payroll Logs
-          </button>
+          </button> */}
         </div>
         <button
           onClick={handleExportExcel}

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { supabase } from '../supabaseClient';
 import { useNavigate } from 'react-router-dom';
+import { FiPlusCircle } from 'react-icons/fi';
 
 export default function DepartmentRates() {
   const [rates, setRates] = useState([]);
@@ -15,7 +16,9 @@ export default function DepartmentRates() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
-
+  const Icons = {
+  circlePlus: <FiPlusCircle />,
+};
   useEffect(() => {
     fetchRates();
   }, []);
@@ -184,7 +187,7 @@ export default function DepartmentRates() {
           onClick={handleAddDepartment}
           style={{ ...styles.saveButton, minWidth: 180 }}
         >
-          Add Department
+{Icons.circlePlus} Add Department
         </button>
       </div>
 

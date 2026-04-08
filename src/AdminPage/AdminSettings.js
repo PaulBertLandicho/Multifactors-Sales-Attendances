@@ -269,12 +269,7 @@ export default function AdminSettings() {
           </div>
         </div> */}
       </div>
-
-      {/* Global Holiday Manager (applies to all departments) */}
-      <div style={{ margin: '40px 0' }}>
-        <HolidayManagerGlobal />
-      </div>
-      {/* Action Buttons */}
+ {/* Action Buttons */}
       <div style={styles.actions}>
         <button
           onClick={handleSave}
@@ -295,6 +290,11 @@ export default function AdminSettings() {
           Department Rates
         </button> */}
       </div>
+      {/* Global Holiday Manager (applies to all departments) */}
+      <div style={{ margin: '40px 0' }}>
+        <HolidayManagerGlobal />
+      </div>
+     
     </div>
   );
 }

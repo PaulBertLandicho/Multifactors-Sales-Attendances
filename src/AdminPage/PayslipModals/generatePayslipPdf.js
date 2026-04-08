@@ -6,14 +6,14 @@ export function drawPayslipOnDoc(doc, {
   totalHolidayPay = 0,
   absentCount = 0,
   totalDeductions = 0,
-}) {
+}, yOffset = 10) {
   if (!doc || !payroll || !person) return;
 
   const left = 10;
   const right = 200;
   const pageWidth = doc.internal.pageSize.getWidth();
   const lineHeight = 7;
-  let y = 10;
+  let y = yOffset;
 
   // Header
   doc.setFontSize(10);
@@ -140,12 +140,28 @@ export async function generateAllPayslipsPdf(list = []) {
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-  list.forEach((params, index) => {
-    if (index > 0) {
+  // Layout: two payslips per page, one on top, one on bottom
+  const payslipHeight = 140; // Height for each payslip block
+  const marginY = 10;
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  for (let i = 0; i < list.length; i++) {
+    const params = list[i];
+    const isTop = i % 2 === 0;
+    const yOffset = isTop ? marginY : (pageHeight / 2) + marginY;
+    // Draw payslip at yOffset
+    drawPayslipOnDoc(doc, params, yOffset);
+    // If next payslip is top (i.e., every 2 payslips), add a new page
+    if (!isTop && i < list.length - 1) {
       doc.addPage();
     }
-    drawPayslipOnDoc(doc, params);
-  });
+    // Draw a line between the two payslips on the same page
+    if (isTop) {
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.3);
+      doc.line(5, pageHeight / 2, pageHeight * 2, pageHeight / 2);
+    }
+  }
 
   doc.save('payroll_summary_payslips.pdf');
 }
