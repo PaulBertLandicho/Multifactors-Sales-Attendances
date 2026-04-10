@@ -16,8 +16,6 @@ import DepartmentRates from './AdminPage/DepartmentRates';
 import PersonsTable from './AdminPage/PersonsTable';
 
 function App() {
-  const [showModal, setShowModal] = useState(false);
-  const [pendingScan, setPendingScan] = useState(null);
   const modalTimerRef = useRef(null);
   const [cameraActive, setCameraActive] = useState(false);
   const [session, setSession] = useState(() => {
@@ -42,38 +40,16 @@ function App() {
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (modalTimerRef.current) {
-        clearTimeout(modalTimerRef.current);
-      }
-    };
-  }, []);
+  const timer = modalTimerRef.current;
 
-  const handleFaceScan = (scanPayload) => {
-    if (!scanPayload || pendingScan || showModal) {
-      return;
+  return () => {
+    if (timer) {
+      clearTimeout(timer);
     }
-
-    if (modalTimerRef.current) {
-      clearTimeout(modalTimerRef.current);
-      modalTimerRef.current = null;
-    }
-
-    setPendingScan(scanPayload);
-    modalTimerRef.current = setTimeout(() => {
-      setShowModal(true);
-      modalTimerRef.current = null;
-    }, 1600);
   };
+}, []);
 
-  const closeModal = () => {
-    if (modalTimerRef.current) {
-      clearTimeout(modalTimerRef.current);
-      modalTimerRef.current = null;
-    }
-    setShowModal(false);
-    setPendingScan(null);
-  };
+  // Removed unused: handleFaceScan, closeModal
 
   return (
     <BrowserRouter>

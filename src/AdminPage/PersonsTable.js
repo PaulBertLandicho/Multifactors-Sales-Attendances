@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react';
 import { supabase } from '../supabaseClient';
 import Swal from 'sweetalert2';
 import * as XLSX from 'xlsx';
-import { MdFilterList } from 'react-icons/md';
 import {
   FiDownload,
   FiArchive,
@@ -20,12 +19,14 @@ export default function PersonsTable() {
     // Start camera when modal opens
 
   useEffect(() => {
+    // Capture refs at effect start for cleanup
+    const initialVideoRef = cameraVideoRef.current;
     if (showCamera) {
       (async () => {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          if (cameraVideoRef.current) {
-            cameraVideoRef.current.srcObject = stream;
+          if (initialVideoRef) {
+            initialVideoRef.srcObject = stream;
             cameraStreamRef.current = stream;
           }
         } catch (err) {
@@ -39,18 +40,19 @@ export default function PersonsTable() {
         cameraStreamRef.current.getTracks && cameraStreamRef.current.getTracks().forEach(track => track.stop());
         cameraStreamRef.current = null;
       }
-      if (cameraVideoRef.current) {
-        cameraVideoRef.current.srcObject = null;
+      if (initialVideoRef) {
+        initialVideoRef.srcObject = null;
       }
     }
     // Cleanup on unmount
     return () => {
-      if (cameraStreamRef.current) {
-        cameraStreamRef.current.getTracks && cameraStreamRef.current.getTracks().forEach(track => track.stop());
+      const localStream = cameraStreamRef.current;
+      if (localStream) {
+        localStream.getTracks && localStream.getTracks().forEach(track => track.stop());
         cameraStreamRef.current = null;
       }
-      if (cameraVideoRef.current) {
-        cameraVideoRef.current.srcObject = null;
+      if (initialVideoRef) {
+        initialVideoRef.srcObject = null;
       }
     };
   }, [showCamera]);
@@ -76,9 +78,6 @@ export default function PersonsTable() {
   const [persons, setPersons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [editing, setEditing] = useState(null); // person being edited
-  const [showModal, setShowModal] = useState(false);
-  const [pendingPerson, setPendingPerson] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editPerson, setEditPerson] = useState(null);
   const editPhotoInputRef = useRef(null);
@@ -156,20 +155,7 @@ export default function PersonsTable() {
     return null;
   };
 
-  // Fetch attendance records for photos
-  const [attendanceRecords, setAttendanceRecords] = useState([]);
-  useEffect(() => {
-    async function fetchAttendance() {
-      const { data, error } = await supabase.from('attendance').select('person_id, photo, device_time').order('device_time', { ascending: false });
-      if (!error && data) setAttendanceRecords(data);
-    }
-    fetchAttendance();
-  }, []);
-
-  const closeModal = () => {
-    setShowModal(false);
-    setPendingPerson(null);
-  };
+  // Removed unused: closeModal
 
   const handleEditModalClose = () => {
     setShowEditModal(false);

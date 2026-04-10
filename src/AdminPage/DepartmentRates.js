@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
 import { supabase } from '../supabaseClient';
-import { useNavigate } from 'react-router-dom';
 import { FiPlusCircle } from 'react-icons/fi';
 
 export default function DepartmentRates() {

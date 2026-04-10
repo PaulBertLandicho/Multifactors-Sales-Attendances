@@ -158,7 +158,6 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
   // Setup Dahua stream via WebSocket or fallback to webcam
   useEffect(() => {
     let disposed = false;
-    // setFrameReady(false); // Removed unused state update
 
     // If no WebSocket URL configured, immediately use local webcam.
     if (!wsUrl) {
@@ -189,7 +188,6 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
     };
     ws.onmessage = (event) => {
       if (!disposed && imgRef.current) {
-        setFrameReady(false);
         imgRef.current.src = event.data;
       }
     };
@@ -203,14 +201,14 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
   useEffect(() => {
     if (!useLocalCamera) return;
     let stream = null;
+    const initialVideoRef = videoRef.current;
     async function startLocalCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current.play();
-            // setFrameReady(true); // Removed unused state update
+        if (initialVideoRef) {
+          initialVideoRef.srcObject = stream;
+          initialVideoRef.onloadedmetadata = () => {
+            initialVideoRef.play();
           };
         }
       } catch (err) {
@@ -223,9 +221,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
     }
     startLocalCamera();
     return () => {
-      // Fix: copy ref to local variable to avoid stale closure
-      const videoEl = videoRef.current;
-      if (videoEl) videoEl.srcObject = null;
+      if (initialVideoRef) initialVideoRef.srcObject = null;
       if (stream) stream.getTracks().forEach(track => track.stop());
     };
   }, [useLocalCamera]);
@@ -356,7 +352,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
         {useLocalCamera ? (
           <video ref={videoRef} style={{ width: '100%', borderRadius: 12 }} autoPlay muted playsInline />
         ) : (
-          <img ref={imgRef} alt="Camera Stream" onLoad={() => setFrameReady(true)} style={{ width: '100%', borderRadius: 12 }} />
+          <img ref={imgRef} alt="Camera Stream" style={{ width: '100%', borderRadius: 12 }} />
         )}
         <canvas ref={canvasRef} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }} />
       </div>

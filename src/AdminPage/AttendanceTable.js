@@ -20,13 +20,12 @@ export default function AttendanceTable() {
     const [departmentFilter, setDepartmentFilter] = useState("");
     const [sortKey] = useState("device_time");
     const [sortOrder, setSortOrder] = useState("desc");
-  const [showArchived, setShowArchived] = useState(false);
-  const [records, setRecords] = useState([]);
-  const [persons, setPersons] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [settings, setSettings] = useState(null);
-  const [error, setError] = useState(null);
-  const [editing, setEditing] = useState(null); // record being edited
+    const [showArchived, setShowArchived] = useState(false);
+    const [records, setRecords] = useState([]);
+    const [persons, setPersons] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [settings, setSettings] = useState(null);
+    const [error, setError] = useState(null);
   // Removed unused form and setForm state
   // const [showForm, setShowForm] = useState(false); // Removed as unused
 

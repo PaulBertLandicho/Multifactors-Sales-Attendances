@@ -2,12 +2,10 @@ import React, { useEffect, useState } from 'react';
 // import { supabase } from './supabaseClient';
 import Swal from 'sweetalert2';
 import { calculatePayroll } from './Payroll';
-import { applyHolidayRates } from '../SupabaseFunctions/applyHolidayRates';
 import PayslipModal from '../AdminPage/PayslipModals/PayslipModal';
 import { getDetailedAttendance } from './attendanceDetails';
 import { generateAllPayslipsPdf } from './PayslipModals/generatePayslipPdf';
 import * as XLSX from 'xlsx';
-import { MdFilterList } from 'react-icons/md';
 import {
   FiSearch,
   FiEye,
@@ -20,20 +18,17 @@ import { logPayrollRelease } from './payrollActivityLogs';
 
 export default function PayrollPage() {
 
-  const [attendance, setAttendance] = useState([]);
   const [persons, setPersons] = useState([]);
   const [deptRates, setDeptRates] = useState([]);
   const [payrollPeriods, setPayrollPeriods] = useState([]); // [{personId, period, payroll, released}]
   const [holidays, setHolidays] = useState([]);
   const [settings, setSettings] = useState({});
   const [search, setSearch] = useState('');
-
   const [selected, setSelected] = useState(null);
   const [showPayslip, setShowPayslip] = useState(false);
 
   // Add filter, sort, and export state
   const [departmentFilter, setDepartmentFilter] = useState("");
-  const [sortKey, setSortKey] = useState("name");
   const [sortOrder, setSortOrder] = useState("asc");
 
   const Icons = {
@@ -65,7 +60,6 @@ export default function PayrollPage() {
         ? payrollRes.data.filter(Boolean)
         : [];
 
-      setAttendance(attData);
       setPersons(personsData);
       setDeptRates(deptData);
       setSettings(settingsData);
