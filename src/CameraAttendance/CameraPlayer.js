@@ -5,6 +5,29 @@ import { supabase } from '../supabaseClient';
 import { recordAttendanceForPerson } from '../AdminPage/attendanceUtils';
 import { toFloat32Array, normalizeDescriptor, euclideanDistance, averageDescriptors } from '../utils/faceUtils';
 
+// --- Voice sound assets (speech synthesis) ---
+const playVoice = (type = 'info') => {
+  let message = '';
+  if (type === 'success') message = 'Operation completed successfully';
+  else if (type === 'warning') message = 'Warning. Please check your input';
+  else if (type === 'error') message = 'Error occurred. Please try again';
+  else message = 'Notification received';
+  try {
+    window.speechSynthesis.cancel();
+    const speech = new window.SpeechSynthesisUtterance(message);
+    speech.lang = 'en-US';
+    speech.rate = 1;
+    speech.pitch = 1;
+    speech.volume = 1;
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => v.lang === 'en-US' && v.name.toLowerCase().includes('female'));
+    if (preferredVoice) speech.voice = preferredVoice;
+    window.speechSynthesis.speak(speech);
+  } catch (err) {
+    console.log('Voice error:', err);
+  }
+};
+
 const DETECTION_INTERVAL_MS = 70;
 const PERSON_COOLDOWN_MS = 1200;
 // const UNKNOWN_FACE_COOLDOWN_MS = 3500; // Removed: unused constant
@@ -23,6 +46,7 @@ const CAMERA_STATUS = {
 window.onerror = (msg, src, line, col, error) => {
   console.error('Global error:', msg, src, line, col, error);
   if (error && typeof error !== 'string') {
+    playVoice('error');
     Swal.fire({ icon: 'error', title: 'Runtime Error', text: error.message || String(error) });
   }
 };
@@ -520,6 +544,7 @@ const drawDetection = useCallback((detection) => {
                   ? `Time-out (${result.status})`
                   : `${result.event} (${result.status})`;
 
+              playVoice('success');
               Swal.fire({
                 icon: 'success',
                 title: bestMatch.name,
@@ -529,6 +554,7 @@ const drawDetection = useCallback((detection) => {
               });
             } else if (result.blocked) {
               console.info('ATTENDANCE INFO: blocked=', result.message);
+              playVoice('info');
               Swal.fire({
                 icon: 'info',
                 title: bestMatch.name,
@@ -540,6 +566,7 @@ const drawDetection = useCallback((detection) => {
           })
           .catch(err => {
             console.error('ATTENDANCE ERROR:', err);
+            playVoice('error');
             Swal.fire({
               icon: 'error',
               title: 'Attendance Error',
@@ -565,6 +592,7 @@ const drawDetection = useCallback((detection) => {
           }
         }
         // Show SweetAlert for unregistered face
+        playVoice('warning');
         Swal.fire({
           icon: 'warning',
           title: 'That face is not registered',

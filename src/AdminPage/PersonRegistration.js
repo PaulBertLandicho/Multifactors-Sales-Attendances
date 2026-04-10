@@ -1,11 +1,48 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+
 import Swal from 'sweetalert2';
 import RegistrationCamera from '../CameraAttendance/RegistrationCamera';
-
 import PersonDetails from './PersonDetails';
 
+// --- Voice sound assets (simple beep/notification) ---
+const playVoice = (type = 'info') => {
+  const messages = {
+    success: 'Operation completed successfully',
+    warning: 'Warning. Please check your input',
+    error: 'Error occurred. Please try again',
+    info: 'Notification received',
+  };
 
+  try {
+    // Stop any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const speech = new SpeechSynthesisUtterance(messages[type] || messages.info);
+
+    // 🌐 Language
+    speech.lang = 'en-US';
+
+    // ⚙️ Voice settings
+    speech.rate = 1;     // speed (0.8–1.2 is natural)
+    speech.pitch = 1;    // tone (0–2)
+    speech.volume = 1;   // volume (0–1)
+
+    // 🎤 Optional: Choose a better voice (if available)
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v =>
+      v.lang === 'en-US' && v.name.toLowerCase().includes('female')
+    );
+    if (preferredVoice) {
+      speech.voice = preferredVoice;
+    }
+
+    window.speechSynthesis.speak(speech);
+
+  } catch (err) {
+    console.log('Voice error:', err);
+  }
+};
 
 export default function PersonRegistration() {
   const [countdown, setCountdown] = useState(0);
@@ -22,6 +59,7 @@ export default function PersonRegistration() {
     // Accept both plain arrays and typed arrays (Float32Array)
     if (!scanPayload.descriptor || !(Array.isArray(scanPayload.descriptor) || (scanPayload.descriptor && typeof scanPayload.descriptor.length === 'number')) || scanPayload.descriptor.length === 0) return;
     if (!scanPayload.photoDataUrl) {
+      playVoice('warning');
       Swal.fire({
         icon: 'warning',
         title: 'No Photo Captured',
