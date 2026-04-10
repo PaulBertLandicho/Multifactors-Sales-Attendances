@@ -1,9 +1,7 @@
 export function calculatePayroll(attendance = [], persons = [], deptRates = [], settings = {}) {
   const morningStart = settings.morning_start || '08:00';
   const afternoonStart = settings.afternoon_start || '13:00';
-  const morningGrace = Number(settings.morning_grace_minutes) || 0;
-  const afternoonGrace = Number(settings.afternoon_grace_minutes) || 0;
-  const lateAttemptLimit = Number(settings.late_count_limit) || 5; // number of late occurrences before deduction
+    // Removed unused variables
 
   return persons.map(person => {
     // Filter attendance for this person
