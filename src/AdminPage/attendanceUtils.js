@@ -43,9 +43,12 @@ export function determineExpectedEvent(currentTime, lastEvent, settings) {
 
   // Afternoon shift: time-in
   if (nowMinutes >= afternoonStartMinutes && nowMinutes <= afternoonEndMinutes) {
+    // Allow time-in for afternoon even if there was no time-out in the morning
+    // Only block if already timed-in in the afternoon window
     if (!lastEvent || lastEvent === 'time-out') return 'time-in';
     if (lastEvent === 'time-in') return 'already-timed-in';
-    return 'attendance-closed';
+    // If lastEvent was a morning time-in and no time-out, still allow afternoon time-in
+    return 'time-in';
   }
   // Afternoon shift: time-out after afternoon window
   if (nowMinutes > afternoonEndMinutes) {

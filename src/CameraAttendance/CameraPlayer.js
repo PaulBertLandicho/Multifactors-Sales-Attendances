@@ -8,10 +8,10 @@ import { toFloat32Array, normalizeDescriptor, euclideanDistance, averageDescript
 // --- Voice sound assets (speech synthesis) ---
 const playVoice = (type = 'info') => {
   let message = '';
-  if (type === 'success') message = 'Operation completed successfully';
-  else if (type === 'warning') message = 'Warning. Please check your input';
-  else if (type === 'error') message = 'Error occurred. Please try again';
-  else message = 'Notification received';
+  if (type === 'success') message = 'Attendance recorded successfully.';
+  else if (type === 'warning') message = 'That face is not registered.';
+  else if (type === 'error') message = 'Error occurred. Please try again.';
+  else message = 'You have already recorded attendance.';
   try {
     window.speechSynthesis.cancel();
     const speech = new window.SpeechSynthesisUtterance(message);
@@ -553,15 +553,19 @@ const drawDetection = useCallback((detection) => {
                 showConfirmButton: false,
               });
             } else if (result.blocked) {
-              console.info('ATTENDANCE INFO: blocked=', result.message);
-              playVoice('info');
-              Swal.fire({
-                icon: 'info',
-                title: bestMatch.name,
-                text: result.message,
-                timer: 2200,
-                showConfirmButton: false,
-              });
+              // Throttle SweetAlert for blocked/info (already timed in) to once every 5 seconds
+              const nowMs = Date.now();
+              if (!lastScanRef.current.blockedInfoTs || nowMs - lastScanRef.current.blockedInfoTs > 5000) {
+                playVoice('info');
+                Swal.fire({
+                  icon: 'info',
+                  title: bestMatch.name,
+                  text: result.message,
+                  timer: 2200,
+                  showConfirmButton: false,
+                });
+                lastScanRef.current.blockedInfoTs = nowMs;
+              }
             }
           })
           .catch(err => {
@@ -591,17 +595,20 @@ const drawDetection = useCallback((detection) => {
             onFaceScan(scanPayload);
           }
         }
-        // Show SweetAlert for unregistered face
-        playVoice('warning');
-        Swal.fire({
-          icon: 'warning',
-          title: 'That face is not registered',
-          text: '',
-          timer: 2500,
-          showConfirmButton: false,
-        });
+        // Throttle SweetAlert for unregistered faces: only show once every 5 seconds
+        const nowMs = Date.now();
+        if (!unknownFaceLockRef.current || nowMs - unknownFaceLockRef.current > 5000) {
+          playVoice('warning');
+          Swal.fire({
+            icon: 'warning',
+            title: 'That face is not registered',
+            text: '',
+            timer: 2500,
+            showConfirmButton: false,
+          });
+          unknownFaceLockRef.current = nowMs;
+        }
         lastScanRef.current.unknown = now;
-        unknownFaceLockRef.current = true;
         matchBufferRef.current = [];
         setCooldown(true);
         setTimeout(() => setCooldown(false), 1200);
