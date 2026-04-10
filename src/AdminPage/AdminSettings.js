@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
-import AttendanceTable from '../AdminPage/AttendanceTable';
-import PersonRegistration from '../AdminPage/PersonRegistration';
 import HolidayManagerGlobal from './HolidayManager';
 
 export default function AdminSettings() {
@@ -20,7 +17,7 @@ export default function AdminSettings() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const navigate = useNavigate();
+  // Removed unused variable
 
   useEffect(() => {
     async function fetchSettings() {
