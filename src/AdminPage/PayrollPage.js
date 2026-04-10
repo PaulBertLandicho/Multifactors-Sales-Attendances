@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 // import { supabase } from './supabaseClient';
 import Swal from 'sweetalert2';
-import { calculatePayroll } from '../Payroll';
+import { calculatePayroll } from './Payroll';
 import { applyHolidayRates } from '../SupabaseFunctions/applyHolidayRates';
 import PayslipModal from '../AdminPage/PayslipModals/PayslipModal';
 import { getDetailedAttendance } from './attendanceDetails';
@@ -182,32 +182,7 @@ export default function PayrollPage() {
     fetchData();
   }, []);
 
-  // SEARCH FILTER
-  const filtered = persons.filter(p =>
-    (p.name || '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.id || '').toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Filter and sort
-  const filteredPersons = persons.filter(p => {
-    const matchesSearch =
-      !search ||
-      (p.name && p.name.toLowerCase().includes(search.toLowerCase())) ||
-      (p.id && p.id.toLowerCase().includes(search.toLowerCase()));
-    const matchesDept = !departmentFilter || p.department === departmentFilter;
-    return matchesSearch && matchesDept;
-  });
-
-  const sortedPersons = [...filteredPersons].sort((a, b) => {
-    let aVal = a[sortKey], bVal = b[sortKey];
-    if (sortKey === "name" || sortKey === "department") {
-      aVal = (aVal || "").toLowerCase();
-      bVal = (bVal || "").toLowerCase();
-    }
-    if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
-    if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
-    return 0;
-  });
+  // Removed unused filtered and sortedPersons variables
 
 
   // OPEN PAYSLIP for a period

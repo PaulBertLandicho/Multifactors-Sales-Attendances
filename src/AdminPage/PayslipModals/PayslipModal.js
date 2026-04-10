@@ -311,7 +311,7 @@ useEffect(() => {
                 <th style={styles.th}>Afternoon Out</th>
                 <th style={styles.th}>Late Count</th>
                 <th style={styles.th}>Late Details</th>
-                {/* <th style={styles.th}>OT (hrs)</th> */}
+                {/* Removed unused OT (hrs) column */}
               </tr>
             </thead>
             <tbody>
@@ -391,7 +391,7 @@ useEffect(() => {
                         </ul>
                       ) : '-'}
                     </td>
-                    {/* <td style={styles.td}>{otDisplay}</td> */}
+                    {/* Removed unused otDisplay cell */}
                   </tr>
                 )
               }) : (

@@ -48,7 +48,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
   const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
   const [useLocalCamera, setUseLocalCamera] = useState(false);
-  const [frameReady, setFrameReady] = useState(false);
+  // Removed unused frameReady state to fix ESLint warning
   const wsRef = useRef(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const animationFrameRef = useRef();
@@ -158,7 +158,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
   // Setup Dahua stream via WebSocket or fallback to webcam
   useEffect(() => {
     let disposed = false;
-    setFrameReady(false);
+    // setFrameReady(false); // Removed unused state update
 
     // If no WebSocket URL configured, immediately use local webcam.
     if (!wsUrl) {
@@ -210,7 +210,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
           videoRef.current.srcObject = stream;
           videoRef.current.onloadedmetadata = () => {
             videoRef.current.play();
-            setFrameReady(true);
+            // setFrameReady(true); // Removed unused state update
           };
         }
       } catch (err) {
@@ -223,6 +223,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
     }
     startLocalCamera();
     return () => {
+      // Fix: copy ref to local variable to avoid stale closure
       const videoEl = videoRef.current;
       if (videoEl) videoEl.srcObject = null;
       if (stream) stream.getTracks().forEach(track => track.stop());
@@ -347,7 +348,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
       isMounted = false;
       cancelAnimationFrame(animationFrameRef.current);
     };
-  }, [modelsLoaded, useLocalCamera, disabled, onFaceScan]);
+  }, [modelsLoaded, useLocalCamera, disabled, onFaceScan, persons]);
 
   return (
     <div>

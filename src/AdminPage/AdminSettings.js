@@ -8,24 +8,17 @@ export default function AdminSettings() {
     morning_start: '08:00',
     morning_end: '11:59',
     afternoon_start: '13:00',
-    // Removed unused imports
-    // import AttendanceTable from '../AdminPage/AttendanceTable';
-    // import PersonRegistration from '../AdminPage/PersonRegistration';
-    // import { useNavigate } from 'react-router-dom';
     late_count_limit: 5,
     payroll_period_days: 15, // Default to 15 days, can be adjusted
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  // Removed unused variable
 
   useEffect(() => {
     async function fetchSettings() {
       const { data, error } = await supabase
         .from('settings')
         .select('*')
-    // Removed unused variable
-    // const navigate = useNavigate();
         .single();
       if (!error && data) {
         // Fallbacks for missing/invalid values

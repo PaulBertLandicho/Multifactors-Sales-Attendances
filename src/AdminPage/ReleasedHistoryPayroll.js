@@ -3,10 +3,8 @@ import * as XLSX from 'xlsx';
 import { supabase } from '../supabaseClient';
 import PayslipModal from './PayslipModals/PayslipModal';
 import { getDetailedAttendance } from './attendanceDetails';
-import { calculatePayroll } from '../Payroll';
-import {
-  FiDownload,
-} from 'react-icons/fi';
+import { calculatePayroll } from './Payroll';
+import { FiDownload } from 'react-icons/fi';
 
 export default function ReleasedHistoryPayroll() {
   const [releasedPayrolls, setReleasedPayrolls] = useState([]);
@@ -16,9 +14,7 @@ export default function ReleasedHistoryPayroll() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("period");
   const [sortOrder, setSortOrder] = useState("desc");
-  const Icons = {
-        download: <FiDownload />,
-      };
+  // Removed unused Icons variable
   useEffect(() => {
     async function fetchReleased() {
       // Join persons table to get name and department
@@ -230,7 +226,7 @@ export default function ReleasedHistoryPayroll() {
           onClick={handleExportExcel}
           style={{ ...styles.button, ...styles.buttonPrimary }}
         >
-         {Icons.download} Export Excel
+         <FiDownload /> Export Excel
         </button>
       </div>
       <div style={styles.tableContainer}>

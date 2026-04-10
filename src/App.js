@@ -1,19 +1,15 @@
 import PersonRegistration from './AdminPage/PersonRegistration';
 import PayrollPage from './AdminPage/PayrollPage';
 // App.js
-// import './App.css';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from './supabaseClient';
 
 import CameraPlayer from './CameraAttendance/CameraPlayer';
-// import AttendanceTable from './AttendanceTable';
-import PersonDetails from './AdminPage/PersonDetails';
 import AdminLogin from './AdminPage/AdminLogin';
 import ReleasedHistoryPayroll from './AdminPage/ReleasedHistoryPayroll';
 import ReleasedPayrollLogs from './AdminPage/ReleasedPayrollLogs';
 import AdminSettings from './AdminPage/AdminSettings';
-// import PayrollPage from './PayrollPage';
 import AttendanceTable from './AdminPage/AttendanceTable';
 import AdminSidebar from './AdminPage/AdminSidebar';
 import DepartmentRates from './AdminPage/DepartmentRates';

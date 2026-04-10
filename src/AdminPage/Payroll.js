@@ -1,5 +1,7 @@
-
 export function calculatePayroll(attendance = [], persons = [], deptRates = [], settings = {}) {
+  const morningStart = settings.morning_start || '08:00';
+  const afternoonStart = settings.afternoon_start || '13:00';
+    // Removed unused variables
 
   return persons.map(person => {
     // Filter attendance for this person

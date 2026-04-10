@@ -15,7 +15,7 @@ import {
 export default function AttendanceTable() {
     // Search, filter, and sort state
     const [search, setSearch] = useState("");
-    const [statusFilter, setStatusFilter] = useState("");
+    const [statusFilter] = useState("");
     const [eventFilter, setEventFilter] = useState("");
     const [departmentFilter, setDepartmentFilter] = useState("");
     const [sortKey] = useState("device_time");
@@ -27,13 +27,7 @@ export default function AttendanceTable() {
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(null); // record being edited
-  const [form, setForm] = useState({
-    person_id: '',
-    event: 'time-in',
-    status: '',
-    method: '',
-    device_time: '',
-  });
+  // Removed unused form and setForm state
   // const [showForm, setShowForm] = useState(false); // Removed as unused
 
   // Helper to format ISO date/time as "April 07, 2026 10:15:30"
@@ -326,71 +320,7 @@ const Icons = {
   // };
 
   // Show edit form in SweetAlert2 modal
-  function showEditModal(editRec) {
-    let html = `<form id='edit-attendance-form' style='display:flex;flex-direction:column;gap:12px;'>`;
-    html += `<label>Person: <select name='person_id' required style='margin-left:8px;'>`;
-    html += `<option value=''>Select person</option>`;
-    persons.forEach(p => {
-      html += `<option value='${p.id}'${editRec.person_id === p.id ? ' selected' : ''}>${p.name} (${p.id})</option>`;
-    });
-    html += `</select></label>`;
-    html += `<label>Event: <select name='event' required style='margin-left:8px;'>`;
-    html += `<option value='time-in'${editRec.event === 'time-in' ? ' selected' : ''}>Time-in</option>`;
-    html += `<option value='time-out'${editRec.event === 'time-out' ? ' selected' : ''}>Time-out</option>`;
-    html += `</select></label>`;
-    html += `<label>Status: <select name='status' style='margin-left:8px;'>`;
-    html += `<option value=''${!editRec.status ? ' selected' : ''}>Normal</option>`;
-    html += `<option value='late'${editRec.status === 'late' ? ' selected' : ''}>Late</option>`;
-    html += `</select></label>`;
-    html += `<label>Method: <input name='method' value='${editRec.method || ''}' style='margin-left:8px;' placeholder='e.g. face, manual' /></label>`;
-    html += `<label>Date/Time: <input type='datetime-local' name='device_time' value='${editRec.device_time || ''}' style='margin-left:8px;' required /></label>`;
-    html += `</form>`;
-    Swal.fire({
-      title: 'Edit Attendance',
-      html,
-      showCancelButton: true,
-      confirmButtonText: 'Update',
-      focusConfirm: false,
-      preConfirm: () => {
-        const formEl = document.getElementById('edit-attendance-form');
-        const formData = new FormData(formEl);
-        const updated = {
-          person_id: formData.get('person_id'),
-          event: formData.get('event'),
-          status: formData.get('status'),
-          method: formData.get('method'),
-          device_time: formData.get('device_time'),
-        };
-        if (!updated.person_id || !updated.event || !updated.device_time) {
-          Swal.showValidationMessage('Person, event, and time are required.');
-          return false;
-        }
-        return updated;
-      },
-    }).then(async (result) => {
-      if (result.isConfirmed && editing) {
-        const payload = {
-          person_id: result.value.person_id,
-          event: result.value.event,
-          status: result.value.status,
-          method: result.value.method,
-          device_time: new Date(result.value.device_time).toISOString(),
-        };
-        const { error: upErr } = await supabase.from('attendance').update(payload).eq('id', editing.id);
-        if (upErr) {
-          Swal.fire('Error', upErr.message, 'error');
-        } else {
-          // setShowForm(false); // Removed as showForm is not defined/used
-          setEditing(null);
-          setLoading(true);
-          const { data: attData } = await supabase.from('attendance').select('*');
-          setRecords(attData || []);
-          setLoading(false);
-          Swal.fire('Updated!', '', 'success');
-        }
-      }
-    });
-  }
+  // Removed unused showEditModal function
 
   // Archive (soft delete)
   const handleArchive = async (rec) => {

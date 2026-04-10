@@ -143,6 +143,7 @@ export async function generateAllPayslipsPdf(list = []) {
   // Layout: two payslips per page, one on top, one on bottom
   const marginY = 10;
   const pageHeight = doc.internal.pageSize.getHeight();
+  // Removed unused payslipHeight
 
   for (let i = 0; i < list.length; i++) {
     const params = list[i];

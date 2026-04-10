@@ -10,12 +10,9 @@ export default function DepartmentRates() {
   const [rates, setRates] = useState([]);
   // Track original department names for rename
   const [originalNames, setOriginalNames] = useState([]);
-  // Track holiday types and dates per department
-  const [holidayTypes, setHolidayTypes] = useState({});
-  const [holidayDates, setHolidayDates] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const navigate = useNavigate();
+  // Removed unused navigate
   const Icons = {
   circlePlus: <FiPlusCircle />,
 };
@@ -87,36 +84,10 @@ export default function DepartmentRates() {
   };
 
   // Handle holiday type checkbox
-  const handleHolidayTypeChange = (idx, type, checked) => {
-    setHolidayTypes(prev => ({
-      ...prev,
-      [idx]: {
-        ...prev[idx],
-        [type]: checked,
-      },
-    }));
-    // Clear date if unchecked
-    if (!checked) {
-      setHolidayDates(prev => ({
-        ...prev,
-        [idx]: {
-          ...prev[idx],
-          [type]: '',
-        },
-      }));
-    }
-  };
+  // Removed unused handleHolidayTypeChange
 
   // Handle holiday date change
-  const handleHolidayDateChange = (idx, type, date) => {
-    setHolidayDates(prev => ({
-      ...prev,
-      [idx]: {
-        ...prev[idx],
-        [type]: date,
-      },
-    }));
-  };
+  // Removed unused handleHolidayDateChange
 
   const handleSave = async (index) => {
     setSaving(true);
