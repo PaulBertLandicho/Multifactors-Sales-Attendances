@@ -1,19 +1,19 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
-
+import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../supabaseClient";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 export default function AdminLogin() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -24,7 +24,7 @@ export default function AdminLogin() {
       setError(error.message);
       setLoading(false);
     } else {
-      navigate('/admin/settings');
+      navigate("/admin/settings");
     }
   };
 
@@ -43,6 +43,7 @@ export default function AdminLogin() {
             <input
               type="email"
               value={email}
+              placeholder="Enter Email"
               onChange={(e) => setEmail(e.target.value)}
               required
               style={styles.input}
@@ -51,13 +52,24 @@ export default function AdminLogin() {
 
           <div style={styles.inputGroup}>
             <label style={styles.label}>Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              style={styles.input}
-            />
+
+            <div style={styles.passwordWrapper}>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                placeholder="Enter Password"
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={styles.inputPassword}
+              />
+
+              <span
+                onClick={() => setShowPassword(!showPassword)}
+                style={styles.eye}
+              >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            </div>
           </div>
 
           {error && <div style={styles.error}>{error}</div>}
@@ -70,7 +82,7 @@ export default function AdminLogin() {
               ...(loading ? styles.buttonDisabled : {}),
             }}
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
       </div>
@@ -81,70 +93,89 @@ export default function AdminLogin() {
 /* ✅ STYLES MUST BE OUTSIDE THE COMPONENT */
 const styles = {
   container: {
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: '#f9fafb',
-    padding: '20px',
+    minHeight: "100vh",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "#f9fafb",
+    padding: "20px",
   },
   card: {
-    maxWidth: '400px',
-    width: '100%',
-    background: '#fff',
-    borderRadius: '20px',
-    padding: '30px',
-    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+    maxWidth: "400px",
+    width: "100%",
+    background: "#fff",
+    borderRadius: "20px",
+    padding: "30px",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
   },
   header: {
-    textAlign: 'center',
-    marginBottom: '20px',
+    textAlign: "center",
+    marginBottom: "20px",
   },
   icon: {
-    fontSize: '40px',
+    fontSize: "40px",
   },
   title: {
-    margin: '10px 0',
+    margin: "10px 0",
   },
   underline: {
-    width: '50px',
-    height: '3px',
-    background: '#10b981',
-    margin: 'auto',
+    width: "50px",
+    height: "3px",
+    background: "#10b981",
+    margin: "auto",
   },
   form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '15px',
+    display: "flex",
+    flexDirection: "column",
+    gap: "15px",
   },
   inputGroup: {
-    display: 'flex',
-    flexDirection: 'column',
+    display: "flex",
+    flexDirection: "column",
   },
   label: {
-    fontSize: '14px',
-    marginBottom: '5px',
+    fontSize: "14px",
+    marginBottom: "5px",
   },
   input: {
-    padding: '10px',
-    borderRadius: '8px',
-    border: '1px solid #ccc',
+    padding: "10px",
+    borderRadius: "8px",
+    border: "1px solid #ccc",
   },
   button: {
-    padding: '12px',
-    borderRadius: '30px',
-    border: 'none',
-    background: '#10b981',
-    color: '#fff',
-    cursor: 'pointer',
+    padding: "12px",
+    borderRadius: "30px",
+    border: "none",
+    background: "#10b981",
+    color: "#fff",
+    cursor: "pointer",
   },
   buttonDisabled: {
     opacity: 0.6,
-    cursor: 'not-allowed',
+    cursor: "not-allowed",
   },
   error: {
-    color: 'red',
-    textAlign: 'center',
+    color: "red",
+    textAlign: "center",
+  },
+  passwordWrapper: {
+    position: "relative",
+  },
+
+  inputPassword: {
+    width: "87%",
+    padding: "10px 40px 10px 10px", // space for icon inside
+    borderRadius: "8px",
+    border: "1px solid #ccc",
+  },
+
+  eye: {
+    position: "absolute",
+    top: "50%",
+    right: "12px",
+    transform: "translateY(-50%)",
+    cursor: "pointer",
+    fontSize: "18px",
+    userSelect: "none",
   },
 };
-
