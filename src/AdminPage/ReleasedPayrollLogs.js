@@ -92,7 +92,7 @@ export default function ReleasedPayrollLogs() {
           <div style={styles.searchWrapper}>
             <input
               type="text"
-              placeholder="Search ....."
+              placeholder="Search name or ID"
               value={search}
               onChange={e => setSearch(e.target.value)}
               style={styles.searchInput}

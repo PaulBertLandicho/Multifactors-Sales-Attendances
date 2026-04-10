@@ -9,10 +9,9 @@ const DETECTION_INTERVAL_MS = 70;
 const PERSON_COOLDOWN_MS = 1200;
 // const UNKNOWN_FACE_COOLDOWN_MS = 3500; // Removed: unused constant
 // Require several consecutive high-confidence matches before accepting a face
-const BUFFER_SIZE = 2;
-// Require the same face to be stable for at least this long
-// Shortened to make verification feel faster while still filtering flicker
-const MIN_VERIFICATION_MS = 500;
+// Make attendance verification as fast as registration
+const BUFFER_SIZE = 1; // Only require 1 stable frame
+const MIN_VERIFICATION_MS = 0; // No minimum verification time
 const TINY_DETECTOR_INPUT_SIZE = 320;
 const CAMERA_STATUS = {
   CONNECTING: 'connecting',
@@ -565,6 +564,14 @@ const drawDetection = useCallback((detection) => {
             onFaceScan(scanPayload);
           }
         }
+        // Show SweetAlert for unregistered face
+        Swal.fire({
+          icon: 'warning',
+          title: 'That face is not registered',
+          text: '',
+          timer: 2500,
+          showConfirmButton: false,
+        });
         lastScanRef.current.unknown = now;
         unknownFaceLockRef.current = true;
         matchBufferRef.current = [];
@@ -735,6 +742,7 @@ const styles = {
   },
   cameraCard: {
     width: '100%',
+    height: '100%',
     maxWidth: '900px',
     backgroundColor: '#ffffff',
     borderRadius: '24px',

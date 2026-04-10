@@ -11,6 +11,63 @@ import {
 
 
 export default function PersonsTable() {
+  // Camera state/hooks for Edit Person modal
+  const [showCamera, setShowCamera] = useState(false);
+  const cameraVideoRef = useRef(null);
+
+  const cameraStreamRef = useRef(null);
+
+    // Start camera when modal opens
+
+  useEffect(() => {
+    if (showCamera) {
+      (async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          if (cameraVideoRef.current) {
+            cameraVideoRef.current.srcObject = stream;
+            cameraStreamRef.current = stream;
+          }
+        } catch (err) {
+          Swal.fire('Camera Error', 'Unable to access camera.', 'error');
+          setShowCamera(false);
+        }
+      })();
+    } else {
+      // Stop camera
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks && cameraStreamRef.current.getTracks().forEach(track => track.stop());
+        cameraStreamRef.current = null;
+      }
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = null;
+      }
+    }
+    // Cleanup on unmount
+    return () => {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks && cameraStreamRef.current.getTracks().forEach(track => track.stop());
+        cameraStreamRef.current = null;
+      }
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = null;
+      }
+    };
+  }, [showCamera]);
+
+    // Handler to capture photo from camera
+    const handleCapturePhoto = () => {
+      if (!cameraVideoRef.current) return;
+      const video = cameraVideoRef.current;
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth || 320;
+      canvas.height = video.videoHeight || 240;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+      setEditPerson(prev => ({ ...prev, registration_photo: dataUrl }));
+      setShowCamera(false);
+    };
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [sortKey, setSortKey] = useState("created_at");
@@ -400,7 +457,7 @@ export default function PersonsTable() {
             <form onSubmit={handleEditModalSave}>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Registration Photo</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                   {editPerson.registration_photo ? (
                     <img
                       src={editPerson.registration_photo}
@@ -417,6 +474,13 @@ export default function PersonsTable() {
                   >
                     Upload New Photo
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCamera(true)}
+                    style={{ ...styles.button, ...styles.buttonPrimary, padding: '8px 16px' }}
+                  >
+                    Use Camera
+                  </button>
                 </div>
                 <input
                   ref={editPhotoInputRef}
@@ -425,6 +489,24 @@ export default function PersonsTable() {
                   style={{ display: 'none' }}
                   onChange={handleEditPhotoChange}
                 />
+
+                {/* Camera Modal for capturing photo */}
+                {showCamera && (
+                  <div style={{
+                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+                    background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <div style={{ background: '#fff', padding: 32, borderRadius: 20, boxShadow: '0 8px 32px rgba(0,0,0,0.2)', position: 'relative' }}>
+                      <button onClick={() => setShowCamera(false)} style={{ position: 'absolute', top: 12, right: 16, background: 'transparent', border: 'none', fontSize: 28, color: '#888', cursor: 'pointer' }}>&times;</button>
+                      <h3 style={{ marginBottom: 16 }}>Capture Photo</h3>
+                      <video ref={cameraVideoRef} autoPlay playsInline width={320} height={240} style={{ borderRadius: 12, background: '#000' }} />
+                      <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
+                        <button type="button" style={{ ...styles.button, ...styles.buttonPrimary }} onClick={handleCapturePhoto}>Capture</button>
+                        <button type="button" style={{ ...styles.button, ...styles.buttonSecondary }} onClick={() => setShowCamera(false)}>Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Name</label>

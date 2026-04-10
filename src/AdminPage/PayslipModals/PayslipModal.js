@@ -158,6 +158,37 @@ useEffect(() => {
     }).filter(Boolean);
   }
 
+  // Calculate Standard Pay based on attendance (full/half days)
+  // A full day: both morningIn and afternoonIn are present
+  // A half day: only one session present
+  let daysWorked = 0;
+  let daysWorkedDisplay = '';
+  if (detailedAttendance.length) {
+    let fullDays = 0;
+    let halfDays = 0;
+    detailedAttendance.forEach(rec => {
+      const hasMorning = !!rec.morningIn;
+      const hasAfternoon = !!rec.afternoonIn;
+      if (hasMorning && hasAfternoon) {
+        fullDays += 1;
+      } else if (hasMorning || hasAfternoon) {
+        halfDays += 1;
+      }
+    });
+    daysWorked = fullDays + halfDays * 0.5;
+    // Display as e.g. "2 full, 1 half (2.5 days)"
+    let parts = [];
+    if (fullDays > 0) parts.push(`${fullDays} full`);
+    if (halfDays > 0) parts.push(`${halfDays} half`);
+    daysWorkedDisplay = parts.length ? `${parts.join(', ')} (${daysWorked} day${daysWorked !== 1 ? 's' : ''})` : '0 days';
+  } else {
+    daysWorked = payroll.daysPresent || 0;
+    daysWorkedDisplay = `${daysWorked} day(s)`;
+  }
+
+  // Standard Pay calculation
+  const standardPayAmount = Math.round((daysWorked * (payroll.dailyRate ?? 0)) * 100) / 100;
+
   // Overtime calculation: always use dailyRate/8 (no premium) for display and calculation, and round to 2 decimals for all math
   const hourlyRate = Math.round(((payroll.dailyRate ?? 0) / 8) * 100) / 100;
   // Ensure otHours is rounded to 2 decimals for precision
@@ -428,6 +459,7 @@ useEffect(() => {
 
           {/* Earnings */}
 
+
           <h3 style={styles.sectionTitle}>💸 Earnings</h3>
           <table style={styles.table}>
             <thead>
@@ -441,9 +473,9 @@ useEffect(() => {
             <tbody>
               <tr style={styles.trEven}>
                 <td style={styles.td}>Standard Pay</td>
-                <td style={styles.td}>{payroll.daysPresent} day(s)</td>
+                <td style={styles.td}>{daysWorkedDisplay}</td>
                 <td style={styles.td}>₱{(payroll.dailyRate ?? 0).toFixed(2)}</td>
-                <td style={styles.td}>₱{(payroll.dailyRate ?? 0).toLocaleString()}</td>
+                <td style={styles.td}>₱{standardPayAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
               </tr>
               <tr style={styles.trOdd}>
                 <td style={styles.td}>Overtime Pay</td>
@@ -483,7 +515,7 @@ useEffect(() => {
 )}
               <tr style={styles.summaryRow}>
                 <td colSpan="3" style={styles.td}>Gross Pay</td>
-                <td style={styles.td}>₱{(Math.round(((payroll.dailyRate ?? 0) + otPay + totalHolidayPay) * 100) / 100).toFixed(2)}</td>
+                <td style={styles.td}>₱{(Math.round((standardPayAmount + otPay + totalHolidayPay) * 100) / 100).toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
