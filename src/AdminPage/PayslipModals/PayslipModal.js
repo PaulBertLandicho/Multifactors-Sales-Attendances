@@ -1,6 +1,5 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { fetchHolidays } from '../../SupabaseFunctions/fetchHolidays';
 import { supabase } from '../../supabaseClient';
 import { generatePayslipPdf } from './generatePayslipPdf';
 
@@ -17,7 +16,6 @@ export default function PayslipModal({
   // useState declarations (only once)
   const [holidayDetails, setHolidayDetails] = useState([]);
   const [deptHolidayRates, setDeptHolidayRates] = useState({ regular: 0, special: 0 });
-  const [deptOtRate, setDeptOtRate] = useState(null);
   const [loadingHoliday, setLoadingHoliday] = useState(true);
 
   // Debug output for troubleshooting
@@ -45,7 +43,6 @@ useEffect(() => {
         regular: Number(data.regular_holiday_rate ?? data.holiday_rate ?? 0),
         special: Number(data.special_holiday_rate ?? 0)
       });
-      setDeptOtRate(Number(data.ot_rate) > 0 ? Number(data.ot_rate) : null);
     }
   }
 
@@ -321,12 +318,7 @@ useEffect(() => {
 
             {detailedAttendance.length ? detailedAttendance.map((rec, i) => {
                 const rowStyle = i % 2 === 0 ? styles.trEven : styles.trOdd;
-                let otDisplay = '-';
-                if (rec.otHours && rec.otHours > 0) {
-                  otDisplay = getHourMinute(rec.otHours);
-                } else if (payroll.otHours && payroll.otHours > 0) {
-                  otDisplay = getHourMinute(payroll.otHours);
-                }
+                // Removed unused otDisplay variable
 
                 // Settings for time-in/time-out
                 const settings = payroll && payroll.settings ? payroll.settings : {};

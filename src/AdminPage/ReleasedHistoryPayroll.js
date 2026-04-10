@@ -5,8 +5,6 @@ import PayslipModal from './PayslipModals/PayslipModal';
 import { getDetailedAttendance } from './attendanceDetails';
 import { calculatePayroll } from '../Payroll';
 import {
-  FiSearch,
-  FiEye,
   FiDownload,
 } from 'react-icons/fi';
 
@@ -19,10 +17,8 @@ export default function ReleasedHistoryPayroll() {
   const [sortKey, setSortKey] = useState("period");
   const [sortOrder, setSortOrder] = useState("desc");
   const Icons = {
-        search: <FiSearch />,
         download: <FiDownload />,
-        eye: <FiEye />
-      }; 
+      };
   useEffect(() => {
     async function fetchReleased() {
       // Join persons table to get name and department
@@ -234,7 +230,7 @@ export default function ReleasedHistoryPayroll() {
           onClick={handleExportExcel}
           style={{ ...styles.button, ...styles.buttonPrimary }}
         >
-          Export Excel
+         {Icons.download} Export Excel
         </button>
       </div>
       <div style={styles.tableContainer}>

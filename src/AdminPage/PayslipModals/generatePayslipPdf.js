@@ -141,7 +141,6 @@ export async function generateAllPayslipsPdf(list = []) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
   // Layout: two payslips per page, one on top, one on bottom
-  const payslipHeight = 140; // Height for each payslip block
   const marginY = 10;
   const pageHeight = doc.internal.pageSize.getHeight();
 
