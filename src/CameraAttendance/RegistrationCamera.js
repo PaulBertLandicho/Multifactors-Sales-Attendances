@@ -201,13 +201,14 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
   useEffect(() => {
     if (!useLocalCamera) return;
     let stream = null;
+    const initialVideoRef = videoRef.current;
     async function startLocalCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current.play();
+        if (initialVideoRef) {
+          initialVideoRef.srcObject = stream;
+          initialVideoRef.onloadedmetadata = () => {
+            initialVideoRef.play();
           };
         }
       } catch (err) {
@@ -220,9 +221,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
     }
     startLocalCamera();
     return () => {
-      // Fix: copy ref to local variable to avoid stale closure
-      const videoEl = videoRef.current;
-      if (videoEl) videoEl.srcObject = null;
+      if (initialVideoRef) initialVideoRef.srcObject = null;
       if (stream) stream.getTracks().forEach(track => track.stop());
     };
   }, [useLocalCamera]);
