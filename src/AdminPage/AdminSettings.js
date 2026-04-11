@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import Swal from 'sweetalert2';
-import { supabase } from '../supabaseClient';
-import HolidayManagerGlobal from './HolidayManager';
+import React, { useEffect, useState } from "react";
+import Swal from "sweetalert2";
+import { supabase } from "../supabaseClient";
+import HolidayManagerGlobal from "./HolidayManager";
 
 export default function AdminSettings() {
   const [settings, setSettings] = useState({
-    morning_start: '08:00',
-    morning_end: '11:59',
-    afternoon_start: '13:00',
+    morning_start: "08:00",
+    morning_end: "11:59",
+    afternoon_start: "13:00",
     late_count_limit: 5,
     payroll_period_days: 15, // Default to 15 days, can be adjusted
   });
@@ -17,20 +17,36 @@ export default function AdminSettings() {
   useEffect(() => {
     async function fetchSettings() {
       const { data, error } = await supabase
-        .from('settings')
-        .select('*')
+        .from("settings")
+        .select("*")
         .single();
       if (!error && data) {
         // Fallbacks for missing/invalid values
         setSettings({
-          morning_start: data.morning_start ? data.morning_start.slice(0,5) : '08:00',
-          morning_end: data.morning_end ? data.morning_end.slice(0,5) : '11:59',
-          afternoon_start: data.afternoon_start ? data.afternoon_start.slice(0,5) : '13:00',
-          afternoon_end: data.afternoon_end ? data.afternoon_end.slice(0,5) : '17:00',
-          morning_grace_minutes: Number.isFinite(data.morning_grace_minutes) ? data.morning_grace_minutes : 15,
-          afternoon_grace_minutes: Number.isFinite(data.afternoon_grace_minutes) ? data.afternoon_grace_minutes : 15,
-          late_count_limit: Number.isFinite(data.late_count_limit) ? data.late_count_limit : 5,
-          payroll_period_days: Number.isFinite(data.payroll_period_days) ? data.payroll_period_days : 15,
+          morning_start: data.morning_start
+            ? data.morning_start.slice(0, 5)
+            : "08:00",
+          morning_end: data.morning_end
+            ? data.morning_end.slice(0, 5)
+            : "11:59",
+          afternoon_start: data.afternoon_start
+            ? data.afternoon_start.slice(0, 5)
+            : "13:00",
+          afternoon_end: data.afternoon_end
+            ? data.afternoon_end.slice(0, 5)
+            : "17:00",
+          morning_grace_minutes: Number.isFinite(data.morning_grace_minutes)
+            ? data.morning_grace_minutes
+            : 15,
+          afternoon_grace_minutes: Number.isFinite(data.afternoon_grace_minutes)
+            ? data.afternoon_grace_minutes
+            : 15,
+          late_count_limit: Number.isFinite(data.late_count_limit)
+            ? data.late_count_limit
+            : 5,
+          payroll_period_days: Number.isFinite(data.payroll_period_days)
+            ? data.payroll_period_days
+            : 15,
         });
       }
       setLoading(false);
@@ -42,7 +58,7 @@ export default function AdminSettings() {
     const { name, value, type } = e.target;
     setSettings({
       ...settings,
-      [name]: type === 'number' ? parseInt(value) || 0 : value,
+      [name]: type === "number" ? parseInt(value) || 0 : value,
     });
   };
 
@@ -50,16 +66,16 @@ export default function AdminSettings() {
     setSaving(true);
     // Check if settings row exists
     const { data: existing, error: fetchError } = await supabase
-      .from('settings')
-      .select('id')
-      .eq('id', 1)
+      .from("settings")
+      .select("id")
+      .eq("id", 1)
       .single();
 
     let error = null;
     if (!fetchError && existing) {
       // Update existing row
       ({ error } = await supabase
-        .from('settings')
+        .from("settings")
         .update({
           morning_start: settings.morning_start,
           morning_end: settings.morning_end,
@@ -71,32 +87,29 @@ export default function AdminSettings() {
           payroll_period_days: settings.payroll_period_days,
           updated_at: new Date(),
         })
-        .eq('id', 1));
+        .eq("id", 1));
     } else {
       // Insert new row
-      ({ error } = await supabase
-        .from('settings')
-        .insert({
-          id: 1,
-          morning_start: settings.morning_start,
-          morning_end: settings.morning_end,
-          afternoon_start: settings.afternoon_start,
-          afternoon_end: settings.afternoon_end,
-          morning_grace_minutes: settings.morning_grace_minutes,
-          afternoon_grace_minutes: settings.afternoon_grace_minutes,
-          payroll_period_days: settings.payroll_period_days,
-          updated_at: new Date(),
-        }));
+      ({ error } = await supabase.from("settings").insert({
+        id: 1,
+        morning_start: settings.morning_start,
+        morning_end: settings.morning_end,
+        afternoon_start: settings.afternoon_start,
+        afternoon_end: settings.afternoon_end,
+        morning_grace_minutes: settings.morning_grace_minutes,
+        afternoon_grace_minutes: settings.afternoon_grace_minutes,
+        payroll_period_days: settings.payroll_period_days,
+        updated_at: new Date(),
+      }));
     }
-    if (error) Swal.fire('Error saving', error.message, 'error');
-    else Swal.fire('Settings updated!', '', 'success');
+    if (error) Swal.fire("Error saving", error.message, "error");
+    else Swal.fire("Settings updated!", "", "success");
     setSaving(false);
   };
 
-
   if (loading) return <div>Loading...</div>;
 
- return (
+  return (
     <div style={styles.container}>
       <div style={styles.header}>
         <h1 style={styles.title}>Work Hours Settings</h1>
@@ -145,7 +158,9 @@ export default function AdminSettings() {
               />
               <span style={styles.inputSuffix}>min</span>
             </div>
-            <span style={styles.hint}>Minutes after start considered on-time</span>
+            <span style={styles.hint}>
+              Minutes after start considered on-time
+            </span>
           </div>
         </div>
 
@@ -189,7 +204,9 @@ export default function AdminSettings() {
               />
               <span style={styles.inputSuffix}>min</span>
             </div>
-            <span style={styles.hint}>Minutes after start considered on-time</span>
+            <span style={styles.hint}>
+              Minutes after start considered on-time
+            </span>
           </div>
         </div>
 
@@ -232,7 +249,9 @@ export default function AdminSettings() {
               />
               <span style={styles.inputSuffix}>days</span>
             </div>
-            <span style={styles.hint}>Number of days in each payroll period (default: 15)</span>
+            <span style={styles.hint}>
+              Number of days in each payroll period (default: 15)
+            </span>
           </div>
         </div>
 
@@ -261,7 +280,7 @@ export default function AdminSettings() {
           </div>
         </div> */}
       </div>
- {/* Action Buttons */}
+      {/* Action Buttons */}
       <div style={styles.actions}>
         <button
           onClick={handleSave}
@@ -270,10 +289,10 @@ export default function AdminSettings() {
             ...styles.button,
             ...styles.buttonPrimary,
             opacity: saving ? 0.7 : 1,
-            cursor: saving ? 'not-allowed' : 'pointer',
+            cursor: saving ? "not-allowed" : "pointer",
           }}
         >
-          {saving ? 'Saving...' : 'Save Settings'}
+          {saving ? "Saving..." : "Save Settings"}
         </button>
         {/* <button
           onClick={() => navigate('/admin/department-rates')}
@@ -283,10 +302,9 @@ export default function AdminSettings() {
         </button> */}
       </div>
       {/* Global Holiday Manager (applies to all departments) */}
-      <div style={{ margin: '40px 0' }}>
+      <div style={{ margin: "40px 0" }}>
         <HolidayManagerGlobal />
       </div>
-     
     </div>
   );
 }
@@ -294,163 +312,163 @@ export default function AdminSettings() {
 // Light theme styles with green accent
 const styles = {
   container: {
-    maxWidth: '1200px',
-    margin: '40px auto',
-    padding: '40px 32px',
-    background: '#ffffff',
-    borderRadius: '32px',
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
-    color: '#1f2937',
+    maxWidth: "1200px",
+    margin: "40px auto",
+    padding: "40px 32px",
+    background: "#ffffff",
+    borderRadius: "32px",
+    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.1)",
+    color: "#1f2937",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
   header: {
-    textAlign: 'center',
-    marginBottom: '48px',
+    textAlign: "center",
+    marginBottom: "48px",
   },
   title: {
-    fontSize: '2.8rem',
+    fontSize: "2.8rem",
     fontWeight: 700,
-    color: '#1f2937',
+    color: "#1f2937",
     margin: 0,
-    display: 'inline-block',
+    display: "inline-block",
   },
   titleUnderline: {
-    height: '4px',
-    width: '100px',
-    background: '#10b981', // solid green
-    margin: '8px auto 0',
-    borderRadius: '2px',
+    height: "4px",
+    width: "100px",
+    background: "#10b981", // solid green
+    margin: "8px auto 0",
+    borderRadius: "2px",
   },
   cardsRow: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '24px',
-    marginBottom: '32px',
+    display: "grid",
+    gridTemplateColumns: "repeat(3, 1fr)",
+    gap: "24px",
+    marginBottom: "32px",
   },
   card: {
-    background: '#f9fafb',
-    borderRadius: '24px',
-    padding: '28px 24px',
-    border: '1px solid #e5e7eb',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-    transition: 'transform 0.2s, box-shadow 0.2s',
-    display: 'flex',
-    flexDirection: 'column',
+    background: "#f9fafb",
+    borderRadius: "24px",
+    padding: "28px 24px",
+    border: "1px solid #e5e7eb",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+    transition: "transform 0.2s, box-shadow 0.2s",
+    display: "flex",
+    flexDirection: "column",
   },
   cardHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    marginBottom: '24px',
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    marginBottom: "24px",
   },
   cardIcon: {
-    fontSize: '2rem',
+    fontSize: "2rem",
   },
   cardTitle: {
-    fontSize: '1.6rem',
+    fontSize: "1.6rem",
     fontWeight: 600,
     margin: 0,
-    color: '#1f2937',
+    color: "#1f2937",
   },
   inputGroup: {
-    marginBottom: '20px',
+    marginBottom: "20px",
   },
   label: {
-    display: 'block',
-    fontSize: '0.9rem',
+    display: "block",
+    fontSize: "0.9rem",
     fontWeight: 500,
-    color: '#4b5563',
-    marginBottom: '8px',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
+    color: "#4b5563",
+    marginBottom: "8px",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
   },
   input: {
-    width: '100%',
-    padding: '12px 16px',
-    fontSize: '1rem',
-    borderRadius: '14px',
-    border: '1px solid #d1d5db',
-    background: '#ffffff',
-    color: '#1f2937',
-    outline: 'none',
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-    boxSizing: 'border-box',
+    width: "100%",
+    padding: "12px 16px",
+    fontSize: "1rem",
+    borderRadius: "14px",
+    border: "1px solid #d1d5db",
+    background: "#ffffff",
+    color: "#1f2937",
+    outline: "none",
+    transition: "border-color 0.2s, box-shadow 0.2s",
+    boxSizing: "border-box",
   },
   numberInputWrapper: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   },
   numberInput: {
-    width: '100px',
-    padding: '12px 16px',
-    fontSize: '1rem',
-    borderRadius: '14px',
-    border: '1px solid #d1d5db',
-    background: '#ffffff',
-    color: '#1f2937',
-    outline: 'none',
-    transition: 'border-color 0.2s, box-shadow 0.2s',
+    width: "100px",
+    padding: "12px 16px",
+    fontSize: "1rem",
+    borderRadius: "14px",
+    border: "1px solid #d1d5db",
+    background: "#ffffff",
+    color: "#1f2937",
+    outline: "none",
+    transition: "border-color 0.2s, box-shadow 0.2s",
   },
   inputSuffix: {
-    color: '#6b7280',
-    fontSize: '0.95rem',
+    color: "#6b7280",
+    fontSize: "0.95rem",
   },
   hint: {
-    display: 'block',
-    fontSize: '0.8rem',
-    color: '#6b7280',
-    marginTop: '6px',
+    display: "block",
+    fontSize: "0.8rem",
+    color: "#6b7280",
+    marginTop: "6px",
   },
   actions: {
-    display: 'flex',
-    justifyContent: 'center',
-    gap: '20px',
-    flexWrap: 'wrap',
+    display: "flex",
+    justifyContent: "center",
+    gap: "20px",
+    flexWrap: "wrap",
   },
   button: {
-    padding: '14px 32px',
-    fontSize: '1.1rem',
+    padding: "14px 32px",
+    fontSize: "1.1rem",
     fontWeight: 600,
-    borderRadius: '40px',
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: '200px',
+    borderRadius: "40px",
+    border: "none",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "200px",
   },
   buttonPrimary: {
-    background: '#10b981',
-    color: '#ffffff',
+    background: "#10b981",
+    color: "#ffffff",
   },
   buttonSecondary: {
-    background: '#e5e7eb',
-    color: '#1f2937',
-    border: '1px solid #d1d5db',
+    background: "#e5e7eb",
+    color: "#1f2937",
+    border: "1px solid #d1d5db",
   },
   spinnerContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '300px',
-    background: '#ffffff',
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "300px",
+    background: "#ffffff",
   },
   spinner: {
-    width: '50px',
-    height: '50px',
-    border: '4px solid #e5e7eb',
-    borderTop: '4px solid #10b981',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
+    width: "50px",
+    height: "50px",
+    border: "4px solid #e5e7eb",
+    borderTop: "4px solid #10b981",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
   },
 };
 
 // Add keyframes for spinner and focus styles
-const styleSheet = document.createElement('style');
+const styleSheet = document.createElement("style");
 styleSheet.textContent = `
   @keyframes spin {
     0% { transform: rotate(0deg); }
@@ -472,4 +490,3 @@ styleSheet.textContent = `
   }
 `;
 document.head.appendChild(styleSheet);
-

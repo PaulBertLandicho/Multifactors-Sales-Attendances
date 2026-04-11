@@ -1,6 +1,6 @@
 // fetchHolidays.js
 // Fetch holidays for a department and month from Supabase
-import { supabase } from '../supabaseClient';
+import { supabase } from "../supabaseClient";
 
 /**
  * Fetch holidays for a department and month/year
@@ -11,11 +11,11 @@ import { supabase } from '../supabaseClient';
  */
 export async function fetchHolidays(department, month, year) {
   const { data, error } = await supabase
-    .from('holidays')
-    .select('date, type')
-    .eq('department', department)
-    .eq('month', month)
-    .eq('year', year);
+    .from("holidays")
+    .select("date, type")
+    .eq("department", department)
+    .eq("month", month)
+    .eq("year", year);
   if (error) throw error;
   return data || [];
 }

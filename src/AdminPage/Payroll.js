@@ -1,16 +1,24 @@
-export function calculatePayroll(attendance = [], persons = [], deptRates = [], settings = {}) {
-    // Removed unused variables
+export function calculatePayroll(
+  attendance = [],
+  persons = [],
+  deptRates = [],
+  settings = {}
+) {
+  // Removed unused variables
 
-  return persons.map(person => {
+  return persons.map((person) => {
     // Filter attendance for this person
     const personAttendance = attendance
-      .filter(a => a.person_id === person.id && a.event === 'time-in')
-      .map(a => new Date(a.device_time));
+      .filter((a) => a.person_id === person.id && a.event === "time-in")
+      .map((a) => new Date(a.device_time));
 
     // Get department rates
-    const deptRate = deptRates.find(d =>
-      (d.department || '').toLowerCase().trim() === (person.department || '').toLowerCase().trim()
-    ) || {};
+    const deptRate =
+      deptRates.find(
+        (d) =>
+          (d.department || "").toLowerCase().trim() ===
+          (person.department || "").toLowerCase().trim()
+      ) || {};
 
     // Apply deductions based on checkbox
     const sss = person.sss ? Number(deptRate.sss || 0) : 0;
@@ -27,12 +35,17 @@ export function calculatePayroll(attendance = [], persons = [], deptRates = [], 
 
     let otHours = 0;
     // Calculate OT from attendance records with event='time-out' and status='overtime'
-    const afternoonEnd = settings.afternoon_end || '17:00';
-    const [endHour, endMinute] = afternoonEnd.split(':').map(Number);
+    const afternoonEnd = settings.afternoon_end || "17:00";
+    const [endHour, endMinute] = afternoonEnd.split(":").map(Number);
     const endTotal = endHour * 60 + endMinute;
     attendance
-      .filter(a => a.person_id === person.id && a.event === 'time-out' && a.status === 'overtime')
-      .forEach(a => {
+      .filter(
+        (a) =>
+          a.person_id === person.id &&
+          a.event === "time-out" &&
+          a.status === "overtime"
+      )
+      .forEach((a) => {
         const dt = new Date(a.device_time);
         const outTotal = dt.getHours() * 60 + dt.getMinutes();
         if (outTotal > endTotal) {
@@ -63,7 +76,7 @@ export function calculatePayroll(attendance = [], persons = [], deptRates = [], 
       otPay,
       holidayDays: 0,
       holidayPay: 0,
-      lateCount: 0 // will be set in PayrollPage
+      lateCount: 0, // will be set in PayrollPage
     };
   });
 }

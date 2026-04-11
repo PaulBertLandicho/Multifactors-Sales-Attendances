@@ -1,19 +1,22 @@
 // HolidayManager.js
 // Component for managing multiple holidays per month per department
 
-import React, { useEffect, useState } from 'react';
-import Swal from 'sweetalert2';
-import { supabase } from '../supabaseClient';
+import React, { useEffect, useState } from "react";
+import Swal from "sweetalert2";
+import { supabase } from "../supabaseClient";
 
 // Global HolidayManager for all departments
-export default function HolidayManagerGlobal({ regularRate = 100, specialRate = 30 }) {
+export default function HolidayManagerGlobal({
+  regularRate = 100,
+  specialRate = 30,
+}) {
   const [regularHolidays, setRegularHolidays] = useState([]);
   const [specialHolidays, setSpecialHolidays] = useState([]);
   // Set default month to current month (YYYY-MM)
   const getDefaultMonth = () => {
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, "0");
     return `${year}-${month}`;
   };
   const [month, setMonth] = useState(getDefaultMonth());
@@ -28,14 +31,14 @@ export default function HolidayManagerGlobal({ regularRate = 100, specialRate = 
   useEffect(() => {
     async function fetchAllHolidays() {
       if (!month) return;
-      const [year, monthNum] = month.split('-');
+      const [year, monthNum] = month.split("-");
       // Fetch only global holidays (department is null) for this month
       const { data, error } = await supabase
-        .from('holidays')
-        .select('date, type, id')
-        .is('department', null)
-        .eq('month', parseInt(monthNum))
-        .eq('year', parseInt(year));
+        .from("holidays")
+        .select("date, type, id")
+        .is("department", null)
+        .eq("month", parseInt(monthNum))
+        .eq("year", parseInt(year));
       if (!error && data) setAllHolidays(data);
       else setAllHolidays([]);
     }
@@ -44,24 +47,29 @@ export default function HolidayManagerGlobal({ regularRate = 100, specialRate = 
 
   // Delete a saved holiday from DB
   const handleDeleteSavedHoliday = async (holiday) => {
-    if (!window.confirm(`Delete holiday on ${holiday.date} (${holiday.type}) for all departments?`)) return;
+    if (
+      !window.confirm(
+        `Delete holiday on ${holiday.date} (${holiday.type}) for all departments?`
+      )
+    )
+      return;
     const { error } = await supabase
-      .from('holidays')
+      .from("holidays")
       .delete()
-      .is('department', null)
-      .eq('date', holiday.date)
-      .eq('type', holiday.type);
-    if (error) Swal.fire('Error', error.message, 'error');
-    setSaving(s => !s); // trigger refresh
+      .is("department", null)
+      .eq("date", holiday.date)
+      .eq("type", holiday.type);
+    if (error) Swal.fire("Error", error.message, "error");
+    setSaving((s) => !s); // trigger refresh
   };
 
   const addHoliday = (type) => {
-    if (type === 'regular') setRegularHolidays([...regularHolidays, '']);
-    else setSpecialHolidays([...specialHolidays, '']);
+    if (type === "regular") setRegularHolidays([...regularHolidays, ""]);
+    else setSpecialHolidays([...specialHolidays, ""]);
   };
 
   const updateHoliday = (type, idx, value) => {
-    if (type === 'regular') {
+    if (type === "regular") {
       const updated = [...regularHolidays];
       updated[idx] = value;
       setRegularHolidays(updated);
@@ -73,7 +81,7 @@ export default function HolidayManagerGlobal({ regularRate = 100, specialRate = 
   };
 
   const removeHoliday = (type, idx) => {
-    if (type === 'regular') {
+    if (type === "regular") {
       setRegularHolidays(regularHolidays.filter((_, i) => i !== idx));
     } else {
       setSpecialHolidays(specialHolidays.filter((_, i) => i !== idx));
@@ -82,24 +90,36 @@ export default function HolidayManagerGlobal({ regularRate = 100, specialRate = 
 
   const handleSave = async () => {
     if (!month) {
-      Swal.fire('Please select a month.', '', 'warning');
+      Swal.fire("Please select a month.", "", "warning");
       return;
     }
     setSaving(true);
-    const [year, monthNum] = month.split('-');
+    const [year, monthNum] = month.split("-");
     const inserts = [];
     for (const date of regularHolidays.filter(Boolean)) {
-      inserts.push({ department: null, date, type: 'regular', month: parseInt(monthNum), year: parseInt(year) });
+      inserts.push({
+        department: null,
+        date,
+        type: "regular",
+        month: parseInt(monthNum),
+        year: parseInt(year),
+      });
     }
     for (const date of specialHolidays.filter(Boolean)) {
-      inserts.push({ department: null, date, type: 'special', month: parseInt(monthNum), year: parseInt(year) });
+      inserts.push({
+        department: null,
+        date,
+        type: "special",
+        month: parseInt(monthNum),
+        year: parseInt(year),
+      });
     }
     if (inserts.length) {
-      const { error } = await supabase.from('holidays').insert(inserts);
-      if (error) Swal.fire('Error saving holidays', error.message, 'error');
-      else Swal.fire('Global holidays saved!', '', 'success');
+      const { error } = await supabase.from("holidays").insert(inserts);
+      if (error) Swal.fire("Error saving holidays", error.message, "error");
+      else Swal.fire("Global holidays saved!", "", "success");
     } else {
-      Swal.fire('No holidays to save.', '', 'info');
+      Swal.fire("No holidays to save.", "", "info");
     }
     setSaving(false);
   };
@@ -107,14 +127,24 @@ export default function HolidayManagerGlobal({ regularRate = 100, specialRate = 
   return (
     <div style={holidayStyles.container}>
       <div style={holidayStyles.sectionHeader}>
-        <h2 style={holidayStyles.sectionTitle}>Manage Holidays <span style={holidayStyles.sectionSubtitle}>(applies to all departments)</span></h2>
+        <h2 style={holidayStyles.sectionTitle}>
+          Manage Holidays{" "}
+          <span style={holidayStyles.sectionSubtitle}>
+            (applies to all departments)
+          </span>
+        </h2>
       </div>
 
       {/* Month Selector */}
       <div style={holidayStyles.monthRow}>
         <label style={holidayStyles.monthLabel}>
           <span style={{ marginRight: 10, fontWeight: 500 }}>Month:</span>
-          <input type="month" value={month} onChange={e => setMonth(e.target.value)} style={holidayStyles.monthInput} />
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            style={holidayStyles.monthInput}
+          />
         </label>
       </div>
 
@@ -123,13 +153,23 @@ export default function HolidayManagerGlobal({ regularRate = 100, specialRate = 
         <div style={holidayStyles.card}>
           <div style={holidayStyles.cardHeader}>
             <span style={holidayStyles.cardIcon}>📅</span>
-            <span style={holidayStyles.cardTitle}>All Global Holidays for {month} (Saved)</span>
+            <span style={holidayStyles.cardTitle}>
+              All Global Holidays for {month} (Saved)
+            </span>
           </div>
           <ul style={holidayStyles.holidayList}>
             {allHolidays.map((h, idx) => (
-              <li key={h.id || idx} style={{ ...holidayStyles.holidayListItem, color: h.type === 'regular' ? '#10b981' : '#f59e42' }}>
+              <li
+                key={h.id || idx}
+                style={{
+                  ...holidayStyles.holidayListItem,
+                  color: h.type === "regular" ? "#10b981" : "#f59e42",
+                }}
+              >
                 <span style={holidayStyles.holidayDate}>{h.date}</span>
-                <span style={holidayStyles.holidayType}>{h.type === 'regular' ? 'Regular Holiday' : 'Special Holiday'}</span>
+                <span style={holidayStyles.holidayType}>
+                  {h.type === "regular" ? "Regular Holiday" : "Special Holiday"}
+                </span>
                 <button
                   onClick={() => handleDeleteSavedHoliday(h)}
                   style={holidayStyles.deleteButton}
@@ -148,16 +188,18 @@ export default function HolidayManagerGlobal({ regularRate = 100, specialRate = 
         <div style={holidayStyles.cardPending}>
           <div style={holidayStyles.cardHeaderPending}>
             <span style={holidayStyles.cardIconPending}>⏳</span>
-            <span style={holidayStyles.cardTitlePending}>Pending Holidays for {month} (To Save)</span>
+            <span style={holidayStyles.cardTitlePending}>
+              Pending Holidays for {month} (To Save)
+            </span>
           </div>
           <ul style={holidayStyles.holidayListPending}>
             {regularHolidays.filter(Boolean).map((date, idx) => (
-              <li key={'reg-' + idx} style={{ color: '#10b981' }}>
+              <li key={"reg-" + idx} style={{ color: "#10b981" }}>
                 {date} (Regular Holiday)
               </li>
             ))}
             {specialHolidays.filter(Boolean).map((date, idx) => (
-              <li key={'spec-' + idx} style={{ color: '#f59e42' }}>
+              <li key={"spec-" + idx} style={{ color: "#f59e42" }}>
                 {date} (Special Holiday)
               </li>
             ))}
@@ -171,37 +213,83 @@ export default function HolidayManagerGlobal({ regularRate = 100, specialRate = 
         <div style={holidayStyles.addCard}>
           <div style={holidayStyles.addCardHeader}>
             <span style={holidayStyles.addCardIcon}>🎌</span>
-            <span style={holidayStyles.addCardTitle}>Regular Holidays <span style={{ color: '#10b981', fontWeight: 600 }}>({regularRate}%)</span></span>
+            <span style={holidayStyles.addCardTitle}>
+              Regular Holidays{" "}
+              <span style={{ color: "#10b981", fontWeight: 600 }}>
+                ({regularRate}%)
+              </span>
+            </span>
           </div>
           {regularHolidays.map((date, idx) => (
             <div key={idx} style={holidayStyles.addHolidayRow}>
-              <input type="date" value={date} onChange={e => updateHoliday('regular', idx, e.target.value)} style={holidayStyles.addHolidayInput} />
-              <button onClick={() => removeHoliday('regular', idx)} style={holidayStyles.removeButton} title="Remove date">✖</button>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => updateHoliday("regular", idx, e.target.value)}
+                style={holidayStyles.addHolidayInput}
+              />
+              <button
+                onClick={() => removeHoliday("regular", idx)}
+                style={holidayStyles.removeButton}
+                title="Remove date"
+              >
+                ✖
+              </button>
             </div>
           ))}
-          <button onClick={() => addHoliday('regular')} style={holidayStyles.addButton}>+ Add Regular Holiday</button>
+          <button
+            onClick={() => addHoliday("regular")}
+            style={holidayStyles.addButton}
+          >
+            + Add Regular Holiday
+          </button>
         </div>
 
         {/* Special Holidays Card */}
         <div style={holidayStyles.addCard}>
           <div style={holidayStyles.addCardHeader}>
             <span style={holidayStyles.addCardIcon}>🏳️‍🌈</span>
-            <span style={holidayStyles.addCardTitle}>Special Holidays <span style={{ color: '#f59e42', fontWeight: 600 }}>({specialRate}%)</span></span>
+            <span style={holidayStyles.addCardTitle}>
+              Special Holidays{" "}
+              <span style={{ color: "#f59e42", fontWeight: 600 }}>
+                ({specialRate}%)
+              </span>
+            </span>
           </div>
           {specialHolidays.map((date, idx) => (
             <div key={idx} style={holidayStyles.addHolidayRow}>
-              <input type="date" value={date} onChange={e => updateHoliday('special', idx, e.target.value)} style={holidayStyles.addHolidayInput} />
-              <button onClick={() => removeHoliday('special', idx)} style={holidayStyles.removeButton} title="Remove date">✖</button>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => updateHoliday("special", idx, e.target.value)}
+                style={holidayStyles.addHolidayInput}
+              />
+              <button
+                onClick={() => removeHoliday("special", idx)}
+                style={holidayStyles.removeButton}
+                title="Remove date"
+              >
+                ✖
+              </button>
             </div>
           ))}
-          <button onClick={() => addHoliday('special')} style={holidayStyles.addButton}>+ Add Special Holiday</button>
+          <button
+            onClick={() => addHoliday("special")}
+            style={holidayStyles.addButton}
+          >
+            + Add Special Holiday
+          </button>
         </div>
       </div>
 
       {/* Save Button */}
       <div style={holidayStyles.saveRow}>
-        <button onClick={handleSave} style={holidayStyles.saveButton} disabled={saving}>
-          {saving ? 'Saving...' : 'Save Holidays'}
+        <button
+          onClick={handleSave}
+          style={holidayStyles.saveButton}
+          disabled={saving}
+        >
+          {saving ? "Saving..." : "Save Holidays"}
         </button>
       </div>
     </div>
@@ -211,229 +299,229 @@ export default function HolidayManagerGlobal({ regularRate = 100, specialRate = 
 // --- Styles for enhanced UI ---
 const holidayStyles = {
   container: {
-    background: '#f8fafc',
-    borderRadius: '24px',
-    padding: '32px 24px',
-    margin: '0 auto',
-    maxWidth: '900px',
-    boxShadow: '0 6px 24px rgba(16,185,129,0.08)',
-    border: '1px solid #e5e7eb',
+    background: "#f8fafc",
+    borderRadius: "24px",
+    padding: "32px 24px",
+    margin: "0 auto",
+    maxWidth: "900px",
+    boxShadow: "0 6px 24px rgba(16,185,129,0.08)",
+    border: "1px solid #e5e7eb",
   },
   sectionHeader: {
-    textAlign: 'center',
-    marginBottom: '24px',
+    textAlign: "center",
+    marginBottom: "24px",
   },
   sectionTitle: {
-    fontSize: '2rem',
+    fontSize: "2rem",
     fontWeight: 700,
-    color: '#1f2937',
+    color: "#1f2937",
     margin: 0,
   },
   sectionSubtitle: {
-    fontSize: '1.1rem',
-    color: '#10b981',
+    fontSize: "1.1rem",
+    color: "#10b981",
     fontWeight: 500,
     marginLeft: 8,
   },
   monthRow: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 24,
   },
   monthLabel: {
-    fontSize: '1.1rem',
-    color: '#374151',
+    fontSize: "1.1rem",
+    color: "#374151",
     fontWeight: 500,
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
   },
   monthInput: {
     marginLeft: 8,
-    padding: '8px 14px',
-    borderRadius: '10px',
-    border: '1px solid #d1d5db',
-    fontSize: '1rem',
-    background: '#fff',
-    color: '#1f2937',
-    outline: 'none',
-    transition: 'border-color 0.2s',
+    padding: "8px 14px",
+    borderRadius: "10px",
+    border: "1px solid #d1d5db",
+    fontSize: "1rem",
+    background: "#fff",
+    color: "#1f2937",
+    outline: "none",
+    transition: "border-color 0.2s",
   },
   card: {
-    background: '#fff',
-    borderRadius: '18px',
-    boxShadow: '0 2px 8px rgba(16,185,129,0.07)',
-    padding: '20px 24px',
+    background: "#fff",
+    borderRadius: "18px",
+    boxShadow: "0 2px 8px rgba(16,185,129,0.07)",
+    padding: "20px 24px",
     marginBottom: 24,
-    border: '1px solid #e5e7eb',
+    border: "1px solid #e5e7eb",
   },
   cardHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
     marginBottom: 12,
   },
   cardIcon: {
-    fontSize: '1.5rem',
+    fontSize: "1.5rem",
   },
   cardTitle: {
     fontWeight: 600,
-    fontSize: '1.15rem',
-    color: '#1f2937',
+    fontSize: "1.15rem",
+    color: "#1f2937",
   },
   holidayList: {
-    listStyle: 'none',
+    listStyle: "none",
     padding: 0,
     margin: 0,
   },
   holidayListItem: {
-    display: 'flex',
-    alignItems: 'center',
-    background: '#f3f4f6',
-    borderRadius: '8px',
-    padding: '8px 14px',
+    display: "flex",
+    alignItems: "center",
+    background: "#f3f4f6",
+    borderRadius: "8px",
+    padding: "8px 14px",
     marginBottom: 8,
     fontWeight: 500,
-    fontSize: '1rem',
-    boxShadow: '0 1px 2px rgba(16,185,129,0.04)',
+    fontSize: "1rem",
+    boxShadow: "0 1px 2px rgba(16,185,129,0.04)",
   },
   holidayDate: {
     flex: 1,
     fontWeight: 600,
-    letterSpacing: '0.5px',
+    letterSpacing: "0.5px",
   },
   holidayType: {
     marginLeft: 12,
-    fontSize: '0.98rem',
+    fontSize: "0.98rem",
     fontWeight: 500,
     opacity: 0.85,
   },
   deleteButton: {
     marginLeft: 16,
-    background: '#e11d48',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    padding: '4px 10px',
-    cursor: 'pointer',
-    fontSize: '1.1rem',
-    transition: 'background 0.2s',
+    background: "#e11d48",
+    color: "#fff",
+    border: "none",
+    borderRadius: "6px",
+    padding: "4px 10px",
+    cursor: "pointer",
+    fontSize: "1.1rem",
+    transition: "background 0.2s",
   },
   cardPending: {
-    background: '#fef9c3',
-    borderRadius: '14px',
-    boxShadow: '0 1px 4px rgba(251,191,36,0.08)',
-    padding: '16px 20px',
+    background: "#fef9c3",
+    borderRadius: "14px",
+    boxShadow: "0 1px 4px rgba(251,191,36,0.08)",
+    padding: "16px 20px",
     marginBottom: 24,
-    border: '1px solid #fde68a',
+    border: "1px solid #fde68a",
   },
   cardHeaderPending: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
     marginBottom: 10,
   },
   cardIconPending: {
-    fontSize: '1.3rem',
+    fontSize: "1.3rem",
   },
   cardTitlePending: {
     fontWeight: 600,
-    fontSize: '1.05rem',
-    color: '#b45309',
+    fontSize: "1.05rem",
+    color: "#b45309",
   },
   holidayListPending: {
-    listStyle: 'none',
+    listStyle: "none",
     padding: 0,
     margin: 0,
   },
   cardsRow: {
-    display: 'flex',
-    gap: '24px',
+    display: "flex",
+    gap: "24px",
     marginBottom: 32,
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    flexWrap: "wrap",
+    justifyContent: "center",
   },
   addCard: {
-    background: '#fff',
-    borderRadius: '14px',
-    boxShadow: '0 1px 4px rgba(16,185,129,0.06)',
-    padding: '18px 20px',
-    minWidth: '270px',
-    flex: '1 1 270px',
-    border: '1px solid #e5e7eb',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'stretch',
+    background: "#fff",
+    borderRadius: "14px",
+    boxShadow: "0 1px 4px rgba(16,185,129,0.06)",
+    padding: "18px 20px",
+    minWidth: "270px",
+    flex: "1 1 270px",
+    border: "1px solid #e5e7eb",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
   },
   addCardHeader: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
     marginBottom: 10,
   },
   addCardIcon: {
-    fontSize: '1.3rem',
+    fontSize: "1.3rem",
   },
   addCardTitle: {
     fontWeight: 600,
-    fontSize: '1.08rem',
-    color: '#1f2937',
+    fontSize: "1.08rem",
+    color: "#1f2937",
   },
   addHolidayRow: {
-    display: 'flex',
-    alignItems: 'center',
+    display: "flex",
+    alignItems: "center",
     marginBottom: 8,
   },
   addHolidayInput: {
     flex: 1,
-    padding: '8px 12px',
-    borderRadius: '8px',
-    border: '1px solid #d1d5db',
-    fontSize: '1rem',
-    background: '#f9fafb',
-    color: '#1f2937',
-    outline: 'none',
-    transition: 'border-color 0.2s',
+    padding: "8px 12px",
+    borderRadius: "8px",
+    border: "1px solid #d1d5db",
+    fontSize: "1rem",
+    background: "#f9fafb",
+    color: "#1f2937",
+    outline: "none",
+    transition: "border-color 0.2s",
   },
   removeButton: {
     marginLeft: 8,
-    background: '#e11d48',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    padding: '4px 10px',
-    cursor: 'pointer',
-    fontSize: '1.1rem',
-    transition: 'background 0.2s',
+    background: "#e11d48",
+    color: "#fff",
+    border: "none",
+    borderRadius: "6px",
+    padding: "4px 10px",
+    cursor: "pointer",
+    fontSize: "1.1rem",
+    transition: "background 0.2s",
   },
   addButton: {
     marginTop: 8,
-    background: '#10b981',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '8px',
-    padding: '8px 0',
+    background: "#10b981",
+    color: "#fff",
+    border: "none",
+    borderRadius: "8px",
+    padding: "8px 0",
     fontWeight: 600,
-    fontSize: '1rem',
-    cursor: 'pointer',
-    transition: 'background 0.2s',
+    fontSize: "1rem",
+    cursor: "pointer",
+    transition: "background 0.2s",
   },
   saveRow: {
-    display: 'flex',
-    justifyContent: 'center',
+    display: "flex",
+    justifyContent: "center",
     marginTop: 16,
   },
   saveButton: {
-    background: '#10b981',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '20px',
-    padding: '12px 36px',
+    background: "#10b981",
+    color: "#fff",
+    border: "none",
+    borderRadius: "20px",
+    padding: "12px 36px",
     fontWeight: 700,
-    fontSize: '1.1rem',
-    cursor: 'pointer',
-    boxShadow: '0 2px 8px rgba(16,185,129,0.10)',
-    transition: 'background 0.2s',
+    fontSize: "1.1rem",
+    cursor: "pointer",
+    boxShadow: "0 2px 8px rgba(16,185,129,0.10)",
+    transition: "background 0.2s",
     opacity: 1,
   },
 };

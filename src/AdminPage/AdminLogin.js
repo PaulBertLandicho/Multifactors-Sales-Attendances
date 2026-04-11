@@ -90,7 +90,7 @@ export default function AdminLogin() {
   );
 }
 
-/* ✅ STYLES MUST BE OUTSIDE THE COMPONENT */
+/* STYLES MUST BE OUTSIDE THE COMPONENT */
 const styles = {
   container: {
     minHeight: "100vh",

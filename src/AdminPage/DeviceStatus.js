@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 
 export default function DeviceStatus() {
   const [status, setStatus] = useState(null);
@@ -9,7 +9,7 @@ export default function DeviceStatus() {
     async function fetchStatus() {
       try {
         setLoading(true);
-        const res = await fetch('http://localhost:4000/api/device/status');
+        const res = await fetch("http://localhost:4000/api/device/status");
         if (!res.ok) {
           throw new Error(`Request failed with status ${res.status}`);
         }
@@ -32,7 +32,7 @@ export default function DeviceStatus() {
   }
 
   if (error) {
-    return <p style={{ color: 'red' }}>Error: {error}</p>;
+    return <p style={{ color: "red" }}>Error: {error}</p>;
   }
 
   if (!status) {
@@ -43,9 +43,9 @@ export default function DeviceStatus() {
     <div>
       <p>Device IP: {status.deviceIp}</p>
       <p>
-        Connection: {' '}
-        <strong style={{ color: status.online ? 'limegreen' : 'red' }}>
-          {status.online ? 'Online' : 'Offline'}
+        Connection:{" "}
+        <strong style={{ color: status.online ? "limegreen" : "red" }}>
+          {status.online ? "Online" : "Offline"}
         </strong>
       </p>
       {status.statusCode && <p>HTTP Status Code: {status.statusCode}</p>}
@@ -53,4 +53,3 @@ export default function DeviceStatus() {
     </div>
   );
 }
-

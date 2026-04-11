@@ -7,12 +7,13 @@ export function toFloat32Array(desc) {
   if (Array.isArray(desc)) return new Float32Array(desc);
   // If it's an object with buffer (e.g., typed array serialized), try Array.from
   try {
-    if (desc.buffer && typeof desc.length === 'number') return new Float32Array(Array.from(desc));
+    if (desc.buffer && typeof desc.length === "number")
+      return new Float32Array(Array.from(desc));
   } catch (e) {
     // fallthrough
   }
   // Last resort: try to JSON-parse if it's a string
-  if (typeof desc === 'string') {
+  if (typeof desc === "string") {
     try {
       const parsed = JSON.parse(desc);
       if (Array.isArray(parsed)) return new Float32Array(parsed);

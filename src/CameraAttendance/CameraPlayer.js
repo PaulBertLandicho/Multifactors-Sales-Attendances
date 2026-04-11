@@ -1,30 +1,37 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
-import * as faceapi from 'face-api.js/build/commonjs/index.js';
-import Swal from 'sweetalert2';
-import { supabase } from '../supabaseClient';
-import { recordAttendanceForPerson } from '../AdminPage/attendanceUtils';
-import { toFloat32Array, normalizeDescriptor, euclideanDistance, averageDescriptors } from '../utils/faceUtils';
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import * as faceapi from "face-api.js/build/commonjs/index.js";
+import Swal from "sweetalert2";
+import { supabase } from "../supabaseClient";
+import { recordAttendanceForPerson } from "../AdminPage/attendanceUtils";
+import {
+  toFloat32Array,
+  normalizeDescriptor,
+  euclideanDistance,
+  averageDescriptors,
+} from "../utils/faceUtils";
 
 // --- Voice sound assets (speech synthesis) ---
-const playVoice = (type = 'info') => {
-  let message = '';
-  if (type === 'success') message = 'Attendance recorded successfully.';
-  else if (type === 'warning') message = 'That face is not registered.';
-  else if (type === 'error') message = 'Error occurred. Please try again.';
-  else message = 'You have already recorded attendance.';
+const playVoice = (type = "info") => {
+  let message = "";
+  if (type === "success") message = "Attendance recorded successfully.";
+  else if (type === "warning") message = "That face is not registered.";
+  else if (type === "error") message = "Error occurred. Please try again.";
+  else message = "You have already recorded attendance.";
   try {
     window.speechSynthesis.cancel();
     const speech = new window.SpeechSynthesisUtterance(message);
-    speech.lang = 'en-US';
+    speech.lang = "en-US";
     speech.rate = 1;
     speech.pitch = 1;
     speech.volume = 1;
     const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(v => v.lang === 'en-US' && v.name.toLowerCase().includes('female'));
+    const preferredVoice = voices.find(
+      (v) => v.lang === "en-US" && v.name.toLowerCase().includes("female")
+    );
     if (preferredVoice) speech.voice = preferredVoice;
     window.speechSynthesis.speak(speech);
   } catch (err) {
-    console.log('Voice error:', err);
+    console.log("Voice error:", err);
   }
 };
 
@@ -37,23 +44,31 @@ const BUFFER_SIZE = 1; // Only require 1 stable frame
 const MIN_VERIFICATION_MS = 0; // No minimum verification time
 const TINY_DETECTOR_INPUT_SIZE = 320;
 const CAMERA_STATUS = {
-  CONNECTING: 'connecting',
-  LIVE: 'live',
-  ERROR: 'error',
+  CONNECTING: "connecting",
+  LIVE: "live",
+  ERROR: "error",
 };
 
 // Global error handler
 window.onerror = (msg, src, line, col, error) => {
-  console.error('Global error:', msg, src, line, col, error);
-  if (error && typeof error !== 'string') {
-    playVoice('error');
-    Swal.fire({ icon: 'error', title: 'Runtime Error', text: error.message || String(error) });
+  console.error("Global error:", msg, src, line, col, error);
+  if (error && typeof error !== "string") {
+    playVoice("error");
+    Swal.fire({
+      icon: "error",
+      title: "Runtime Error",
+      text: error.message || String(error),
+    });
   }
 };
 
-export default function CameraPlayer({ onFaceScan, registrationActive = false, hideSettingsCard = false }) {
+export default function CameraPlayer({
+  onFaceScan,
+  registrationActive = false,
+  hideSettingsCard = false,
+}) {
   // If REACT_APP_WS_URL is not set, we skip WebSocket entirely and use local webcam.
-  const wsUrl = (process.env.REACT_APP_WS_URL || '').trim() || null;
+  const wsUrl = (process.env.REACT_APP_WS_URL || "").trim() || null;
   const imgRef = useRef(null);
   const overlayCanvasRef = useRef(null);
   const videoRef = useRef(null); // For local webcam fallback
@@ -68,7 +83,7 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false, h
   const [verifying, setVerifying] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [cameraStatus, setCameraStatus] = useState(CAMERA_STATUS.CONNECTING);
-  const [cameraError, setCameraError] = useState('');
+  const [cameraError, setCameraError] = useState("");
   const [useLocalCamera, setUseLocalCamera] = useState(false); // Fallback flag
   const lastScanRef = useRef({});
   // Removed: unused popupLockRef
@@ -85,109 +100,119 @@ export default function CameraPlayer({ onFaceScan, registrationActive = false, h
     if (useLocalCamera) {
       const video = videoRef.current;
       if (!video || video.readyState !== 4) return null;
-      const canvas = document.createElement('canvas');
+      const canvas = document.createElement("canvas");
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext("2d");
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL('image/jpeg', 0.85);
+      return canvas.toDataURL("image/jpeg", 0.85);
     } else {
       const img = imgRef.current;
-      if (!img || !img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) return null;
-      const canvas = document.createElement('canvas');
+      if (
+        !img ||
+        !img.complete ||
+        img.naturalWidth === 0 ||
+        img.naturalHeight === 0
+      )
+        return null;
+      const canvas = document.createElement("canvas");
       canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
-      const ctx = canvas.getContext('2d');
+      const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      return canvas.toDataURL('image/jpeg', 0.85);
+      return canvas.toDataURL("image/jpeg", 0.85);
     }
   }, [useLocalCamera]);
 
-const drawDetection = useCallback((detection) => {
-  const canvas = overlayCanvasRef.current;
-  // Support both image (Dahua stream) and video (local webcam)
-  const img = imgRef.current;
-  const video = videoRef.current;
+  const drawDetection = useCallback((detection) => {
+    const canvas = overlayCanvasRef.current;
+    // Support both image (Dahua stream) and video (local webcam)
+    const img = imgRef.current;
+    const video = videoRef.current;
 
-  // Prefer video if it is playing, otherwise fall back to image
-  const source = (video && video.readyState === 4) ? video : img;
-  if (!canvas || !source || !detection) return;
+    // Prefer video if it is playing, otherwise fall back to image
+    const source = video && video.readyState === 4 ? video : img;
+    if (!canvas || !source || !detection) return;
 
-  // Defensive: ensure detection has a valid bounding box before resizing/drawing
-  const box = detection?.detection?.box;
-  const boxValid = box && [box.x, box.y, box.width, box.height].every(v => typeof v === 'number' && !isNaN(v));
-  if (!boxValid) {
-    const ctx = canvas.getContext('2d');
-    if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-    console.warn('Skipping drawDetection due to invalid detection box:', box);
-    return;
-  }
+    // Defensive: ensure detection has a valid bounding box before resizing/drawing
+    const box = detection?.detection?.box;
+    const boxValid =
+      box &&
+      [box.x, box.y, box.width, box.height].every(
+        (v) => typeof v === "number" && !isNaN(v)
+      );
+    if (!boxValid) {
+      const ctx = canvas.getContext("2d");
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+      console.warn("Skipping drawDetection due to invalid detection box:", box);
+      return;
+    }
 
-  // Size canvas to match the current source frame
-  const width = source.videoWidth || source.naturalWidth || 0;
-  const height = source.videoHeight || source.naturalHeight || 0;
-  if (!width || !height) return;
+    // Size canvas to match the current source frame
+    const width = source.videoWidth || source.naturalWidth || 0;
+    const height = source.videoHeight || source.naturalHeight || 0;
+    if (!width || !height) return;
 
-  canvas.width = width;
-  canvas.height = height;
+    canvas.width = width;
+    canvas.height = height;
 
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  let resized;
-  try {
-    resized = faceapi.resizeResults(detection, {
-      width: canvas.width,
-      height: canvas.height
+    let resized;
+    try {
+      resized = faceapi.resizeResults(detection, {
+        width: canvas.width,
+        height: canvas.height,
+      });
+    } catch (err) {
+      console.warn("faceapi.resizeResults failed, skipping draw:", err);
+      return;
+    }
+
+    const landmarks = resized.landmarks;
+    if (!landmarks) return;
+
+    ctx.save();
+
+    // 🔥 ADD IT HERE
+    ctx.shadowColor = "#00eaff";
+    ctx.shadowBlur = 12;
+
+    ctx.strokeStyle = "#00eaff";
+    ctx.lineWidth = 2;
+
+    const drawPath = (points, close = false) => {
+      ctx.beginPath();
+      points.forEach((p, i) => {
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      if (close) ctx.closePath();
+      ctx.stroke();
+    };
+
+    drawPath(landmarks.getJawOutline());
+    drawPath(landmarks.getLeftEyeBrow());
+    drawPath(landmarks.getRightEyeBrow());
+    drawPath(landmarks.getNose());
+    drawPath(landmarks.getNose().slice(4, 9), true);
+    drawPath(landmarks.getLeftEye(), true);
+    drawPath(landmarks.getRightEye(), true);
+    drawPath(landmarks.getMouth(), true);
+
+    // Points (optional glow off for cleaner look)
+    ctx.shadowBlur = 0; // 🔥 prevent glowing dots
+    ctx.fillStyle = "#ffffff";
+
+    landmarks.positions.forEach((pt) => {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 2, 0, 2 * Math.PI);
+      ctx.fill();
     });
-  } catch (err) {
-    console.warn('faceapi.resizeResults failed, skipping draw:', err);
-    return;
-  }
 
-  const landmarks = resized.landmarks;
-  if (!landmarks) return;
-
-  ctx.save();
-
-  // 🔥 ADD IT HERE
-  ctx.shadowColor = '#00eaff';
-  ctx.shadowBlur = 12;
-
-  ctx.strokeStyle = '#00eaff';
-  ctx.lineWidth = 2;
-
-  const drawPath = (points, close = false) => {
-    ctx.beginPath();
-    points.forEach((p, i) => {
-      if (i === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
-    });
-    if (close) ctx.closePath();
-    ctx.stroke();
-  };
-
-  drawPath(landmarks.getJawOutline());
-  drawPath(landmarks.getLeftEyeBrow());
-  drawPath(landmarks.getRightEyeBrow());
-  drawPath(landmarks.getNose());
-  drawPath(landmarks.getNose().slice(4, 9), true);
-  drawPath(landmarks.getLeftEye(), true);
-  drawPath(landmarks.getRightEye(), true);
-  drawPath(landmarks.getMouth(), true);
-
-  // Points (optional glow off for cleaner look)
-  ctx.shadowBlur = 0; // 🔥 prevent glowing dots
-  ctx.fillStyle = '#ffffff';
-
-  landmarks.positions.forEach(pt => {
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 2, 0, 2 * Math.PI);
-    ctx.fill();
-  });
-
-  ctx.restore();
-}, []);
+    ctx.restore();
+  }, []);
   const cleanupWs = useCallback(() => {
     if (wsRef.current) {
       wsRef.current.close();
@@ -197,9 +222,12 @@ const drawDetection = useCallback((detection) => {
 
   // Removed: unused toMinutes function
 
-  const validSettings = settings &&
-    settings.morning_start && settings.morning_end &&
-    settings.afternoon_start && settings.afternoon_end &&
+  const validSettings =
+    settings &&
+    settings.morning_start &&
+    settings.morning_end &&
+    settings.afternoon_start &&
+    settings.afternoon_end &&
     !isNaN(Number(settings.morning_grace_minutes)) &&
     !isNaN(Number(settings.afternoon_grace_minutes));
 
@@ -209,9 +237,9 @@ const drawDetection = useCallback((detection) => {
     if (settings && !validSettings && !settingsAlertShownRef.current) {
       settingsAlertShownRef.current = true;
       Swal.fire({
-        icon: 'warning',
-        title: 'Work Hour Settings',
-        text: 'Work hour settings are missing or invalid. Please configure them in Admin \\u003e Settings before using face attendance.',
+        icon: "warning",
+        title: "Work Hour Settings",
+        text: "Work hour settings are missing or invalid. Please configure them in Admin \\u003e Settings before using face attendance.",
       });
     }
   }, [settings, validSettings]);
@@ -220,24 +248,36 @@ const drawDetection = useCallback((detection) => {
   useEffect(() => {
     async function loadPersons() {
       if (!supabase) return;
-      const { data, error } = await supabase.from('persons').select('id, name, department, descriptor');
+      const { data, error } = await supabase
+        .from("persons")
+        .select("id, name, department, descriptor");
       if (!error && data) {
-        setPersons(data.map(p => ({
-          ...p,
-          descriptor: p.descriptor
-            ? (Array.isArray(p.descriptor) && Array.isArray(p.descriptor[0])
+        setPersons(
+          data.map((p) => ({
+            ...p,
+            descriptor: p.descriptor
+              ? Array.isArray(p.descriptor) && Array.isArray(p.descriptor[0])
                 ? averageDescriptors(p.descriptor)
-                : normalizeDescriptor(toFloat32Array(p.descriptor)))
-            : null,
-        })));
+                : normalizeDescriptor(toFloat32Array(p.descriptor))
+              : null,
+          }))
+        );
       }
     }
 
     loadPersons();
     const subscription = supabase
-      .channel('persons-changes')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'persons' }, loadPersons)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'persons' }, loadPersons)
+      .channel("persons-changes")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "persons" },
+        loadPersons
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "persons" },
+        loadPersons
+      )
       .subscribe();
     return () => subscription.unsubscribe();
   }, []);
@@ -247,17 +287,30 @@ const drawDetection = useCallback((detection) => {
     let subscription;
     async function loadSettings() {
       if (!supabase) return;
-      const { data, error } = await supabase.from('settings').select('*').eq('id', 1).single();
+      const { data, error } = await supabase
+        .from("settings")
+        .select("*")
+        .eq("id", 1)
+        .single();
       if (!error && data) setSettings(data);
     }
     loadSettings();
 
     // Subscribe to real-time updates for settings
     subscription = supabase
-      .channel('settings-changes')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'settings', filter: 'id=eq.1' }, (payload) => {
-        if (payload.new) setSettings(payload.new);
-      })
+      .channel("settings-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "settings",
+          filter: "id=eq.1",
+        },
+        (payload) => {
+          if (payload.new) setSettings(payload.new);
+        }
+      )
       .subscribe();
 
     return () => {
@@ -268,8 +321,8 @@ const drawDetection = useCallback((detection) => {
   // ------------------- Load models -------------------
   useEffect(() => {
     async function loadModels() {
-      const LOCAL_URL = '/models';
-      const CDN_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+      const LOCAL_URL = "/models";
+      const CDN_URL = "https://justadudewhohacks.github.io/face-api.js/models";
       try {
         await Promise.all([
           faceapi.nets.tinyFaceDetector.loadFromUri(LOCAL_URL),
@@ -286,7 +339,11 @@ const drawDetection = useCallback((detection) => {
           ]);
           setModelsLoaded(true);
         } catch (err) {
-          Swal.fire({ icon: 'error', title: 'Model Loading Failed', text: 'Face recognition models could not be loaded.' });
+          Swal.fire({
+            icon: "error",
+            title: "Model Loading Failed",
+            text: "Face recognition models could not be loaded.",
+          });
         }
       }
     }
@@ -296,7 +353,7 @@ const drawDetection = useCallback((detection) => {
   // ------------------- WebSocket -------------------
   useEffect(() => {
     let disposed = false;
-    setCameraError('');
+    setCameraError("");
     cleanupWs();
     // If no WebSocket URL is configured, go straight to local webcam.
     if (!wsUrl) {
@@ -313,24 +370,36 @@ const drawDetection = useCallback((detection) => {
     const ws = new window.WebSocket(wsUrl);
     wsRef.current = ws;
 
-    ws.onopen = () => { if (!disposed) setCameraStatus(CAMERA_STATUS.LIVE); };
+    ws.onopen = () => {
+      if (!disposed) setCameraStatus(CAMERA_STATUS.LIVE);
+    };
     ws.onerror = () => {
       if (!disposed) {
         setCameraStatus(CAMERA_STATUS.ERROR);
-        setCameraError('WebSocket connection error. Switching to local camera...');
+        setCameraError(
+          "WebSocket connection error. Switching to local camera..."
+        );
         setUseLocalCamera(true);
       }
     };
     ws.onclose = () => {
       if (!disposed) {
         setCameraStatus(CAMERA_STATUS.ERROR);
-        setCameraError('WebSocket closed. Switching to local camera...');
+        setCameraError("WebSocket closed. Switching to local camera...");
         setUseLocalCamera(true);
       }
     };
-    ws.onmessage = (event) => { if (!disposed && imgRef.current) { setFrameReady(false); imgRef.current.src = event.data; }};
+    ws.onmessage = (event) => {
+      if (!disposed && imgRef.current) {
+        setFrameReady(false);
+        imgRef.current.src = event.data;
+      }
+    };
 
-    return () => { disposed = true; cleanupWs(); };
+    return () => {
+      disposed = true;
+      cleanupWs();
+    };
   }, [wsUrl, cleanupWs]);
   // Fallback: Use local webcam if WebSocket fails
   useEffect(() => {
@@ -351,309 +420,364 @@ const drawDetection = useCallback((detection) => {
           };
         }
       } catch (err) {
-        setCameraError('Unable to access local webcam.');
+        setCameraError("Unable to access local webcam.");
       }
     }
     startLocalCamera();
     return () => {
       if (videoEl) videoEl.srcObject = null;
-      if (stream) stream.getTracks().forEach(track => track.stop());
+      if (stream) stream.getTracks().forEach((track) => track.stop());
     };
   }, [useLocalCamera]);
 
   // ------------------- Detection loop -------------------
   useEffect(() => {
-  if (!modelsLoaded || !validSettings) return;
+    if (!modelsLoaded || !validSettings) return;
 
-  let isMounted = true;
+    let isMounted = true;
 
-  const detect = async () => {
-    if (!isMounted) return;
+    const detect = async () => {
+      if (!isMounted) return;
 
-    const source = useLocalCamera ? videoRef.current : imgRef.current;
-    const canvas = overlayCanvasRef.current;
-    const now = Date.now();
+      const source = useLocalCamera ? videoRef.current : imgRef.current;
+      const canvas = overlayCanvasRef.current;
+      const now = Date.now();
 
-    // ✅ Basic guards
-    if (
-      !source ||
-      !frameReady ||
-      cooldown ||
-      registrationActive ||
-      cameraStatus !== CAMERA_STATUS.LIVE
-    ) {
-      animationFrameRef.current = requestAnimationFrame(detect);
-      return;
-    }
-
-    // ✅ Ensure valid frame
-    const isVideo = useLocalCamera;
-    if (
-      (!isVideo && (!source.complete || source.naturalWidth === 0)) ||
-      (isVideo && source.readyState !== 4)
-    ) {
-      animationFrameRef.current = requestAnimationFrame(detect);
-      return;
-    }
-
-    // ✅ Throttle detection
-    if (now - lastDetectionTimeRef.current < DETECTION_INTERVAL_MS) {
-      animationFrameRef.current = requestAnimationFrame(detect);
-      return;
-    }
-    lastDetectionTimeRef.current = now;
-
-    try {
-      const detectionOptions = new faceapi.TinyFaceDetectorOptions({
-        inputSize: TINY_DETECTOR_INPUT_SIZE,
-        scoreThreshold: 0.5, // slightly improved accuracy
-      });
-
-      const fullDetection = await faceapi
-        .detectSingleFace(source, detectionOptions)
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-
-      if (!fullDetection) {
-        canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
-        matchBufferRef.current = [];
-        verificationIdRef.current = null;
-        verificationStartRef.current = 0;
-        setVerifying(false);
-        animationFrameRef.current = requestAnimationFrame(detect);
-        return;
-      }
-
-
-      // ✅ Validate detection box
-      const box = fullDetection.detection?.box;
+      // ✅ Basic guards
       if (
-        !box ||
-        [box.x, box.y, box.width, box.height].some(v => typeof v !== 'number' || isNaN(v) || v === null)
+        !source ||
+        !frameReady ||
+        cooldown ||
+        registrationActive ||
+        cameraStatus !== CAMERA_STATUS.LIVE
       ) {
-        canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
-        matchBufferRef.current = [];
-        verificationIdRef.current = null;
-        verificationStartRef.current = 0;
+        animationFrameRef.current = requestAnimationFrame(detect);
+        return;
+      }
+
+      // ✅ Ensure valid frame
+      const isVideo = useLocalCamera;
+      if (
+        (!isVideo && (!source.complete || source.naturalWidth === 0)) ||
+        (isVideo && source.readyState !== 4)
+      ) {
+        animationFrameRef.current = requestAnimationFrame(detect);
+        return;
+      }
+
+      // ✅ Throttle detection
+      if (now - lastDetectionTimeRef.current < DETECTION_INTERVAL_MS) {
+        animationFrameRef.current = requestAnimationFrame(detect);
+        return;
+      }
+      lastDetectionTimeRef.current = now;
+
+      try {
+        const detectionOptions = new faceapi.TinyFaceDetectorOptions({
+          inputSize: TINY_DETECTOR_INPUT_SIZE,
+          scoreThreshold: 0.5, // slightly improved accuracy
+        });
+
+        const fullDetection = await faceapi
+          .detectSingleFace(source, detectionOptions)
+          .withFaceLandmarks()
+          .withFaceDescriptor();
+
+        if (!fullDetection) {
+          canvas
+            ?.getContext("2d")
+            ?.clearRect(0, 0, canvas.width, canvas.height);
+          matchBufferRef.current = [];
+          verificationIdRef.current = null;
+          verificationStartRef.current = 0;
+          setVerifying(false);
+          animationFrameRef.current = requestAnimationFrame(detect);
+          return;
+        }
+
+        // ✅ Validate detection box
+        const box = fullDetection.detection?.box;
+        if (
+          !box ||
+          [box.x, box.y, box.width, box.height].some(
+            (v) => typeof v !== "number" || isNaN(v) || v === null
+          )
+        ) {
+          canvas
+            ?.getContext("2d")
+            ?.clearRect(0, 0, canvas.width, canvas.height);
+          matchBufferRef.current = [];
+          verificationIdRef.current = null;
+          verificationStartRef.current = 0;
+          setVerifying(false);
+          animationFrameRef.current = requestAnimationFrame(detect);
+          return;
+        }
+
+        // ✅ Draw mesh
+        drawDetection(fullDetection);
+
+        const descriptor = normalizeDescriptor(
+          toFloat32Array(fullDetection.descriptor)
+        );
+
+        // ---------------- MATCHING ----------------
+        // Compute distances to all persons and pick best candidate
+        const candidates = persons
+          .filter((p) => p.descriptor)
+          .map((p) => ({
+            p,
+            dist: euclideanDistance(descriptor, p.descriptor),
+          }))
+          .sort((a, b) => a.dist - b.dist);
+
+        const best = candidates.length ? candidates[0] : null;
+        const second = candidates.length > 1 ? candidates[1] : null;
+
+        // Use same stricter threshold as registration to avoid mis-assignments
+        // Tighter threshold: distance must be very close to the
+        // stored descriptor (built from the registration_photo)
+        const FACE_MATCH_THRESHOLD = 0.28;
+        const margin = second ? second.dist - best.dist : Infinity;
+
+        // Require a clear separation between best and second-best match
+        const CONFIDENCE_MARGIN = 0.07;
+
+        const currentId =
+          best &&
+          best.dist < FACE_MATCH_THRESHOLD &&
+          margin >= CONFIDENCE_MARGIN
+            ? best.p.id
+            : "unknown";
+
+        const bestMatch = best ? best.p : null;
+        const bestDist = best ? best.dist : Infinity;
+
+        // Track how long the currentId has been consistently seen
+        if (verificationIdRef.current !== currentId) {
+          verificationIdRef.current = currentId;
+          verificationStartRef.current = now;
+        }
+
+        // ---------------- BUFFER (ANTI-FLICKER) ----------------
+        matchBufferRef.current.push(currentId);
+        if (matchBufferRef.current.length > BUFFER_SIZE) {
+          matchBufferRef.current.shift();
+        }
+
+        const verificationElapsed = now - (verificationStartRef.current || 0);
+        const stable =
+          matchBufferRef.current.length === BUFFER_SIZE &&
+          matchBufferRef.current.every((id) => id === currentId) &&
+          verificationElapsed >= MIN_VERIFICATION_MS;
+
+        if (!stable) {
+          setVerifying(true);
+          animationFrameRef.current = requestAnimationFrame(detect);
+          return;
+        }
+
         setVerifying(false);
-        animationFrameRef.current = requestAnimationFrame(detect);
-        return;
-      }
 
-      // ✅ Draw mesh
-      drawDetection(fullDetection);
+        // ---------------- COOLDOWN ----------------
+        const lastScan = lastScanRef.current[currentId] || 0;
+        if (now - lastScan < PERSON_COOLDOWN_MS) {
+          animationFrameRef.current = requestAnimationFrame(detect);
+          return;
+        }
 
-      const descriptor = normalizeDescriptor(toFloat32Array(fullDetection.descriptor));
+        // ---------------- KNOWN PERSON ----------------
+        if (bestMatch && bestDist < FACE_MATCH_THRESHOLD) {
+          lastScanRef.current[currentId] = now;
+          setCooldown(true);
 
-      // ---------------- MATCHING ----------------
-      // Compute distances to all persons and pick best candidate
-      const candidates = persons
-        .filter(p => p.descriptor)
-        .map(p => ({ p, dist: euclideanDistance(descriptor, p.descriptor) }))
-        .sort((a, b) => a.dist - b.dist);
-
-      const best = candidates.length ? candidates[0] : null;
-      const second = candidates.length > 1 ? candidates[1] : null;
-
-      // Use same stricter threshold as registration to avoid mis-assignments
-      // Tighter threshold: distance must be very close to the
-      // stored descriptor (built from the registration_photo)
-      const FACE_MATCH_THRESHOLD = 0.28;
-      const margin = second ? (second.dist - best.dist) : Infinity;
-
-      // Require a clear separation between best and second-best match
-      const CONFIDENCE_MARGIN = 0.07;
-
-      const currentId = (best && best.dist < FACE_MATCH_THRESHOLD && margin >= CONFIDENCE_MARGIN)
-        ? best.p.id
-        : 'unknown';
-
-      const bestMatch = best ? best.p : null;
-      const bestDist = best ? best.dist : Infinity;
-
-      // Track how long the currentId has been consistently seen
-      if (verificationIdRef.current !== currentId) {
-        verificationIdRef.current = currentId;
-        verificationStartRef.current = now;
-      }
-
-      // ---------------- BUFFER (ANTI-FLICKER) ----------------
-      matchBufferRef.current.push(currentId);
-      if (matchBufferRef.current.length > BUFFER_SIZE) {
-        matchBufferRef.current.shift();
-      }
-
-      const verificationElapsed = now - (verificationStartRef.current || 0);
-      const stable =
-        matchBufferRef.current.length === BUFFER_SIZE &&
-        matchBufferRef.current.every(id => id === currentId) &&
-        verificationElapsed >= MIN_VERIFICATION_MS;
-
-      if (!stable) {
-        setVerifying(true);
-        animationFrameRef.current = requestAnimationFrame(detect);
-        return;
-      }
-
-      setVerifying(false);
-
-      // ---------------- COOLDOWN ----------------
-      const lastScan = lastScanRef.current[currentId] || 0;
-      if (now - lastScan < PERSON_COOLDOWN_MS) {
-        animationFrameRef.current = requestAnimationFrame(detect);
-        return;
-      }
-
-      // ---------------- KNOWN PERSON ----------------
-      if (bestMatch && bestDist < FACE_MATCH_THRESHOLD) {
-        lastScanRef.current[currentId] = now;
-        setCooldown(true);
-
-        // Do NOT update registration_photo when recording attendance
-        const scanPayload = {
-          descriptor,
-          // photoDataUrl is still captured for attendance logs, but should NOT be used to update registration_photo
-          photoDataUrl: captureCurrentFrame(),
-          deviceTime: new Date().toISOString(),
-        };
+          // Do NOT update registration_photo when recording attendance
+          const scanPayload = {
+            descriptor,
+            // photoDataUrl is still captured for attendance logs, but should NOT be used to update registration_photo
+            photoDataUrl: captureCurrentFrame(),
+            deviceTime: new Date().toISOString(),
+          };
 
           // Debug: log match info before recording attendance
-          console.log('ATTENDANCE DEBUG: bestMatch=', bestMatch, 'bestDist=', bestDist, 'threshold=', FACE_MATCH_THRESHOLD);
-          console.log('ATTENDANCE DEBUG: candidates=', candidates.map(c=>({id:c.p.id,name:c.p.name,dist:c.dist})).slice(0,5));
-          console.log('ATTENDANCE DEBUG: settings=', settings);
-          console.log('ATTENDANCE DEBUG: scanPayload present=', Boolean(scanPayload.photoDataUrl), scanPayload.deviceTime);
+          console.log(
+            "ATTENDANCE DEBUG: bestMatch=",
+            bestMatch,
+            "bestDist=",
+            bestDist,
+            "threshold=",
+            FACE_MATCH_THRESHOLD
+          );
+          console.log(
+            "ATTENDANCE DEBUG: candidates=",
+            candidates
+              .map((c) => ({ id: c.p.id, name: c.p.name, dist: c.dist }))
+              .slice(0, 5)
+          );
+          console.log("ATTENDANCE DEBUG: settings=", settings);
+          console.log(
+            "ATTENDANCE DEBUG: scanPayload present=",
+            Boolean(scanPayload.photoDataUrl),
+            scanPayload.deviceTime
+          );
           // Update debug overlay if present
-          try { if (debugMode) { const el = document.getElementById('face-debug-pre'); if (el) el.textContent = JSON.stringify(candidates.slice(0,8).map(c=>({ id:c.p.id, name:c.p.name, dist: c.dist.toFixed(3) })), null, 2); } } catch (e) {}
+          try {
+            if (debugMode) {
+              const el = document.getElementById("face-debug-pre");
+              if (el)
+                el.textContent = JSON.stringify(
+                  candidates
+                    .slice(0, 8)
+                    .map((c) => ({
+                      id: c.p.id,
+                      name: c.p.name,
+                      dist: c.dist.toFixed(3),
+                    })),
+                  null,
+                  2
+                );
+            }
+          } catch (e) {}
 
-        // Ensure recordAttendanceForPerson or any attendance logic does NOT update registration_photo
-        // (Assumes recordAttendanceForPerson does not update registration_photo for existing persons)
-        recordAttendanceForPerson({
-          supabase,
-          person: bestMatch,
-          settings,
-          scanPayload,
-          method: 'face-scan',
-        })
-          .then(result => {
-            console.log('ATTENDANCE DEBUG: recordAttendance result=', result);
-            if (result.inserted) {
-              const message =
-                result.event === 'time-in'
-                  ? `Time-in (${result.status})`
-                  : result.event === 'time-out'
-                  ? `Time-out (${result.status})`
-                  : `${result.event} (${result.status})`;
+          // Ensure recordAttendanceForPerson or any attendance logic does NOT update registration_photo
+          // (Assumes recordAttendanceForPerson does not update registration_photo for existing persons)
+          recordAttendanceForPerson({
+            supabase,
+            person: bestMatch,
+            settings,
+            scanPayload,
+            method: "face-scan",
+          })
+            .then((result) => {
+              console.log("ATTENDANCE DEBUG: recordAttendance result=", result);
+              if (result.inserted) {
+                const message =
+                  result.event === "time-in"
+                    ? `Time-in (${result.status})`
+                    : result.event === "time-out"
+                    ? `Time-out (${result.status})`
+                    : `${result.event} (${result.status})`;
 
-              playVoice('success');
-              Swal.fire({
-                icon: 'success',
-                title: bestMatch.name,
-                text: message,
-                timer: 2500,
-                showConfirmButton: false,
-              });
-            } else if (result.blocked) {
-              // Throttle SweetAlert for blocked/info (already timed in) to once every 5 seconds
-              const nowMs = Date.now();
-              if (!lastScanRef.current.blockedInfoTs || nowMs - lastScanRef.current.blockedInfoTs > 5000) {
-                playVoice('info');
+                playVoice("success");
                 Swal.fire({
-                  icon: 'info',
+                  icon: "success",
                   title: bestMatch.name,
-                  text: result.message,
-                  timer: 2200,
+                  text: message,
+                  timer: 2500,
                   showConfirmButton: false,
                 });
-                lastScanRef.current.blockedInfoTs = nowMs;
+              } else if (result.blocked) {
+                // Throttle SweetAlert for blocked/info (already timed in) to once every 5 seconds
+                const nowMs = Date.now();
+                if (
+                  !lastScanRef.current.blockedInfoTs ||
+                  nowMs - lastScanRef.current.blockedInfoTs > 5000
+                ) {
+                  playVoice("info");
+                  Swal.fire({
+                    icon: "info",
+                    title: bestMatch.name,
+                    text: result.message,
+                    timer: 2200,
+                    showConfirmButton: false,
+                  });
+                  lastScanRef.current.blockedInfoTs = nowMs;
+                }
               }
+            })
+            .catch((err) => {
+              console.error("ATTENDANCE ERROR:", err);
+              playVoice("error");
+              Swal.fire({
+                icon: "error",
+                title: "Attendance Error",
+                text: err.message || String(err),
+              });
+            })
+            .finally(() => setCooldown(false));
+        }
+
+        // ---------------- UNKNOWN PERSON ----------------
+        else {
+          // Only trigger onFaceScan for unknown faces if NOT in registrationActive mode
+          // (registrationActive disables scanning to avoid duplicate popups)
+          if (!registrationActive && typeof onFaceScan === "function") {
+            const photoDataUrl = captureCurrentFrame();
+            if (photoDataUrl) {
+              const scanPayload = {
+                descriptor,
+                photoDataUrl,
+                deviceTime: new Date().toISOString(),
+              };
+              onFaceScan(scanPayload);
             }
-          })
-          .catch(err => {
-            console.error('ATTENDANCE ERROR:', err);
-            playVoice('error');
-            Swal.fire({
-              icon: 'error',
-              title: 'Attendance Error',
-              text: err.message || String(err),
-            });
-          })
-          .finally(() => setCooldown(false));
-      }
-
-      // ---------------- UNKNOWN PERSON ----------------
-      else {
-        // Only trigger onFaceScan for unknown faces if NOT in registrationActive mode
-        // (registrationActive disables scanning to avoid duplicate popups)
-        if (!registrationActive && typeof onFaceScan === 'function') {
-          const photoDataUrl = captureCurrentFrame();
-          if (photoDataUrl) {
-            const scanPayload = {
-              descriptor,
-              photoDataUrl,
-              deviceTime: new Date().toISOString(),
-            };
-            onFaceScan(scanPayload);
           }
+          // Throttle SweetAlert for unregistered faces: only show once every 5 seconds
+          const nowMs = Date.now();
+          if (
+            !unknownFaceLockRef.current ||
+            nowMs - unknownFaceLockRef.current > 5000
+          ) {
+            playVoice("warning");
+            Swal.fire({
+              icon: "warning",
+              title: "That face is not registered",
+              text: "",
+              timer: 2500,
+              showConfirmButton: false,
+            });
+            unknownFaceLockRef.current = nowMs;
+          }
+          lastScanRef.current.unknown = now;
+          matchBufferRef.current = [];
+          setCooldown(true);
+          setTimeout(() => setCooldown(false), 1200);
         }
-        // Throttle SweetAlert for unregistered faces: only show once every 5 seconds
-        const nowMs = Date.now();
-        if (!unknownFaceLockRef.current || nowMs - unknownFaceLockRef.current > 5000) {
-          playVoice('warning');
-          Swal.fire({
-            icon: 'warning',
-            title: 'That face is not registered',
-            text: '',
-            timer: 2500,
-            showConfirmButton: false,
-          });
-          unknownFaceLockRef.current = nowMs;
-        }
-        lastScanRef.current.unknown = now;
-        matchBufferRef.current = [];
-        setCooldown(true);
-        setTimeout(() => setCooldown(false), 1200);
+      } catch (err) {
+        console.error(err);
       }
-    } catch (err) {
-      console.error(err);
-    }
 
+      animationFrameRef.current = requestAnimationFrame(detect);
+    };
+
+    setScanning(true);
     animationFrameRef.current = requestAnimationFrame(detect);
-  };
 
-  setScanning(true);
-  animationFrameRef.current = requestAnimationFrame(detect);
-
-  return () => {
-    isMounted = false;
-    cancelAnimationFrame(animationFrameRef.current);
-    setScanning(false);
-  };
-}, [
-  modelsLoaded,
-  validSettings,
-  frameReady,
-  cooldown,
-  registrationActive,
-  cameraStatus,
-  persons,
-  drawDetection,
-  captureCurrentFrame,
-  onFaceScan,
-  useLocalCamera,
-  debugMode,
-  settings
-]);
+    return () => {
+      isMounted = false;
+      cancelAnimationFrame(animationFrameRef.current);
+      setScanning(false);
+    };
+  }, [
+    modelsLoaded,
+    validSettings,
+    frameReady,
+    cooldown,
+    registrationActive,
+    cameraStatus,
+    persons,
+    drawDetection,
+    captureCurrentFrame,
+    onFaceScan,
+    useLocalCamera,
+    debugMode,
+    settings,
+  ]);
 
   // ------------------- Update current time -------------------
   // Removed: unused currentTime update effect
 
   // ------------------- Reset registration state -------------------
   useEffect(() => {
-    if (!registrationActive) { unknownFaceLockRef.current = false; matchBufferRef.current = []; setVerifying(false); }
+    if (!registrationActive) {
+      unknownFaceLockRef.current = false;
+      matchBufferRef.current = [];
+      setVerifying(false);
+    }
   }, [registrationActive, settings]); // settings dependency included for completeness
 
   // ------------------- Render -------------------
- return (
+  return (
     <div style={styles.container}>
       {/* Camera card */}
       <div style={styles.cameraCard}>
@@ -670,7 +794,20 @@ const drawDetection = useCallback((detection) => {
                 ● Live
               </span>
             )}
-                <button onClick={() => setDebugMode(d => !d)} style={{ marginLeft: 8, padding: '6px 10px', borderRadius: 8, border: 'none', cursor: 'pointer', background: '#eef2ff', color: '#2563eb' }}>{debugMode ? 'Hide' : 'Debug'}</button>
+            <button
+              onClick={() => setDebugMode((d) => !d)}
+              style={{
+                marginLeft: 8,
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "none",
+                cursor: "pointer",
+                background: "#eef2ff",
+                color: "#2563eb",
+              }}
+            >
+              {debugMode ? "Hide" : "Debug"}
+            </button>
             {cameraStatus === CAMERA_STATUS.ERROR && (
               <span style={{ ...styles.badge, ...styles.badgeError }}>
                 ⚠️ Error
@@ -708,14 +845,16 @@ const drawDetection = useCallback((detection) => {
             <img
               ref={imgRef}
               alt="Camera Stream"
-              onLoad={() => setFrameReady(imgRef.current?.naturalWidth > 0 && imgRef.current?.naturalHeight > 0)}
+              onLoad={() =>
+                setFrameReady(
+                  imgRef.current?.naturalWidth > 0 &&
+                    imgRef.current?.naturalHeight > 0
+                )
+              }
               style={styles.feed}
             />
           )}
-          <canvas
-            ref={overlayCanvasRef}
-            style={styles.overlayCanvas}
-          />
+          <canvas ref={overlayCanvasRef} style={styles.overlayCanvas} />
         </div>
 
         {/* Settings info card */}
@@ -745,12 +884,26 @@ const drawDetection = useCallback((detection) => {
           </div>
         )}
 
-          {debugMode && (
-            <div style={{ padding: '8px 16px', fontSize: '12px', color: '#062b6d' }}>
-              <div><strong>DEBUG — Top candidates</strong></div>
-              <pre style={{ whiteSpace: 'pre-wrap', maxHeight: 120, overflow: 'auto', margin: 0 }} id="face-debug-pre">(waiting...)</pre>
+        {debugMode && (
+          <div
+            style={{ padding: "8px 16px", fontSize: "12px", color: "#062b6d" }}
+          >
+            <div>
+              <strong>DEBUG — Top candidates</strong>
             </div>
-          )}
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                maxHeight: 120,
+                overflow: "auto",
+                margin: 0,
+              }}
+              id="face-debug-pre"
+            >
+              (waiting...)
+            </pre>
+          </div>
+        )}
 
         {/* Error or missing settings messages */}
         {!validSettings && (
@@ -769,161 +922,161 @@ const drawDetection = useCallback((detection) => {
 // Modern inline styles
 const styles = {
   container: {
-    display: 'flex',
-    justifyContent: 'center',
-    padding: '20px',
+    display: "flex",
+    justifyContent: "center",
+    padding: "20px",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
   cameraCard: {
-    width: '100%',
-    height: '100%',
-    maxWidth: '900px',
-    backgroundColor: '#ffffff',
-    borderRadius: '24px',
-    boxShadow: '0 20px 40px rgba(0,0,0,0.08), 0 6px 12px rgba(0,0,0,0.05)',
-    overflow: 'hidden',
-    transition: 'box-shadow 0.3s ease',
+    width: "100%",
+    height: "100%",
+    maxWidth: "900px",
+    backgroundColor: "#ffffff",
+    borderRadius: "24px",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.08), 0 6px 12px rgba(0,0,0,0.05)",
+    overflow: "hidden",
+    transition: "box-shadow 0.3s ease",
   },
   cameraHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 24px',
-    backgroundColor: '#f9fafc',
-    borderBottom: '1px solid #eef2f6',
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: "16px 24px",
+    backgroundColor: "#f9fafc",
+    borderBottom: "1px solid #eef2f6",
   },
   cameraTitle: {
-    fontSize: '1.2rem',
+    fontSize: "1.2rem",
     fontWeight: 600,
-    color: '#1e293b',
-    letterSpacing: '-0.01em',
+    color: "#1e293b",
+    letterSpacing: "-0.01em",
   },
   statusBadges: {
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-end',
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
   },
   badge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '6px 12px',
-    borderRadius: '30px',
-    fontSize: '0.85rem',
+    display: "inline-flex",
+    alignItems: "center",
+    padding: "6px 12px",
+    borderRadius: "30px",
+    fontSize: "0.85rem",
     fontWeight: 500,
     lineHeight: 1,
-    whiteSpace: 'nowrap',
+    whiteSpace: "nowrap",
   },
   badgeConnecting: {
-    backgroundColor: '#e9f0ff',
-    color: '#2563eb',
+    backgroundColor: "#e9f0ff",
+    color: "#2563eb",
   },
   badgeLive: {
-    backgroundColor: '#e6f7e6',
-    color: '#16a34a',
+    backgroundColor: "#e6f7e6",
+    color: "#16a34a",
   },
   badgeError: {
-    backgroundColor: '#fee9e7',
-    color: '#dc2626',
+    backgroundColor: "#fee9e7",
+    color: "#dc2626",
   },
   badgeLoading: {
-    backgroundColor: '#fff3cd',
-    color: '#b45309',
+    backgroundColor: "#fff3cd",
+    color: "#b45309",
   },
   badgeScanning: {
-    backgroundColor: '#e0f2fe',
-    color: '#0284c7',
+    backgroundColor: "#e0f2fe",
+    color: "#0284c7",
   },
   badgeVerifying: {
-    backgroundColor: '#fef3c7',
-    color: '#d97706',
+    backgroundColor: "#fef3c7",
+    color: "#d97706",
   },
   dots: {
-    animation: 'blink 1.4s infinite',
-    display: 'inline-block',
-    width: '1.5em',
-    textAlign: 'left',
+    animation: "blink 1.4s infinite",
+    display: "inline-block",
+    width: "1.5em",
+    textAlign: "left",
   },
   feedWrapper: {
-    position: 'relative',
-    width: '100%',
-    aspectRatio: '16/9',
-    backgroundColor: '#0b1120',
+    position: "relative",
+    width: "100%",
+    aspectRatio: "16/9",
+    backgroundColor: "#0b1120",
   },
   feed: {
-    width: '100%',
-    height: '100%',
-    objectFit: 'cover',
-    display: 'block',
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    display: "block",
   },
   overlayCanvas: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
-    width: '100%',
-    height: '100%',
-    pointerEvents: 'none',
+    width: "100%",
+    height: "100%",
+    pointerEvents: "none",
   },
   settingsCard: {
-    margin: '16px 24px 24px',
-    padding: '18px 20px',
-    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-    borderRadius: '20px',
-    border: '1px solid #e2e8f0',
+    margin: "16px 24px 24px",
+    padding: "18px 20px",
+    background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
+    borderRadius: "20px",
+    border: "1px solid #e2e8f0",
   },
   settingRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    flexWrap: 'wrap',
-    padding: '8px 0',
-    borderBottom: '1px dashed #cbd5e1',
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    flexWrap: "wrap",
+    padding: "8px 0",
+    borderBottom: "1px dashed #cbd5e1",
   },
   settingRowLast: {
-    borderBottom: 'none',
+    borderBottom: "none",
   },
   settingIcon: {
-    fontSize: '1.3rem',
+    fontSize: "1.3rem",
   },
   settingLabel: {
     fontWeight: 600,
-    color: '#334155',
-    minWidth: '75px',
+    color: "#334155",
+    minWidth: "75px",
   },
   settingValue: {
-    color: '#0f172a',
+    color: "#0f172a",
     fontWeight: 500,
-    background: '#ffffff',
-    padding: '4px 12px',
-    borderRadius: '30px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+    background: "#ffffff",
+    padding: "4px 12px",
+    borderRadius: "30px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
   },
   graceBadge: {
-    background: '#dbeafe',
-    color: '#1e40af',
-    padding: '4px 10px',
-    borderRadius: '30px',
-    fontSize: '0.8rem',
+    background: "#dbeafe",
+    color: "#1e40af",
+    padding: "4px 10px",
+    borderRadius: "30px",
+    fontSize: "0.8rem",
     fontWeight: 500,
-    marginLeft: 'auto',
+    marginLeft: "auto",
   },
   errorMessage: {
-    margin: '16px 24px 24px',
-    padding: '12px 16px',
-    backgroundColor: '#fee2e2',
-    color: '#b91c1c',
-    borderRadius: '12px',
-    border: '1px solid #fecaca',
-    fontSize: '0.95rem',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
+    margin: "16px 24px 24px",
+    padding: "12px 16px",
+    backgroundColor: "#fee2e2",
+    color: "#b91c1c",
+    borderRadius: "12px",
+    border: "1px solid #fecaca",
+    fontSize: "0.95rem",
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
   },
 };
 
 // Add keyframes for blinking dots (injected via style tag)
-const styleSheet = document.createElement('style');
+const styleSheet = document.createElement("style");
 styleSheet.textContent = `
   @keyframes blink {
     0%, 100% { opacity: 1; }
@@ -931,4 +1084,3 @@ styleSheet.textContent = `
   }
 `;
 document.head.appendChild(styleSheet);
-

@@ -1,13 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
-import { supabase } from '../supabaseClient';
-import Swal from 'sweetalert2';
-import * as XLSX from 'xlsx';
-import {
-  FiDownload,
-  FiArchive,
-  FiEdit,
-} from 'react-icons/fi';
-
+import { useEffect, useState, useRef } from "react";
+import { supabase } from "../supabaseClient";
+import Swal from "sweetalert2";
+import * as XLSX from "xlsx";
+import { FiDownload, FiArchive, FiEdit } from "react-icons/fi";
 
 export default function PersonsTable() {
   // Camera state/hooks for Edit Person modal
@@ -16,7 +11,7 @@ export default function PersonsTable() {
 
   const cameraStreamRef = useRef(null);
 
-    // Start camera when modal opens
+  // Start camera when modal opens
 
   useEffect(() => {
     // Capture refs at effect start for cleanup
@@ -24,20 +19,23 @@ export default function PersonsTable() {
     if (showCamera) {
       (async () => {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          });
           if (initialVideoRef) {
             initialVideoRef.srcObject = stream;
             cameraStreamRef.current = stream;
           }
         } catch (err) {
-          Swal.fire('Camera Error', 'Unable to access camera.', 'error');
+          Swal.fire("Camera Error", "Unable to access camera.", "error");
           setShowCamera(false);
         }
       })();
     } else {
       // Stop camera
       if (cameraStreamRef.current) {
-        cameraStreamRef.current.getTracks && cameraStreamRef.current.getTracks().forEach(track => track.stop());
+        cameraStreamRef.current.getTracks &&
+          cameraStreamRef.current.getTracks().forEach((track) => track.stop());
         cameraStreamRef.current = null;
       }
       if (initialVideoRef) {
@@ -48,7 +46,8 @@ export default function PersonsTable() {
     return () => {
       const localStream = cameraStreamRef.current;
       if (localStream) {
-        localStream.getTracks && localStream.getTracks().forEach(track => track.stop());
+        localStream.getTracks &&
+          localStream.getTracks().forEach((track) => track.stop());
         cameraStreamRef.current = null;
       }
       if (initialVideoRef) {
@@ -57,19 +56,19 @@ export default function PersonsTable() {
     };
   }, [showCamera]);
 
-    // Handler to capture photo from camera
-    const handleCapturePhoto = () => {
-      if (!cameraVideoRef.current) return;
-      const video = cameraVideoRef.current;
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth || 320;
-      canvas.height = video.videoHeight || 240;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-      setEditPerson(prev => ({ ...prev, registration_photo: dataUrl }));
-      setShowCamera(false);
-    };
+  // Handler to capture photo from camera
+  const handleCapturePhoto = () => {
+    if (!cameraVideoRef.current) return;
+    const video = cameraVideoRef.current;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth || 320;
+    canvas.height = video.videoHeight || 240;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+    setEditPerson((prev) => ({ ...prev, registration_photo: dataUrl }));
+    setShowCamera(false);
+  };
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [sortKey, setSortKey] = useState("created_at");
@@ -87,15 +86,12 @@ export default function PersonsTable() {
     archive: <FiArchive />,
     edit: <FiEdit />,
   };
-  
 
   useEffect(() => {
     async function fetchPersons() {
       try {
         setError(null);
-        const { data, error: err } = await supabase
-          .from('persons')
-          .select('*');
+        const { data, error: err } = await supabase.from("persons").select("*");
         if (err) throw err;
         setPersons(data || []);
       } catch (err) {
@@ -117,32 +113,39 @@ export default function PersonsTable() {
   // Sorting handler
   const handleSort = (key) => {
     if (sortKey === key) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
     } else {
       setSortKey(key);
-      setSortOrder('asc');
+      setSortOrder("asc");
     }
   };
 
   // Archive modal
   const handleArchive = async (person) => {
     Swal.fire({
-      title: 'Archive Person',
-      html: `<div style='margin-bottom:12px;'>Are you sure you want to archive <b>${person.name || person.id}</b>?</div>`,
-      icon: 'warning',
+      title: "Archive Person",
+      html: `<div style='margin-bottom:12px;'>Are you sure you want to archive <b>${
+        person.name || person.id
+      }</b>?</div>`,
+      icon: "warning",
       showCancelButton: true,
-      confirmButtonText: 'Archive',
-      cancelButtonText: 'Cancel',
+      confirmButtonText: "Archive",
+      cancelButtonText: "Cancel",
       focusCancel: true,
-      customClass: { popup: 'swal2-modal' }
+      customClass: { popup: "swal2-modal" },
     }).then(async (result) => {
       if (result.isConfirmed) {
-        const { error: archErr } = await supabase.from('persons').update({ archived: true }).eq('id', person.id);
+        const { error: archErr } = await supabase
+          .from("persons")
+          .update({ archived: true })
+          .eq("id", person.id);
         if (archErr) {
-          Swal.fire('Error', archErr.message, 'error');
+          Swal.fire("Error", archErr.message, "error");
         } else {
-          setPersons((prev) => prev.map(p => p.id === person.id ? { ...p, archived: true } : p));
-          Swal.fire('Archived!', '', 'success');
+          setPersons((prev) =>
+            prev.map((p) => (p.id === person.id ? { ...p, archived: true } : p))
+          );
+          Swal.fire("Archived!", "", "success");
         }
       }
     });
@@ -165,26 +168,37 @@ export default function PersonsTable() {
   const handleEditPhotoChange = (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
-    e.target.value = '';
+    e.target.value = "";
 
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result;
-      if (typeof dataUrl !== 'string') return;
-      setEditPerson((prev) => (prev ? { ...prev, registration_photo: dataUrl } : prev));
+      if (typeof dataUrl !== "string") return;
+      setEditPerson((prev) =>
+        prev ? { ...prev, registration_photo: dataUrl } : prev
+      );
     };
     reader.readAsDataURL(file);
   };
 
   const handleEditModalSave = async (e) => {
     e.preventDefault();
-    const { id, name, department, phone_number, address, sex, cash_advance, registration_photo } = editPerson;
+    const {
+      id,
+      name,
+      department,
+      phone_number,
+      address,
+      sex,
+      cash_advance,
+      registration_photo,
+    } = editPerson;
     // Ensure checkboxes are stored as 1/0
     const sssVal = !!Number(editPerson.sss) ? 1 : 0;
     const pagIbigVal = !!Number(editPerson.pag_ibig) ? 1 : 0;
     const philhealthVal = !!Number(editPerson.philhealth) ? 1 : 0;
     const { error } = await supabase
-      .from('persons')
+      .from("persons")
       .update({
         name,
         department,
@@ -197,9 +211,9 @@ export default function PersonsTable() {
         cash_advance,
         registration_photo: registration_photo || null,
       })
-      .eq('id', id);
+      .eq("id", id);
     if (error) {
-      Swal.fire('Error', error.message, 'error');
+      Swal.fire("Error", error.message, "error");
     } else {
       setPersons((prev) =>
         prev.map((p) =>
@@ -220,19 +234,20 @@ export default function PersonsTable() {
             : p
         )
       );
-      Swal.fire('Updated!', '', 'success');
+      Swal.fire("Updated!", "", "success");
       handleEditModalClose();
     }
   };
 
   // Filter and sort
-  const filteredPersons = persons.filter(p => {
+  const filteredPersons = persons.filter((p) => {
     if (showArchived ? !p.archived : p.archived) return false;
     const matchesSearch =
       !search ||
       (p.name && p.name.toLowerCase().includes(search.toLowerCase())) ||
       (p.id && p.id.toLowerCase().includes(search.toLowerCase()));
-    const matchesDept = !departmentFilter || (p.department || "") === departmentFilter;
+    const matchesDept =
+      !departmentFilter || (p.department || "") === departmentFilter;
     return matchesSearch && matchesDept;
   });
 
@@ -260,32 +275,34 @@ export default function PersonsTable() {
     return <p>Loading persons...</p>;
   }
   if (error) {
-    return <p style={{ color: 'red' }}>{error}</p>;
+    return <p style={{ color: "red" }}>{error}</p>;
   }
 
   // Export to Excel
   const handleExportExcel = () => {
     if (!Array.isArray(sortedPersons)) return;
-    const exportData = sortedPersons.map(row => ({
+    const exportData = sortedPersons.map((row) => ({
       ID: row.id,
-      Name: row.name || '',
-      Department: row.department || '',
-      Phone: row.phone_number || '',
-      Address: row.address || '',
-      Sex: row.sex || '',
-      RegisteredAt: row.created_at ? new Date(row.created_at).toLocaleString() : '',
-      SSS: row.sss || '',
-      Pag_ibig: row.pag_ibig || '',
-      PhilHealth: row.philhealth || '',
-      Cash_Advance: row.cash_advance || ''
+      Name: row.name || "",
+      Department: row.department || "",
+      Phone: row.phone_number || "",
+      Address: row.address || "",
+      Sex: row.sex || "",
+      RegisteredAt: row.created_at
+        ? new Date(row.created_at).toLocaleString()
+        : "",
+      SSS: row.sss || "",
+      Pag_ibig: row.pag_ibig || "",
+      PhilHealth: row.philhealth || "",
+      Cash_Advance: row.cash_advance || "",
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Persons');
-    XLSX.writeFile(wb, 'persons.xlsx');
+    XLSX.utils.book_append_sheet(wb, ws, "Persons");
+    XLSX.writeFile(wb, "persons.xlsx");
   };
 
- return (
+  return (
     <div style={styles.container}>
       <div style={styles.header}>
         <h1 style={styles.title}>Registered Persons</h1>
@@ -310,35 +327,32 @@ export default function PersonsTable() {
             style={styles.select}
           >
             <option value="">All Departments</option>
-            {[...new Set(persons.map((p) => p.department).filter(Boolean))].map((dept) => (
-              <option key={dept} value={dept}>
-                {dept}
-              </option>
-            ))}
+            {[...new Set(persons.map((p) => p.department).filter(Boolean))].map(
+              (dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              )
+            )}
           </select>
-         <button
-  onClick={() => setShowArchived((a) => !a)}
-  style={{ ...styles.button, ...styles.buttonSecondary }}
->
-  {showArchived ? (
-    <>
-      {Icons.archive} Show Active
-    </>
-  ) : (
-    <>
-      {Icons.archive} Show Archived
-    </>
-  )}
-</button>
+          <button
+            onClick={() => setShowArchived((a) => !a)}
+            style={{ ...styles.button, ...styles.buttonSecondary }}
+          >
+            {showArchived ? (
+              <>{Icons.archive} Show Active</>
+            ) : (
+              <>{Icons.archive} Show Archived</>
+            )}
+          </button>
+        </div>
 
-</div>
-
-<button
-  onClick={handleExportExcel}
-  style={{ ...styles.button, ...styles.buttonPrimary }}
->
-  {Icons.download} Export Excel
-</button>
+        <button
+          onClick={handleExportExcel}
+          style={{ ...styles.button, ...styles.buttonPrimary }}
+        >
+          {Icons.download} Export Excel
+        </button>
       </div>
 
       {/* Table */}
@@ -347,29 +361,40 @@ export default function PersonsTable() {
           <table style={styles.table}>
             <thead>
               <tr>
-                <th style={styles.th} onClick={() => handleSort('photo')}>
-                  Photo {sortKey === 'photo' && (sortOrder === 'asc' ? '▲' : '▼')}
+                <th style={styles.th} onClick={() => handleSort("photo")}>
+                  Photo{" "}
+                  {sortKey === "photo" && (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th style={styles.th} onClick={() => handleSort('id')}>
-                  ID {sortKey === 'id' && (sortOrder === 'asc' ? '▲' : '▼')}
+                <th style={styles.th} onClick={() => handleSort("id")}>
+                  ID {sortKey === "id" && (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th style={styles.th} onClick={() => handleSort('name')}>
-                  Name {sortKey === 'name' && (sortOrder === 'asc' ? '▲' : '▼')}
+                <th style={styles.th} onClick={() => handleSort("name")}>
+                  Name {sortKey === "name" && (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th style={styles.th} onClick={() => handleSort('department')}>
-                  Department {sortKey === 'department' && (sortOrder === 'asc' ? '▲' : '▼')}
+                <th style={styles.th} onClick={() => handleSort("department")}>
+                  Department{" "}
+                  {sortKey === "department" &&
+                    (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th style={styles.th} onClick={() => handleSort('phone_number')}>
-                  Phone {sortKey === 'phone_number' && (sortOrder === 'asc' ? '▲' : '▼')}
+                <th
+                  style={styles.th}
+                  onClick={() => handleSort("phone_number")}
+                >
+                  Phone{" "}
+                  {sortKey === "phone_number" &&
+                    (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th style={styles.th} onClick={() => handleSort('address')}>
-                  Address {sortKey === 'address' && (sortOrder === 'asc' ? '▲' : '▼')}
+                <th style={styles.th} onClick={() => handleSort("address")}>
+                  Address{" "}
+                  {sortKey === "address" && (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th style={styles.th} onClick={() => handleSort('sex')}>
-                  Sex {sortKey === 'sex' && (sortOrder === 'asc' ? '▲' : '▼')}
+                <th style={styles.th} onClick={() => handleSort("sex")}>
+                  Sex {sortKey === "sex" && (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th style={styles.th} onClick={() => handleSort('created_at')}>
-                  Registered At {sortKey === 'created_at' && (sortOrder === 'asc' ? '▲' : '▼')}
+                <th style={styles.th} onClick={() => handleSort("created_at")}>
+                  Registered At{" "}
+                  {sortKey === "created_at" &&
+                    (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
                 <th style={styles.th}>Actions</th>
               </tr>
@@ -385,40 +410,54 @@ export default function PersonsTable() {
                 sortedPersons.map((p, idx) => {
                   const rowStyle = {
                     ...styles.tr,
-                    backgroundColor: idx % 2 === 0 ? '#f9fafb' : '#ffffff',
+                    backgroundColor: idx % 2 === 0 ? "#f9fafb" : "#ffffff",
                   };
                   return (
                     <tr key={p.id} style={rowStyle}>
                       <td style={styles.td}>
                         {getPersonPhoto(p) ? (
-                          <img src={getPersonPhoto(p)} alt="person" style={styles.photo} />
+                          <img
+                            src={getPersonPhoto(p)}
+                            alt="person"
+                            style={styles.photo}
+                          />
                         ) : (
-                          <span style={{ color: '#9ca3af' }}>No photo</span>
+                          <span style={{ color: "#9ca3af" }}>No photo</span>
                         )}
                       </td>
-                      <td style={{ ...styles.td, fontFamily: 'monospace' }}>{p.id}</td>
-                      <td style={styles.td}>{p.name || ''}</td>
-                      <td style={styles.td}>{p.department || ''}</td>
-                      <td style={styles.td}>{p.phone_number || ''}</td>
-                      <td style={styles.td}>{p.address || ''}</td>
-                      <td style={styles.td}>{p.sex || ''}</td>
+                      <td style={{ ...styles.td, fontFamily: "monospace" }}>
+                        {p.id}
+                      </td>
+                      <td style={styles.td}>{p.name || ""}</td>
+                      <td style={styles.td}>{p.department || ""}</td>
+                      <td style={styles.td}>{p.phone_number || ""}</td>
+                      <td style={styles.td}>{p.address || ""}</td>
+                      <td style={styles.td}>{p.sex || ""}</td>
                       <td style={styles.td}>
-                        {p.created_at ? new Date(p.created_at).toLocaleString() : ''}
+                        {p.created_at
+                          ? new Date(p.created_at).toLocaleString()
+                          : ""}
                       </td>
                       <td style={styles.td}>
                         <div style={styles.actionCell}>
                           <button
                             onClick={() => handleEdit(p)}
-                            style={{ ...styles.smallButton, ...styles.buttonSuccess }}
+                            style={{
+                              ...styles.smallButton,
+                              ...styles.buttonSuccess,
+                            }}
                           >
                             {Icons.edit} Edit
                           </button>
                           {!p.archived && (
                             <button
                               onClick={() => handleArchive(p)}
-                              style={{ ...styles.smallButton, ...styles.buttonSecondary }}
+                              style={{
+                                ...styles.smallButton,
+                                ...styles.buttonSecondary,
+                              }}
                             >
-                             {Icons.archive} Archive
+                              {Icons.archive} Archive
                             </button>
                           )}
                         </div>
@@ -443,7 +482,14 @@ export default function PersonsTable() {
             <form onSubmit={handleEditModalSave}>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Registration Photo</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    flexWrap: "wrap",
+                  }}
+                >
                   {editPerson.registration_photo ? (
                     <img
                       src={editPerson.registration_photo}
@@ -451,19 +497,32 @@ export default function PersonsTable() {
                       style={styles.photoPreview}
                     />
                   ) : (
-                    <span style={{ color: '#9ca3af', fontSize: '0.9rem' }}>No photo</span>
+                    <span style={{ color: "#9ca3af", fontSize: "0.9rem" }}>
+                      No photo
+                    </span>
                   )}
                   <button
                     type="button"
-                    onClick={() => editPhotoInputRef.current && editPhotoInputRef.current.click()}
-                    style={{ ...styles.button, ...styles.buttonSecondary, padding: '8px 16px' }}
+                    onClick={() =>
+                      editPhotoInputRef.current &&
+                      editPhotoInputRef.current.click()
+                    }
+                    style={{
+                      ...styles.button,
+                      ...styles.buttonSecondary,
+                      padding: "8px 16px",
+                    }}
                   >
                     Upload New Photo
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowCamera(true)}
-                    style={{ ...styles.button, ...styles.buttonPrimary, padding: '8px 16px' }}
+                    style={{
+                      ...styles.button,
+                      ...styles.buttonPrimary,
+                      padding: "8px 16px",
+                    }}
                   >
                     Use Camera
                   </button>
@@ -472,23 +531,77 @@ export default function PersonsTable() {
                   ref={editPhotoInputRef}
                   type="file"
                   accept="image/*"
-                  style={{ display: 'none' }}
+                  style={{ display: "none" }}
                   onChange={handleEditPhotoChange}
                 />
 
                 {/* Camera Modal for capturing photo */}
                 {showCamera && (
-                  <div style={{
-                    position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
-                    background: 'rgba(0,0,0,0.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <div style={{ background: '#fff', padding: 32, borderRadius: 20, boxShadow: '0 8px 32px rgba(0,0,0,0.2)', position: 'relative' }}>
-                      <button onClick={() => setShowCamera(false)} style={{ position: 'absolute', top: 12, right: 16, background: 'transparent', border: 'none', fontSize: 28, color: '#888', cursor: 'pointer' }}>&times;</button>
+                  <div
+                    style={{
+                      position: "fixed",
+                      top: 0,
+                      left: 0,
+                      width: "100vw",
+                      height: "100vh",
+                      background: "rgba(0,0,0,0.5)",
+                      zIndex: 2000,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: "#fff",
+                        padding: 32,
+                        borderRadius: 20,
+                        boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+                        position: "relative",
+                      }}
+                    >
+                      <button
+                        onClick={() => setShowCamera(false)}
+                        style={{
+                          position: "absolute",
+                          top: 12,
+                          right: 16,
+                          background: "transparent",
+                          border: "none",
+                          fontSize: 28,
+                          color: "#888",
+                          cursor: "pointer",
+                        }}
+                      >
+                        &times;
+                      </button>
                       <h3 style={{ marginBottom: 16 }}>Capture Photo</h3>
-                      <video ref={cameraVideoRef} autoPlay playsInline width={320} height={240} style={{ borderRadius: 12, background: '#000' }} />
-                      <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
-                        <button type="button" style={{ ...styles.button, ...styles.buttonPrimary }} onClick={handleCapturePhoto}>Capture</button>
-                        <button type="button" style={{ ...styles.button, ...styles.buttonSecondary }} onClick={() => setShowCamera(false)}>Cancel</button>
+                      <video
+                        ref={cameraVideoRef}
+                        autoPlay
+                        playsInline
+                        width={320}
+                        height={240}
+                        style={{ borderRadius: 12, background: "#000" }}
+                      />
+                      <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
+                        <button
+                          type="button"
+                          style={{ ...styles.button, ...styles.buttonPrimary }}
+                          onClick={handleCapturePhoto}
+                        >
+                          Capture
+                        </button>
+                        <button
+                          type="button"
+                          style={{
+                            ...styles.button,
+                            ...styles.buttonSecondary,
+                          }}
+                          onClick={() => setShowCamera(false)}
+                        >
+                          Cancel
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -497,40 +610,53 @@ export default function PersonsTable() {
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Name</label>
                 <input
-                  value={editPerson.name || ''}
-                  onChange={(e) => setEditPerson({ ...editPerson, name: e.target.value })}
+                  value={editPerson.name || ""}
+                  onChange={(e) =>
+                    setEditPerson({ ...editPerson, name: e.target.value })
+                  }
                   style={styles.modalInput}
                 />
               </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Department</label>
                 <input
-                  value={editPerson.department || ''}
-                  onChange={(e) => setEditPerson({ ...editPerson, department: e.target.value })}
+                  value={editPerson.department || ""}
+                  onChange={(e) =>
+                    setEditPerson({ ...editPerson, department: e.target.value })
+                  }
                   style={styles.modalInput}
                 />
               </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Phone</label>
                 <input
-                  value={editPerson.phone_number || ''}
-                  onChange={(e) => setEditPerson({ ...editPerson, phone_number: e.target.value })}
+                  value={editPerson.phone_number || ""}
+                  onChange={(e) =>
+                    setEditPerson({
+                      ...editPerson,
+                      phone_number: e.target.value,
+                    })
+                  }
                   style={styles.modalInput}
                 />
               </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Address</label>
                 <input
-                  value={editPerson.address || ''}
-                  onChange={(e) => setEditPerson({ ...editPerson, address: e.target.value })}
+                  value={editPerson.address || ""}
+                  onChange={(e) =>
+                    setEditPerson({ ...editPerson, address: e.target.value })
+                  }
                   style={styles.modalInput}
                 />
               </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Sex</label>
                 <select
-                  value={editPerson.sex || ''}
-                  onChange={(e) => setEditPerson({ ...editPerson, sex: e.target.value })}
+                  value={editPerson.sex || ""}
+                  onChange={(e) =>
+                    setEditPerson({ ...editPerson, sex: e.target.value })
+                  }
                   style={styles.modalSelect}
                 >
                   <option value="">Select sex</option>
@@ -545,7 +671,12 @@ export default function PersonsTable() {
                     <input
                       type="checkbox"
                       checked={!!Number(editPerson.sss)}
-                      onChange={(e) => setEditPerson({ ...editPerson, sss: e.target.checked ? 1 : 0 })}
+                      onChange={(e) =>
+                        setEditPerson({
+                          ...editPerson,
+                          sss: e.target.checked ? 1 : 0,
+                        })
+                      }
                     />
                     SSS
                   </label>
@@ -553,7 +684,12 @@ export default function PersonsTable() {
                     <input
                       type="checkbox"
                       checked={!!Number(editPerson.pag_ibig)}
-                      onChange={(e) => setEditPerson({ ...editPerson, pag_ibig: e.target.checked ? 1 : 0 })}
+                      onChange={(e) =>
+                        setEditPerson({
+                          ...editPerson,
+                          pag_ibig: e.target.checked ? 1 : 0,
+                        })
+                      }
                     />
                     Pag-ibig
                   </label>
@@ -561,7 +697,12 @@ export default function PersonsTable() {
                     <input
                       type="checkbox"
                       checked={!!Number(editPerson.philhealth)}
-                      onChange={(e) => setEditPerson({ ...editPerson, philhealth: e.target.checked ? 1 : 0 })}
+                      onChange={(e) =>
+                        setEditPerson({
+                          ...editPerson,
+                          philhealth: e.target.checked ? 1 : 0,
+                        })
+                      }
                     />
                     PhilHealth
                   </label>
@@ -572,12 +713,20 @@ export default function PersonsTable() {
                 <input
                   type="number"
                   value={editPerson.cash_advance || 0}
-                  onChange={(e) => setEditPerson({ ...editPerson, cash_advance: e.target.value })}
+                  onChange={(e) =>
+                    setEditPerson({
+                      ...editPerson,
+                      cash_advance: e.target.value,
+                    })
+                  }
                   style={styles.modalInput}
                 />
               </div>
               <div style={styles.modalActions}>
-                <button type="submit" style={{ ...styles.button, ...styles.buttonPrimary }}>
+                <button
+                  type="submit"
+                  style={{ ...styles.button, ...styles.buttonPrimary }}
+                >
                   Save
                 </button>
                 <button
@@ -599,305 +748,305 @@ export default function PersonsTable() {
 // Light theme styles with green accent
 const styles = {
   container: {
-    maxWidth: '1600px',
-    margin: '40px auto',
-    padding: '40px 32px',
-    background: '#ffffff',
-    borderRadius: '32px',
-    boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
-    color: '#1f2937',
+    maxWidth: "1600px",
+    margin: "40px auto",
+    padding: "40px 32px",
+    background: "#ffffff",
+    borderRadius: "32px",
+    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.1)",
+    color: "#1f2937",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
   header: {
-    textAlign: 'center',
-    marginBottom: '40px',
+    textAlign: "center",
+    marginBottom: "40px",
   },
   title: {
-    fontSize: '2.8rem',
+    fontSize: "2.8rem",
     fontWeight: 700,
-    color: '#1f2937',
+    color: "#1f2937",
     margin: 0,
-    display: 'inline-block',
+    display: "inline-block",
   },
   titleUnderline: {
-    height: '4px',
-    width: '100px',
-    background: '#10b981',
-    margin: '8px auto 0',
-    borderRadius: '2px',
+    height: "4px",
+    width: "100px",
+    background: "#10b981",
+    margin: "8px auto 0",
+    borderRadius: "2px",
   },
   filterBar: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: '16px',
-    marginBottom: '24px',
-    padding: '20px 24px',
-    backgroundColor: '#f9fafb',
-    borderRadius: '20px',
-    border: '1px solid #e5e7eb',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: "16px",
+    marginBottom: "24px",
+    padding: "20px 24px",
+    backgroundColor: "#f9fafb",
+    borderRadius: "20px",
+    border: "1px solid #e5e7eb",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
   },
   filterGroup: {
-    display: 'flex',
-    flexWrap: 'wrap',
-    gap: '12px',
-    alignItems: 'center',
+    display: "flex",
+    flexWrap: "wrap",
+    gap: "12px",
+    alignItems: "center",
   },
   searchWrapper: {
-    position: 'relative',
+    position: "relative",
   },
   searchInput: {
-    padding: '12px 16px 12px 40px',
-    fontSize: '0.95rem',
-    borderRadius: '40px',
-    border: '1px solid #d1d5db',
-    backgroundColor: '#ffffff',
-    color: '#1f2937',
-    outline: 'none',
-    transition: 'all 0.2s',
+    padding: "12px 16px 12px 40px",
+    fontSize: "0.95rem",
+    borderRadius: "40px",
+    border: "1px solid #d1d5db",
+    backgroundColor: "#ffffff",
+    color: "#1f2937",
+    outline: "none",
+    transition: "all 0.2s",
     backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: '16px center',
-    backgroundSize: '16px',
-    minWidth: '250px',
+    backgroundRepeat: "no-repeat",
+    backgroundPosition: "16px center",
+    backgroundSize: "16px",
+    minWidth: "250px",
   },
   select: {
-    padding: '12px 20px',
-    fontSize: '0.95rem',
-    borderRadius: '40px',
-    border: '1px solid #d1d5db',
-    backgroundColor: '#ffffff',
-    color: '#1f2937',
-    outline: 'none',
-    cursor: 'pointer',
-    minWidth: '160px',
+    padding: "12px 20px",
+    fontSize: "0.95rem",
+    borderRadius: "40px",
+    border: "1px solid #d1d5db",
+    backgroundColor: "#ffffff",
+    color: "#1f2937",
+    outline: "none",
+    cursor: "pointer",
+    minWidth: "160px",
   },
   button: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '12px 28px',
-    borderRadius: '40px',
-    fontSize: '1rem',
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    padding: "12px 28px",
+    borderRadius: "40px",
+    fontSize: "1rem",
     fontWeight: 500,
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    boxShadow: '0 4px 10px rgba(0, 0, 0, 0.1)',
+    border: "none",
+    cursor: "pointer",
+    transition: "all 0.2s",
+    boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
   },
   buttonPrimary: {
-    background: '#10b981',
-    color: '#ffffff',
+    background: "#10b981",
+    color: "#ffffff",
   },
   buttonSecondary: {
-    background: '#e5e7eb',
-    color: '#1f2937',
-    border: '1px solid #d1d5db',
+    background: "#e5e7eb",
+    color: "#1f2937",
+    border: "1px solid #d1d5db",
   },
   buttonSuccess: {
-    background: '#10b981',
-    color: '#ffffff',
+    background: "#10b981",
+    color: "#ffffff",
   },
   smallButton: {
-    padding: '6px 12px',
-    borderRadius: '30px',
-    border: 'none',
-    fontSize: '0.85rem',
+    padding: "6px 12px",
+    borderRadius: "30px",
+    border: "none",
+    fontSize: "0.85rem",
     fontWeight: 500,
-    cursor: 'pointer',
-    transition: 'all 0.2s',
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: '4px',
+    cursor: "pointer",
+    transition: "all 0.2s",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "4px",
   },
   tableContainer: {
-    borderRadius: '20px',
-    overflow: 'hidden',
-    border: '1px solid #e5e7eb',
-    backgroundColor: '#ffffff',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+    borderRadius: "20px",
+    overflow: "hidden",
+    border: "1px solid #e5e7eb",
+    backgroundColor: "#ffffff",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
   },
   tableWrapper: {
-    overflowX: 'auto',
-    maxHeight: '600px',
+    overflowX: "auto",
+    maxHeight: "600px",
   },
   table: {
-    width: '100%',
-    borderCollapse: 'collapse',
-    fontSize: '0.95rem',
-    minWidth: '1200px',
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: "0.95rem",
+    minWidth: "1200px",
   },
   th: {
-    position: 'sticky',
+    position: "sticky",
     top: 0,
     zIndex: 10,
-    backgroundColor: '#f9fafb',
-    color: '#4b5563',
+    backgroundColor: "#f9fafb",
+    color: "#4b5563",
     fontWeight: 600,
-    padding: '16px 12px',
-    textAlign: 'left',
-    borderBottom: '2px solid #e5e7eb',
-    letterSpacing: '0.03em',
-    textTransform: 'uppercase',
-    fontSize: '0.8rem',
-    cursor: 'pointer',
+    padding: "16px 12px",
+    textAlign: "left",
+    borderBottom: "2px solid #e5e7eb",
+    letterSpacing: "0.03em",
+    textTransform: "uppercase",
+    fontSize: "0.8rem",
+    cursor: "pointer",
   },
   td: {
-    padding: '14px 12px',
-    borderBottom: '1px solid #e5e7eb',
-    color: '#1f2937',
+    padding: "14px 12px",
+    borderBottom: "1px solid #e5e7eb",
+    color: "#1f2937",
   },
   tr: {
-    transition: 'background 0.2s',
+    transition: "background 0.2s",
   },
   photo: {
-    width: '48px',
-    height: '48px',
-    objectFit: 'cover',
-    borderRadius: '12px',
-    border: '2px solid #e5e7eb',
+    width: "48px",
+    height: "48px",
+    objectFit: "cover",
+    borderRadius: "12px",
+    border: "2px solid #e5e7eb",
   },
   photoPreview: {
-    width: '56px',
-    height: '56px',
-    objectFit: 'cover',
-    borderRadius: '14px',
-    border: '2px solid #e5e7eb',
+    width: "56px",
+    height: "56px",
+    objectFit: "cover",
+    borderRadius: "14px",
+    border: "2px solid #e5e7eb",
   },
   actionCell: {
-    display: 'flex',
-    gap: '8px',
-    flexWrap: 'wrap',
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
   },
   emptyState: {
-    textAlign: 'center',
-    padding: '60px 20px',
-    color: '#6b7280',
-    fontSize: '1.1rem',
+    textAlign: "center",
+    padding: "60px 20px",
+    color: "#6b7280",
+    fontSize: "1.1rem",
   },
   error: {
-    color: '#ef4444',
-    textAlign: 'center',
-    padding: '40px',
-    background: '#ffffff',
-    borderRadius: '32px',
-    margin: '40px auto',
-    maxWidth: '800px',
+    color: "#ef4444",
+    textAlign: "center",
+    padding: "40px",
+    background: "#ffffff",
+    borderRadius: "32px",
+    margin: "40px auto",
+    maxWidth: "800px",
   },
   spinnerContainer: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '300px',
-    background: '#ffffff',
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    minHeight: "300px",
+    background: "#ffffff",
   },
   spinner: {
-    width: '50px',
-    height: '50px',
-    border: '4px solid #e5e7eb',
-    borderTop: '4px solid #10b981',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite',
+    width: "50px",
+    height: "50px",
+    border: "4px solid #e5e7eb",
+    borderTop: "4px solid #10b981",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
   },
   modalOverlay: {
-    position: 'fixed',
+    position: "fixed",
     top: 0,
     left: 0,
-    width: '100vw',
-    height: '100vh',
-    background: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: "100vw",
+    height: "100vh",
+    background: "rgba(0, 0, 0, 0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 1001,
-    backdropFilter: 'blur(4px)',
+    backdropFilter: "blur(4px)",
   },
   modalContent: {
-    background: '#ffffff',
-    padding: '40px',
-    borderRadius: '28px',
-    minWidth: '400px',
-    maxWidth: '500px',
-    width: '90%',
-    boxShadow: '0 20px 40px rgba(0, 0, 0, 0.2)',
-    border: '1px solid #e5e7eb',
-    position: 'relative',
-    color: '#1f2937',
+    background: "#ffffff",
+    padding: "40px",
+    borderRadius: "28px",
+    minWidth: "400px",
+    maxWidth: "500px",
+    width: "90%",
+    boxShadow: "0 20px 40px rgba(0, 0, 0, 0.2)",
+    border: "1px solid #e5e7eb",
+    position: "relative",
+    color: "#1f2937",
   },
   modalClose: {
-    position: 'absolute',
-    top: '16px',
-    right: '16px',
-    background: 'transparent',
-    border: 'none',
-    color: '#6b7280',
-    fontSize: '1.8rem',
-    cursor: 'pointer',
+    position: "absolute",
+    top: "16px",
+    right: "16px",
+    background: "transparent",
+    border: "none",
+    color: "#6b7280",
+    fontSize: "1.8rem",
+    cursor: "pointer",
     lineHeight: 1,
   },
   modalTitle: {
-    fontSize: '1.8rem',
+    fontSize: "1.8rem",
     fontWeight: 600,
-    marginBottom: '24px',
-    color: '#1f2937',
-    textAlign: 'center',
+    marginBottom: "24px",
+    color: "#1f2937",
+    textAlign: "center",
   },
   modalField: {
-    marginBottom: '16px',
+    marginBottom: "16px",
   },
   modalLabel: {
-    display: 'block',
-    fontSize: '0.9rem',
+    display: "block",
+    fontSize: "0.9rem",
     fontWeight: 500,
-    color: '#4b5563',
-    marginBottom: '6px',
+    color: "#4b5563",
+    marginBottom: "6px",
   },
   modalInput: {
-    width: '100%',
-    padding: '10px 12px',
-    fontSize: '1rem',
-    borderRadius: '12px',
-    border: '1px solid #d1d5db',
-    background: '#ffffff',
-    color: '#1f2937',
-    outline: 'none',
-    transition: 'border-color 0.2s, box-shadow 0.2s',
-    boxSizing: 'border-box',
+    width: "100%",
+    padding: "10px 12px",
+    fontSize: "1rem",
+    borderRadius: "12px",
+    border: "1px solid #d1d5db",
+    background: "#ffffff",
+    color: "#1f2937",
+    outline: "none",
+    transition: "border-color 0.2s, box-shadow 0.2s",
+    boxSizing: "border-box",
   },
   modalSelect: {
-    width: '100%',
-    padding: '10px 12px',
-    fontSize: '1rem',
-    borderRadius: '12px',
-    border: '1px solid #d1d5db',
-    background: '#ffffff',
-    color: '#1f2937',
-    outline: 'none',
+    width: "100%",
+    padding: "10px 12px",
+    fontSize: "1rem",
+    borderRadius: "12px",
+    border: "1px solid #d1d5db",
+    background: "#ffffff",
+    color: "#1f2937",
+    outline: "none",
   },
   modalCheckboxGroup: {
-    display: 'flex',
-    gap: '20px',
-    flexWrap: 'wrap',
+    display: "flex",
+    gap: "20px",
+    flexWrap: "wrap",
   },
   modalCheckbox: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    color: '#1f2937',
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    color: "#1f2937",
   },
   modalActions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '12px',
-    marginTop: '24px',
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "12px",
+    marginTop: "24px",
   },
 };
 
 // Add global keyframes and focus styles
-const styleSheet = document.createElement('style');
+const styleSheet = document.createElement("style");
 styleSheet.textContent = `
   @keyframes spin {
     0% { transform: rotate(0deg); }
@@ -940,4 +1089,3 @@ styleSheet.textContent = `
   }
 `;
 document.head.appendChild(styleSheet);
-
