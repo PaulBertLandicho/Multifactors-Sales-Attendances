@@ -8,6 +8,11 @@ export function drawPayslipOnDoc(
     totalHolidayPay = 0,
     absentCount = 0,
     totalDeductions = 0,
+    // additional computed values (optional)
+    daysWorked = payroll?.daysPresent || 0,
+    standardPayAmount = null,
+    otPay = null,
+    gross = null,
   },
   yOffset = 10
 ) {
@@ -69,10 +74,36 @@ export function drawPayslipOnDoc(
   y += lineHeight;
   doc.setFontSize(10);
   doc.text("Period:", left, y);
-  doc.text(period || "", left + 20, y);
+  // Format period for readability (e.g. 2026-04-07_to_2026-04-21 -> April 07, 2026 to April 21, 2026)
+  function formatPeriod(p) {
+    if (!p) return "";
+    try {
+      const s = String(p).replace(/_/g, " ");
+      const matches = Array.from(s.matchAll(/(\d{4}[\-/]\d{2}[\-/]\d{2})/g)).map(m => m[1]);
+      if (matches.length >= 2) {
+        const d1 = new Date(matches[0].replace(/\//g, '-'));
+        const d2 = new Date(matches[1].replace(/\//g, '-'));
+        if (!Number.isNaN(d1.getTime()) && !Number.isNaN(d2.getTime())) {
+          const f1 = d1.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+          const f2 = d2.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+          return `${f1} to ${f2}`;
+        }
+      }
+      const single = s.match(/(\d{4}[\-/]\d{2}[\-/]\d{2})/);
+      if (single) {
+        const d = new Date(single[1].replace(/\//g, '-'));
+        if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+      }
+      const pdate = new Date(s);
+      if (!Number.isNaN(pdate.getTime())) return pdate.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+    } catch (e) {}
+    return String(p);
+  }
+
+  doc.text(formatPeriod(period) || "", left + 20, y);
   y += lineHeight;
   doc.text("Total Days:", left, y);
-  doc.text(String(payroll.daysPresent || ""), left + 35, y);
+  doc.text(String(daysWorked || payroll.daysPresent || ""), left + 35, y);
 
   y += lineHeight * 1.5;
   // Use Unicode peso sign (U+20B1), fallback to 'PHP' if not supported
@@ -108,17 +139,20 @@ export function drawPayslipOnDoc(
   );
   drawLinedField(
     "Total of days worked (present):",
-    String(payroll.daysPresent || 0)
+    String(daysWorked || payroll.daysPresent || 0)
   );
   drawLinedField("Overtime hrs:", String(payroll.otHours || ""));
   drawLinedField("Holiday Day(s):", String(holidayPayDetails.length || 0));
   // Allowance line with no preset value
   drawLinedField("Allowance:", "");
-  drawLinedField(
-    "Total:",
-    `${peso} ${(payroll.gross + totalHolidayPay).toLocaleString()}`,
-    true
-  );
+  // Use explicit gross if provided, otherwise fallback to payroll.gross
+  const grossToShow =
+    gross != null
+      ? gross
+      : typeof payroll.gross !== "undefined"
+      ? payroll.gross
+      : (standardPayAmount || 0) + (otPay || 0) + totalHolidayPay;
+  drawLinedField("Total:", `${peso} ${Number(grossToShow).toLocaleString()}`, true);
 
   y += lineHeight;
   doc.setFont(undefined, "bold");

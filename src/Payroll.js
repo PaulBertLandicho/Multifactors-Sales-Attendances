@@ -24,7 +24,11 @@ export function calculatePayroll(
     const philhealth = person.philhealth ? Number(deptRate.philhealth || 0) : 0;
     const cashAdvance = Number(person.cash_advance || 0);
 
-    const daysPresent = personAttendance.length;
+    // Count only weekdays (exclude Saturday=6 and Sunday=0)
+    const daysPresent = personAttendance.filter((d) => {
+      const wd = d.getDay();
+      return wd !== 0 && wd !== 6;
+    }).length;
     const dailyRate = Number(person.daily_rate || 0);
 
     // --- OT Calculation ---

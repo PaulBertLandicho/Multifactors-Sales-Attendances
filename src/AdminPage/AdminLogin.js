@@ -24,7 +24,8 @@ export default function AdminLogin() {
       setError(error.message);
       setLoading(false);
     } else {
-      navigate("/admin/settings");
+      // After successful admin login, navigate to dashboard
+      navigate("/admin/dashboard");
     }
   };
 

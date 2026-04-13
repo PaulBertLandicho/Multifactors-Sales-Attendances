@@ -2,7 +2,7 @@ import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 // ✅ Icons
-import { FiLogOut, FiUsers } from "react-icons/fi";
+import { FiLogOut, FiUsers, FiHome } from "react-icons/fi";
 import {
   MdOutlineAccessTime,
   MdSettings,
@@ -13,6 +13,7 @@ import {
 
 // ✅ Navigation Items with Icons
 const navItems = [
+  { label: "Dashboard", path: "/admin/dashboard", icon: <FiHome /> },
   {
     label: "Attendance Records",
     path: "/admin/attendance",
@@ -67,7 +68,9 @@ export default function AdminSidebar({ onLogout }) {
       {/* Navigation */}
       <nav style={styles.nav}>
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
+          // Mark active when current path starts with the item's path
+          // This allows child routes (e.g. /admin/dashboard/stats) to keep the parent highlighted
+          const isActive = location.pathname.startsWith(item.path);
 
           return (
             <button

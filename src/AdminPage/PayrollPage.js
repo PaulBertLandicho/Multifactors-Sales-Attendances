@@ -221,6 +221,33 @@ export default function PayrollPage() {
     fetchData();
   }, []);
 
+  // Format a period string like '2026-04-07_to_2026-04-21' into
+  // 'April 07, 2026 to April 21, 2026'. Falls back to original string.
+  function formatPeriod(period) {
+    if (!period) return "";
+    try {
+      const s = String(period).replace(/_/g, " ");
+      const matches = Array.from(s.matchAll(/(\d{4}[\-/]\d{2}[\-/]\d{2})/g)).map(m => m[1]);
+      if (matches.length >= 2) {
+        const d1 = new Date(matches[0].replace(/\//g, '-'));
+        const d2 = new Date(matches[1].replace(/\//g, '-'));
+        if (!Number.isNaN(d1.getTime()) && !Number.isNaN(d2.getTime())) {
+          const f1 = d1.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+          const f2 = d2.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+          return `${f1} to ${f2}`;
+        }
+      }
+      const single = s.match(/(\d{4}[\-/]\d{2}[\-/]\d{2})/);
+      if (single) {
+        const d = new Date(single[1].replace(/\//g, '-'));
+        if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+      }
+      const p = new Date(s);
+      if (!Number.isNaN(p.getTime())) return p.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+    } catch (e) {}
+    return String(period);
+  }
+
   // Removed unused filtered and sortedPersons variables
 
   // OPEN PAYSLIP for a period
@@ -580,9 +607,8 @@ export default function PayrollPage() {
                 <th style={styles.th}>Late Count</th>
                 <th style={styles.th}>Gross</th>
                 <th style={styles.th}>Late Deduction</th>
-                <th style={styles.th}>Net Pay</th>
                 <th style={styles.th}>Payslip</th>
-                {/* <th style={styles.th}>Release</th> */}
+                <th style={styles.th}>Release</th>
               </tr>
             </thead>
             <tbody>
@@ -606,7 +632,7 @@ export default function PayrollPage() {
                       </td>
                       <td style={styles.td}>{person.name}</td>
                       <td style={styles.td}>{person.department}</td>
-                      <td style={styles.td}>{period}</td>
+                      <td style={styles.td}>{formatPeriod(period)}</td>
                       <td style={styles.td}>
                         {person.daily_rate != null
                           ? `₱${Number(person.daily_rate).toFixed(2)}`

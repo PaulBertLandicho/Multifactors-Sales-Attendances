@@ -85,6 +85,7 @@ export default function CameraPlayer({
   const [cameraStatus, setCameraStatus] = useState(CAMERA_STATUS.CONNECTING);
   const [cameraError, setCameraError] = useState("");
   const [useLocalCamera, setUseLocalCamera] = useState(false); // Fallback flag
+  const [currentTime, setCurrentTime] = useState(new Date());
   const lastScanRef = useRef({});
   // Removed: unused popupLockRef
   const unknownFaceLockRef = useRef(false);
@@ -243,6 +244,12 @@ export default function CameraPlayer({
       });
     }
   }, [settings, validSettings]);
+
+  // Live clock for display in header
+  useEffect(() => {
+    const t = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   // ------------------- Load persons -------------------
   useEffect(() => {
@@ -783,6 +790,7 @@ export default function CameraPlayer({
       <div style={styles.cameraCard}>
         <div style={styles.cameraHeader}>
           <span style={styles.cameraTitle}>📷 Live Feed</span>
+          <span style={{ marginLeft: 12, color: '#475569', fontWeight: 600 }}>{currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
           <div style={styles.statusBadges}>
             {cameraStatus === CAMERA_STATUS.CONNECTING && (
               <span style={{ ...styles.badge, ...styles.badgeConnecting }}>
@@ -991,6 +999,16 @@ const styles = {
   badgeVerifying: {
     backgroundColor: "#fef3c7",
     color: "#d97706",
+  },
+  clockBadge: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    padding: '6px 10px',
+    borderRadius: '12px',
+    backgroundColor: '#f1f5f9',
+    color: '#0f172a',
+    fontWeight: 600,
+    marginRight: '6px',
   },
   dots: {
     animation: "blink 1.4s infinite",

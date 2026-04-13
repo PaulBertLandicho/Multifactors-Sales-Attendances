@@ -84,6 +84,8 @@ export default function PayslipModal({
     getHolidays();
   }, [person, period]);
   const handlePdf = async () => {
+    const grossPay =
+      Math.round((standardPayAmount + otPay + totalHolidayPay) * 100) / 100;
     await generatePayslipPdf({
       payroll,
       person,
@@ -92,6 +94,10 @@ export default function PayslipModal({
       totalHolidayPay,
       absentCount,
       totalDeductions,
+      daysWorked,
+      standardPayAmount,
+      otPay,
+      gross: grossPay,
     });
   };
 
@@ -106,6 +112,33 @@ export default function PayslipModal({
     else if (m > 0) str = `${m}min`;
     return str || "0min";
   };
+
+  // Format a period string like '2026-04-07_to_2026-04-21' into
+  // 'April 07, 2026 to April 21, 2026'. Falls back to original string.
+  function formatPeriod(period) {
+    if (!period) return "";
+    try {
+      const s = String(period).replace(/_/g, " ");
+      const matches = Array.from(s.matchAll(/(\d{4}[\-/]\d{2}[\-/]\d{2})/g)).map(m => m[1]);
+      if (matches.length >= 2) {
+        const d1 = new Date(matches[0].replace(/\//g, '-'));
+        const d2 = new Date(matches[1].replace(/\//g, '-'));
+        if (!Number.isNaN(d1.getTime()) && !Number.isNaN(d2.getTime())) {
+          const f1 = d1.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+          const f2 = d2.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+          return `${f1} to ${f2}`;
+        }
+      }
+      const single = s.match(/(\d{4}[\-/]\d{2}[\-/]\d{2})/);
+      if (single) {
+        const d = new Date(single[1].replace(/\//g, '-'));
+        if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+      }
+      const p = new Date(s);
+      if (!Number.isNaN(p.getTime())) return p.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+    } catch (e) {}
+    return String(period);
+  }
 
   if (!payroll || !person) return null;
 
@@ -370,7 +403,7 @@ export default function PayslipModal({
                 marginBottom: 8,
               }}
             >
-              Period: {period}
+              Period: {formatPeriod(period)}
             </p>
           )}
           {released && (
@@ -757,7 +790,7 @@ export default function PayslipModal({
                 <td style={styles.td}>{lateCountLimit} occurrence(s)</td>
               </tr>
               <tr style={styles.trOdd}>
-                <td style={styles.td}>Late Deduction</td>
+                <td style={styles.td}>Total Late Deduction</td>
                 <td style={styles.td}>₱{lateDeduction.toLocaleString()}</td>
               </tr>
               {deductions.map((d, i) => (
@@ -781,10 +814,7 @@ export default function PayslipModal({
             Net Pay: ₱
             {(
               Math.round(
-                ((payroll.dailyRate ?? 0) +
-                  otPay +
-                  totalHolidayPay -
-                  totalDeductions) *
+                ((standardPayAmount ?? 0) + otPay + totalHolidayPay - totalDeductions) *
                   100
               ) / 100
             ).toFixed(2)}

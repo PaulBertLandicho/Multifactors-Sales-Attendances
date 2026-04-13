@@ -7,6 +7,7 @@ import { supabase } from "./supabaseClient";
 
 import CameraPlayer from "./CameraAttendance/CameraPlayer";
 import AdminLogin from "./AdminPage/AdminLogin";
+import Dashboard from "./AdminPage/Dashboard";
 import ReleasedHistoryPayroll from "./AdminPage/ReleasedHistoryPayroll";
 import ReleasedPayrollLogs from "./AdminPage/ReleasedPayrollLogs";
 import AdminSettings from "./AdminPage/AdminSettings";
@@ -143,7 +144,28 @@ function App() {
                 )
               }
             />
-            <Route path="/admin" element={<AdminLogin />} />
+            <Route
+              path="/admin/dashboard"
+              element={
+                session ? (
+                  <div style={styles.adminLayout}>
+                    <AdminSidebar
+                      onLogout={async () => {
+                        await supabase.auth.signOut();
+                        localStorage.removeItem("sb-session");
+                        window.location.href = "/admin";
+                      }}
+                    />
+                    <div style={styles.adminContent}>
+                      <Dashboard />
+                    </div>
+                  </div>
+                ) : (
+                  <Navigate to="/admin" />
+                )
+              }
+            />
+            <Route path="/admin" element={session ? <Navigate to="/admin/dashboard" /> : <AdminLogin />} />
             <Route
               path="/admin/settings"
               element={

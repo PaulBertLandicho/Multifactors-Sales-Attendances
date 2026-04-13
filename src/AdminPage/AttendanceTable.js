@@ -43,7 +43,8 @@ export default function AttendanceTable() {
       minute: "2-digit",
       second: "2-digit",
     });
-    return `${datePart} ${timePart}`;
+    // Insert a dash between date and time for clearer separation
+    return `${datePart} - ${timePart}`;
   };
 
   const Icons = {
@@ -449,9 +450,9 @@ export default function AttendanceTable() {
 
   const columns = [
     { key: "photo", label: "Photo" },
-    { key: "device_time", label: "Time" },
+    { key: "device_time", label: "Attendance Time" },
     { key: "person_id", label: "Person ID" },
-    { key: "name", label: "Name" },
+    { key: "name", label: "Employee Name" },
     { key: "department", label: "Department" },
     // { key: 'shift', label: 'Shift' },
     { key: "work_hours", label: "Work Hours" },

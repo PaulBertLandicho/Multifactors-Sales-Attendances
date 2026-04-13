@@ -239,6 +239,42 @@ export async function recordAttendanceForPerson({
     hadMorningTimeIn
   );
 
+  // Prevent duplicate inserts from near-simultaneous scans (race condition):
+  // If an attendance with the same person and event was recorded very
+  // recently (within DUPLICATE_WINDOW_MS), skip inserting a duplicate.
+  const DUPLICATE_WINDOW_MS = 30 * 1000; // 30 seconds
+  const duplicateWindowStartIso = new Date(
+    deviceDate.getTime() - DUPLICATE_WINDOW_MS
+  ).toISOString();
+
+  try {
+    const { data: recentDup, error: dupErr } = await supabase
+      .from("attendance")
+      .select("id, device_time")
+      .eq("person_id", person.id)
+      .eq("event", event)
+      .gte("device_time", duplicateWindowStartIso)
+      .order("device_time", { ascending: false })
+      .limit(1);
+
+    if (dupErr) {
+      throw dupErr;
+    }
+
+    if (Array.isArray(recentDup) && recentDup.length > 0) {
+      return {
+        inserted: false,
+        blocked: true,
+        event,
+        message:
+          "Duplicate attendance detected recently — skipping duplicate record.",
+      };
+    }
+  } catch (err) {
+    // If duplicate-check fails for some reason, log and continue to attempt insert.
+    console.warn("Duplicate check failed, proceeding to insert:", err);
+  }
+
   const { error } = await supabase.from("attendance").insert({
     person_id: person.id,
     name: person.name,
