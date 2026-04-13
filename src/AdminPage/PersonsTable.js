@@ -74,6 +74,7 @@ export default function PersonsTable() {
   const [sortKey, setSortKey] = useState("created_at");
   const [sortOrder, setSortOrder] = useState("desc");
   const [showArchived, setShowArchived] = useState(false);
+  const [deptOptions, setDeptOptions] = useState([]);
   const [persons, setPersons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -102,6 +103,20 @@ export default function PersonsTable() {
     }
     fetchPersons();
     const interval = setInterval(fetchPersons, 5000);
+    // load department options from department_rates
+    (async function loadDeptOptions() {
+      try {
+        const { data, error } = await supabase
+          .from("department_rates")
+          .select("department");
+        if (!error && Array.isArray(data)) {
+          const depts = Array.from(new Set(data.map((r) => r.department).filter(Boolean)));
+          setDeptOptions(depts.sort());
+        }
+      } catch (e) {
+        console.error("Failed to load department rates", e);
+      }
+    })();
     return () => clearInterval(interval);
   }, []);
 
@@ -619,13 +634,20 @@ export default function PersonsTable() {
               </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Department</label>
-                <input
+                <select
                   value={editPerson.department || ""}
                   onChange={(e) =>
                     setEditPerson({ ...editPerson, department: e.target.value })
                   }
-                  style={styles.modalInput}
-                />
+                  style={styles.modalSelect}
+                >
+                  <option value="">Select department</option>
+                  {deptOptions.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Phone</label>

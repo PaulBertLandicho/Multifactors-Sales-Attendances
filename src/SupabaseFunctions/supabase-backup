@@ -1,3 +1,5 @@
+qzzptjroqnscgwnbzghm - project ID
+
 attendance --> create table public.attendance (
   id bigserial not null,
   person_id text null,
