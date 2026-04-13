@@ -227,7 +227,7 @@ export default function PayrollPage() {
     if (!period) return "";
     try {
       const s = String(period).replace(/_/g, " ");
-      const matches = Array.from(s.matchAll(/(\d{4}[\-/]\d{2}[\-/]\d{2})/g)).map(m => m[1]);
+      const matches = Array.from(s.matchAll(/(\d{4}[-/]\d{2}[-/]\d{2})/g)).map(m => m[1]);
       if (matches.length >= 2) {
         const d1 = new Date(matches[0].replace(/\//g, '-'));
         const d2 = new Date(matches[1].replace(/\//g, '-'));
@@ -237,7 +237,7 @@ export default function PayrollPage() {
           return `${f1} to ${f2}`;
         }
       }
-      const single = s.match(/(\d{4}[\-/]\d{2}[\-/]\d{2})/);
+      const single = s.match(/(\d{4}[-/]\d{2}[-/]\d{2})/);
       if (single) {
         const d = new Date(single[1].replace(/\//g, '-'));
         if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
