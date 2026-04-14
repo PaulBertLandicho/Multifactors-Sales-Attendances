@@ -1,20 +1,3 @@
-qzzptjroqnscgwnbzghm - project ID
-
-attendance --> create table public.attendance (
-  id bigserial not null,
-  person_id text null,
-  name text null,
-  department text null,
-  event text null,
-  point text null,
-  method text null,
-  device_time timestamp with time zone null,
-  created_at timestamp with time zone null default now(),
-  status text null,
-  archived boolean null default false,
-  photo text null,
-  constraint attendance_pkey primary key (id)
-) TABLESPACE pg_default;
 create table public.attendance (
   id bigserial not null,
   person_id text null,
@@ -31,6 +14,46 @@ create table public.attendance (
   constraint attendance_pkey primary key (id)
 ) TABLESPACE pg_default;
 
+
+create table public.cash_advances (
+  id bigserial not null,
+  person_id text not null,
+  amount numeric(10, 2) not null,
+  note text null,
+  created_at timestamp with time zone not null default timezone ('utc'::text, now()),
+  constraint cash_advances_pkey primary key (id),
+  constraint cash_advances_person_id_fkey foreign KEY (person_id) references persons (id) on delete CASCADE
+) TABLESPACE pg_default;
+
+create index IF not exists idx_cash_advances_person on public.cash_advances using btree (person_id) TABLESPACE pg_default;
+
+
+create table public.department_rates (
+  department text not null,
+  daily_rate numeric(10, 2) not null default 0,
+  late_penalty numeric(10, 2) not null default 0,
+  updated_at timestamp with time zone null default now(),
+  sss numeric(10, 2) not null default 0,
+  pag_ibig numeric(10, 2) not null default 0,
+  philhealth numeric(10, 2) not null default 0,
+  cash_advance numeric(10, 2) not null default 0,
+  holiday_rate numeric null default 0,
+  ot_rate numeric null default 0,
+  regular_holiday_rate numeric(10, 2) null default 0,
+  special_holiday_rate numeric(10, 2) null default 0,
+  constraint department_rates_pkey primary key (department)
+) TABLESPACE pg_default;
+
+create trigger trigger_update_persons
+after
+update on department_rates for EACH row
+execute FUNCTION update_persons_from_dept_rates ();
+
+create trigger trigger_update_persons_insert
+after INSERT on department_rates for EACH row
+execute FUNCTION update_persons_from_dept_rates ();
+
+
 create table public.holidays (
   id serial not null,
   department character varying(255) null,
@@ -43,6 +66,8 @@ create table public.holidays (
 ) TABLESPACE pg_default;
 
 create index IF not exists idx_holidays_dept_month_year on public.holidays using btree (department, month, year) TABLESPACE pg_default;
+
+
 create table public.payroll_activity_logs (
   id uuid not null default extensions.uuid_generate_v4 (),
   person_name text null,
@@ -54,6 +79,8 @@ create table public.payroll_activity_logs (
   constraint payroll_activity_logs_pkey primary key (id),
   constraint fk_payroll_period foreign KEY (payroll_period_id) references payroll_periods (id)
 ) TABLESPACE pg_default;
+
+
 create table public.payroll_periods (
   id uuid not null default extensions.uuid_generate_v4 (),
   person_id text null,
@@ -72,6 +99,8 @@ create table public.payroll_periods (
   constraint payroll_periods_pkey primary key (id),
   constraint payroll_periods_person_id_fkey foreign KEY (person_id) references persons (id)
 ) TABLESPACE pg_default;
+
+
 create table public.persons (
   id text not null,
   name text null,
@@ -93,6 +122,8 @@ create table public.persons (
   constraint persons_pkey primary key (id),
   constraint unique_email unique (email)
 ) TABLESPACE pg_default;
+
+
 create table public.settings (
   id integer not null default 1,
   morning_start time without time zone not null default '08:00:00'::time without time zone,
