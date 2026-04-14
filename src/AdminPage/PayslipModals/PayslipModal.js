@@ -20,6 +20,8 @@ export default function PayslipModal({
     special: 0,
   });
   const [loadingHoliday, setLoadingHoliday] = useState(true);
+  const [cashAdvanceTotalInPeriod, setCashAdvanceTotalInPeriod] = useState(0);
+  const [cashAdvanceEntries, setCashAdvanceEntries] = useState([]);
 
   // Debug output for troubleshooting
   React.useEffect(() => {
@@ -83,6 +85,44 @@ export default function PayslipModal({
     }
     getHolidays();
   }, [person, period]);
+
+  // Fetch total cash advances for this person within the payroll period
+  useEffect(() => {
+    let mounted = true;
+    async function fetchCashAdvanceTotal() {
+      if (!person?.id || !period) {
+        if (mounted) setCashAdvanceTotalInPeriod(0);
+        return;
+      }
+      
+      try {
+        const [start, end] = period.split("_to_");
+        const { data, error } = await supabase
+          .from("cash_advances")
+          .select("id, amount, created_at, note")
+          .eq("person_id", person.id)
+          .gte("created_at", start)
+          .lte("created_at", end)
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+        const entries = data || [];
+        const total = entries.reduce((s, r) => s + Number(r.amount || 0), 0);
+        if (mounted) {
+          setCashAdvanceEntries(entries);
+          setCashAdvanceTotalInPeriod(Math.round(total * 100) / 100);
+        }
+      } catch (err) {
+        console.error("Error fetching cash advance total:", err);
+        if (mounted) setCashAdvanceTotalInPeriod(0);
+      } finally {
+        // finished
+      }
+    }
+    fetchCashAdvanceTotal();
+    return () => {
+      mounted = false;
+    };
+  }, [person, period]);
   const handlePdf = async () => {
     const grossPay =
       Math.round((standardPayAmount + otPay + totalHolidayPay) * 100) / 100;
@@ -98,6 +138,8 @@ export default function PayslipModal({
       standardPayAmount,
       otPay,
       gross: grossPay,
+      cashAdvanceEntries,
+      cashAdvanceTotalInPeriod,
     });
   };
 
@@ -253,7 +295,6 @@ export default function PayslipModal({
       label: "PhilHealth",
       value: person.philhealth ? Number(payroll.philhealth) : 0,
     },
-    { label: "Cash Advance", value: Number(payroll.cashAdvance || 0) },
   ];
 
   const lateCountLimit =
@@ -262,7 +303,7 @@ export default function PayslipModal({
   const lateDeduction =
     payroll.lateCount >= lateCountLimit ? payroll.lateCount * latePenalty : 0;
   const totalDeductions =
-    lateDeduction + deductions.reduce((acc, d) => acc + d.value, 0);
+    Math.round((lateDeduction + deductions.reduce((acc, d) => acc + d.value, 0) + Number(cashAdvanceTotalInPeriod || 0)) * 100) / 100;
 
   const totalLateOccurrences = detailedAttendance
     .map((rec) => (rec.lateDetails ? rec.lateDetails.length : 0))
@@ -799,9 +840,34 @@ export default function PayslipModal({
                   style={i % 2 === 0 ? styles.trEven : styles.trOdd}
                 >
                   <td style={styles.td}>{d.label}</td>
-                  <td style={styles.td}>₱{d.value.toLocaleString()}</td>
+                  <td style={styles.td}>
+                    {d.loading ? (
+                      <span style={{ color: "#6b7280" }}>Loading...</span>
+                    ) : (
+                      `₱${Number(d.value || 0).toLocaleString()}`
+                    )}
+                  </td>
                 </tr>
               ))}
+              {cashAdvanceEntries && cashAdvanceEntries.length > 0 && (
+                <>
+                  <tr>
+                    <td colSpan={2} style={{ ...styles.td, fontWeight: 700 }}>
+                      Cash Advance Details
+                    </td>
+                  </tr>
+                  {cashAdvanceEntries.map((h, idx) => (
+                    <tr key={h.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
+                      <td style={styles.td}>{h.created_at ? new Date(h.created_at).toLocaleString() : '-'}</td>
+                      <td style={styles.td}>₱{Number(h.amount).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                  <tr style={styles.tr}>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>Cash Advance Total</td>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>₱{Number(cashAdvanceTotalInPeriod || 0).toFixed(2)}</td>
+                  </tr>
+                </>
+              )}
               <tr style={styles.summaryRow}>
                 <td style={styles.td}>Total Deductions</td>
                 <td style={styles.td}>₱{totalDeductions.toLocaleString()}</td>

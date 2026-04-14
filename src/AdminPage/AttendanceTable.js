@@ -19,6 +19,7 @@ export default function AttendanceTable() {
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [sortKey] = useState("device_time");
   const [sortOrder, setSortOrder] = useState("desc");
+  const [selectedDate, setSelectedDate] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [records, setRecords] = useState([]);
   const [persons, setPersons] = useState([]);
@@ -416,7 +417,12 @@ export default function AttendanceTable() {
     // Department filter
     const matchesDept =
       !departmentFilter || (person.department || "") === departmentFilter;
-    return matchesSearch && matchesStatus && matchesDept;
+    // Date filter (match full yyyy-mm-dd)
+    const recordDate = r.device_time
+      ? new Date(r.device_time).toISOString().slice(0, 10)
+      : null;
+    const matchesDate = !selectedDate || recordDate === selectedDate;
+    return matchesSearch && matchesStatus && matchesDept && matchesDate;
   });
 
   const sortedRecords = [...filteredRecords].sort((a, b) => {
@@ -446,6 +452,11 @@ export default function AttendanceTable() {
   // Archived records (not filtered)
   const archivedRecords = [...records]
     .filter((r) => r.archived)
+    .filter((r) => {
+      if (!selectedDate) return true;
+      const rd = r.device_time ? new Date(r.device_time).toISOString().slice(0, 10) : null;
+      return rd === selectedDate;
+    })
     .sort((a, b) => new Date(b.device_time) - new Date(a.device_time));
 
   const columns = [
@@ -525,6 +536,20 @@ export default function AttendanceTable() {
               </option>
             ))}
           </select>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            style={styles.filterSelect}
+          />
+          {selectedDate && (
+            <button
+              onClick={() => setSelectedDate("")}
+              style={{ ...styles.smallButton, marginLeft: 4 }}
+            >
+              {Icons.close} Clear
+            </button>
+          )}
           <select
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value)}

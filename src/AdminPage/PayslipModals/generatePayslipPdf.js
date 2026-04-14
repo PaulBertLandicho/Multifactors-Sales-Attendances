@@ -13,6 +13,8 @@ export function drawPayslipOnDoc(
     standardPayAmount = null,
     otPay = null,
     gross = null,
+    cashAdvanceEntries = [],
+    cashAdvanceTotalInPeriod = 0,
   },
   yOffset = 10
 ) {
@@ -109,6 +111,7 @@ export function drawPayslipOnDoc(
   // Use Unicode peso sign (U+20B1), fallback to 'PHP' if not supported
   let peso = "PHP";
   try {
+    // some jsPDF builds may throw for unsupported glyphs; if so, fallback
     doc.getStringUnitWidth(peso);
   } catch (e) {
     peso = "PHP";
@@ -144,7 +147,6 @@ export function drawPayslipOnDoc(
   drawLinedField("Overtime hrs:", String(payroll.otHours || ""));
   drawLinedField("Holiday Day(s):", String(holidayPayDetails.length || 0));
   // Allowance line with no preset value
-  drawLinedField("Allowance:", "");
   // Use explicit gross if provided, otherwise fallback to payroll.gross
   const grossToShow =
     gross != null
@@ -170,8 +172,22 @@ export function drawPayslipOnDoc(
   drawLinedField("Monthly Share:", `${peso} ${monthlyShare.toLocaleString()}`);
   drawLinedField(
     "Cash Advance:",
-    `${peso} ${Number(payroll.cashAdvance || 0).toLocaleString()}`
+    `${peso} ${Number(cashAdvanceTotalInPeriod || payroll.cashAdvance || 0).toLocaleString()}`
   );
+  // If there are individual cash advance entries, render a brief breakdown above the total
+  if (Array.isArray(cashAdvanceEntries) && cashAdvanceEntries.length > 0) {
+    y += lineHeight * 0.2;
+    doc.setFontSize(9);
+    doc.text("Cash Advance Details:", left + 12, y);
+    y += lineHeight;
+    cashAdvanceEntries.forEach((e) => {
+      const label = e.created_at ? new Date(e.created_at).toLocaleString() : "";
+      const value = `${peso} ${Number(e.amount || 0).toLocaleString()}`;
+      drawLinedField(label, value, false);
+    });
+    y += lineHeight * 0.2;
+    doc.setFontSize(10);
+  }
   drawLinedField("Total:", `${peso} ${totalDeductions.toLocaleString()}`, true);
 
   y += lineHeight;

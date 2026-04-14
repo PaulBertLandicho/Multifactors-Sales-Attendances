@@ -296,7 +296,6 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [deptFilter, setDeptFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState("descending");
-  const [showArchived, setShowArchived] = useState(false);
 
   const departments = useMemo(() => {
     const s = new Set();
@@ -325,16 +324,14 @@ export default function Dashboard() {
         return dept === deptFilter;
       });
     }
-    if (!showArchived) {
-      rows = rows.filter((r) => !r.archived);
-    }
+
     rows.sort((a, b) => {
       const da = new Date(a.device_time).getTime();
       const db = new Date(b.device_time).getTime();
       return sortOrder === "ascending" ? da - db : db - da;
     });
     return rows;
-  }, [todayEntries, searchText, statusFilter, deptFilter, sortOrder, showArchived, personMap]);
+  }, [todayEntries, searchText, statusFilter, deptFilter, sortOrder, personMap]);
 
   function showTooltip(ref, title, items) {
     // cancel any pending hide
@@ -680,7 +677,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Toolbar: search, status, department, sort, show archived, export */}
+      {/* Toolbar: search, status, department, sort, export */}
       <div style={{ marginTop: 12, marginBottom: 12, display: 'flex', gap: 12, alignItems: 'center', padding: '10px 12px', border: '1px solid #eef2f6', borderRadius: 12, background: '#fff' }}>
         <input
           placeholder="Search name or ID"
@@ -706,9 +703,6 @@ export default function Dashboard() {
           <option value="ascending">Ascending</option>
         </select>
 
-        <button onClick={() => setShowArchived(s => !s)} style={{ padding: '8px 10px', borderRadius: 999, border: '1px solid #e6eef6', background: showArchived ? '#f3f4f6' : '#fff', cursor: 'pointer' }} title="Toggle show archived">
-          {showArchived ? 'Showing Archived' : 'Show Archived'}
-        </button>
 
         <button onClick={() => {
           // export filteredTodayEntries to CSV

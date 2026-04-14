@@ -432,6 +432,32 @@ export default function PayrollPage() {
             .filter(Boolean);
         }
 
+        // Fetch cash advance entries for this person within the period (for accurate per-period deduction)
+        let cashAdvanceEntries = [];
+        let cashAdvanceTotalInPeriod = 0;
+        try {
+          if (person && period) {
+            const [start, end] = period.split("_to_");
+            const { data: caData, error: caErr } = await supabase
+              .from("cash_advances")
+              .select("id, amount, created_at, note")
+              .eq("person_id", person.id)
+              .gte("created_at", start)
+              .lte("created_at", end)
+              .order("created_at", { ascending: true });
+            if (caErr) throw caErr;
+            cashAdvanceEntries = caData || [];
+            cashAdvanceTotalInPeriod = cashAdvanceEntries.reduce(
+              (s, r) => s + Number(r.amount || 0),
+              0
+            );
+          }
+        } catch (err) {
+          console.error("Error fetching cash advances for bulk PDF:", err);
+          cashAdvanceEntries = [];
+          cashAdvanceTotalInPeriod = 0;
+        }
+
         const deductions = [
           { label: "SSS", value: person.sss ? Number(payroll.sss) : 0 },
           {
@@ -442,7 +468,7 @@ export default function PayrollPage() {
             label: "PhilHealth",
             value: person.philhealth ? Number(payroll.philhealth) : 0,
           },
-          { label: "Cash Advance", value: Number(payroll.cashAdvance || 0) },
+          { label: "Cash Advance", value: Number(cashAdvanceTotalInPeriod || 0) },
         ];
 
         const lateCountLimit =
@@ -463,6 +489,8 @@ export default function PayrollPage() {
           totalHolidayPay,
           absentCount,
           totalDeductions,
+          cashAdvanceEntries,
+          cashAdvanceTotalInPeriod,
         });
       } catch (err) {
         console.error(

@@ -81,6 +81,13 @@ export default function PersonsTable() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editPerson, setEditPerson] = useState(null);
   const editPhotoInputRef = useRef(null);
+  const [showCashHistoryModal, setShowCashHistoryModal] = useState(false);
+  const [cashHistory, setCashHistory] = useState([]);
+  const [cashHistoryLoading, setCashHistoryLoading] = useState(false);
+  const [cashHistoryError, setCashHistoryError] = useState(null);
+  const [selectedHistoryPerson, setSelectedHistoryPerson] = useState(null);
+  const [newCashAdvanceAmount, setNewCashAdvanceAmount] = useState(0);
+  const [addingCashAdvance, setAddingCashAdvance] = useState(false);
 
   const Icons = {
     download: <FiDownload />,
@@ -123,6 +130,29 @@ export default function PersonsTable() {
   const handleEdit = (person) => {
     setEditPerson({ ...person });
     setShowEditModal(true);
+    // preload cash advance history for the edit modal
+    fetchCashHistory(person);
+  };
+
+  // fetch history without opening the separate modal
+  const fetchCashHistory = async (person) => {
+    if (!person || !person.id) return;
+    setCashHistoryLoading(true);
+    setCashHistoryError(null);
+    try {
+      const { data, error } = await supabase
+        .from("cash_advances")
+        .select("id, person_id, amount, created_at, note")
+        .eq("person_id", person.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setCashHistory(data || []);
+    } catch (err) {
+      setCashHistoryError(err.message || String(err));
+      setCashHistory([]);
+    } finally {
+      setCashHistoryLoading(false);
+    }
   };
 
   // Sorting handler
@@ -164,6 +194,35 @@ export default function PersonsTable() {
         }
       }
     });
+  };
+
+  // View cash advance history for a person
+  const handleViewCashHistory = async (person) => {
+    setSelectedHistoryPerson(person);
+    setShowCashHistoryModal(true);
+    setCashHistory([]);
+    setCashHistoryError(null);
+    setCashHistoryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("cash_advances")
+        .select("id, person_id, amount, created_at")
+        .eq("person_id", person.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setCashHistory(data || []);
+    } catch (err) {
+      setCashHistoryError(err.message || String(err));
+    } finally {
+      setCashHistoryLoading(false);
+    }
+  };
+
+  const closeCashHistoryModal = () => {
+    setShowCashHistoryModal(false);
+    setSelectedHistoryPerson(null);
+    setCashHistory([]);
+    setCashHistoryError(null);
   };
 
   // Helper to get photo for a person (latest attendance photo or registration photo)
@@ -208,6 +267,11 @@ export default function PersonsTable() {
       cash_advance,
       registration_photo,
     } = editPerson;
+    // Determine previous cash advance to record history for any increase
+    const prevPerson = persons.find((p) => p.id === id) || {};
+    const prevCash = Number(prevPerson.cash_advance || 0);
+    const newCash = Number(cash_advance || 0);
+    const delta = Math.round((newCash - prevCash) * 100) / 100;
     // Ensure checkboxes are stored as 1/0
     const sssVal = !!Number(editPerson.sss) ? 1 : 0;
     const pagIbigVal = !!Number(editPerson.pag_ibig) ? 1 : 0;
@@ -251,6 +315,68 @@ export default function PersonsTable() {
       );
       Swal.fire("Updated!", "", "success");
       handleEditModalClose();
+      // If cash advance increased, record a history entry
+      try {
+        if (delta > 0) {
+          const { error: histErr } = await supabase
+            .from("cash_advances")
+            .insert([
+              {
+                person_id: id,
+                amount: delta,
+                created_at: new Date().toISOString(),
+              },
+            ]);
+          if (histErr) {
+            console.warn("Failed to insert cash advance history:", histErr.message);
+          } else {
+            // update local history if modal open for this person
+            if (selectedHistoryPerson && selectedHistoryPerson.id === id) {
+              // refresh history
+              handleViewCashHistory(prevPerson || { id });
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Error recording cash advance history", e);
+      }
+    }
+  };
+
+  // Add a new cash advance entry for the currently editing person
+  const handleAddCashAdvance = async () => {
+    if (!editPerson || !editPerson.id) return;
+    const amount = Number(newCashAdvanceAmount || 0);
+    if (!amount || amount <= 0) {
+      Swal.fire("Error", "Enter a valid amount.", "error");
+      return;
+    }
+    setAddingCashAdvance(true);
+    try {
+      // insert history row
+      const { error: histErr } = await supabase.from("cash_advances").insert([
+        { person_id: editPerson.id, amount, created_at: new Date().toISOString() },
+      ]);
+      if (histErr) throw histErr;
+      // update persons.cash_advance (increment)
+      const newTotal = Math.round((Number(editPerson.cash_advance || 0) + amount) * 100) / 100;
+      const { error: upErr } = await supabase
+        .from("persons")
+        .update({ cash_advance: newTotal })
+        .eq("id", editPerson.id);
+      if (upErr) throw upErr;
+      // update local state
+      setEditPerson((prev) => (prev ? { ...prev, cash_advance: newTotal } : prev));
+      setPersons((prev) => prev.map((p) => (p.id === editPerson.id ? { ...p, cash_advance: newTotal } : p)));
+      // refresh history list
+      await fetchCashHistory(editPerson);
+      setNewCashAdvanceAmount(0);
+      Swal.fire("Recorded", "Cash advance added.", "success");
+    } catch (err) {
+      console.error("Error adding cash advance:", err);
+      Swal.fire("Error", err.message || String(err), "error");
+    } finally {
+      setAddingCashAdvance(false);
     }
   };
 
@@ -463,6 +589,15 @@ export default function PersonsTable() {
                             }}
                           >
                             {Icons.edit} Edit
+                          </button>
+                          <button
+                            onClick={() => handleViewCashHistory(p)}
+                            style={{
+                              ...styles.smallButton,
+                              ...styles.buttonSecondary,
+                            }}
+                          >
+                            Cash Advances
                           </button>
                           {!p.archived && (
                             <button
@@ -730,19 +865,28 @@ export default function PersonsTable() {
                   </label>
                 </div>
               </div>
-              <div style={styles.modalField}>
-                <label style={styles.modalLabel}>Cash Advance</label>
-                <input
-                  type="number"
-                  value={editPerson.cash_advance || 0}
-                  onChange={(e) =>
-                    setEditPerson({
-                      ...editPerson,
-                      cash_advance: e.target.value,
-                    })
-                  }
-                  style={styles.modalInput}
-                />
+              
+              <div style={{ ...styles.modalField, marginTop: 8 }}>
+                <label style={styles.modalLabel}>Add Cash Advance</label>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={newCashAdvanceAmount}
+                    onChange={(e) => setNewCashAdvanceAmount(e.target.value)}
+                    style={{ ...styles.modalInput, maxWidth: 200 }}
+                    placeholder="Amount"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCashAdvance}
+                    disabled={addingCashAdvance}
+                    style={{ ...styles.button, ...styles.buttonPrimary }}
+                  >
+                    {addingCashAdvance ? "Adding..." : "Add Cash Advance"}
+                  </button>
+                </div>
               </div>
               <div style={styles.modalActions}>
                 <button
@@ -760,6 +904,65 @@ export default function PersonsTable() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Cash Advance History Modal */}
+      {showCashHistoryModal && selectedHistoryPerson && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <button onClick={closeCashHistoryModal} style={styles.modalClose}>
+              &times;
+            </button>
+            <h2 style={styles.modalTitle}>Cash Advance History</h2>
+            <p style={{ textAlign: "center", color: "#6b7280" }}>
+              {selectedHistoryPerson.name} • ID: {selectedHistoryPerson.id}
+            </p>
+            <div style={{ maxHeight: 400, overflowY: "auto", marginTop: 12 }}>
+              {cashHistoryLoading ? (
+                <div style={styles.spinnerContainer}>
+                  <div style={styles.spinner} />
+                </div>
+              ) : cashHistoryError ? (
+                <p style={{ color: "red" }}>{cashHistoryError}</p>
+              ) : cashHistory.length === 0 ? (
+                <p style={{ color: "#6b7280", textAlign: "center" }}>
+                  No cash advance records
+                </p>
+              ) : (
+                <table style={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={styles.th}>Date</th>
+                      <th style={styles.th}>Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cashHistory.map((h, i) => (
+                      <tr key={h.id} style={i % 2 === 0 ? styles.tr : {}}>
+                        <td style={styles.td}>
+                          {h.created_at
+                            ? new Date(h.created_at).toLocaleString()
+                            : "-"}
+                        </td>
+                        <td style={styles.td}>₱{Number(h.amount).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                    <tr style={styles.tr}>
+                      <td style={{ ...styles.td, fontWeight: 700 }}>Total</td>
+                      <td style={{ ...styles.td, fontWeight: 700 }}>
+                        ₱{cashHistory.reduce((s, c) => s + Number(c.amount || 0), 0).toFixed(2)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              )}
+            </div>
+            <div style={{ marginTop: 16, textAlign: "right" }}>
+              <button onClick={closeCashHistoryModal} style={{ ...styles.button, ...styles.buttonSecondary }}>
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
