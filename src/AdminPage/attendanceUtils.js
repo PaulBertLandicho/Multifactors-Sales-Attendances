@@ -46,11 +46,8 @@ export function determineExpectedEvent(currentTime, lastEvent, settings) {
     nowMinutes >= afternoonStartMinutes &&
     nowMinutes <= afternoonEndMinutes
   ) {
-    // Allow time-in for afternoon even if there was no time-out in the morning
-    // Only block if already timed-in in the afternoon window
-    if (!lastEvent || lastEvent === "time-out") return "time-in";
-    if (lastEvent === "time-in") return "already-timed-in";
-    // If lastEvent was a morning time-in and no time-out, still allow afternoon time-in
+    // Allow afternoon time-in regardless of previous morning events (including missing morning-out).
+    // We'll rely on a short duplicate-window check elsewhere to avoid near-duplicate inserts.
     return "time-in";
   }
   // Afternoon shift: time-out after afternoon window
@@ -196,6 +193,34 @@ export async function recordAttendanceForPerson({
 
   const lastEvent = attData?.[0]?.event || null;
   const event = determineExpectedEvent(currentTime, lastEvent, settings);
+
+  // Additional protection: if this is an afternoon time-in, block it when
+  // the same person already has an afternoon time-in earlier today.
+  try {
+    const nowMinutes = toMinutes(currentTime);
+    const afternoonStartMinutes = toMinutes(settings.afternoon_start);
+    const afternoonEndMinutes = toMinutes(settings.afternoon_end);
+    if (event === "time-in" && nowMinutes >= afternoonStartMinutes && nowMinutes <= afternoonEndMinutes) {
+      const hasAfternoonTimeIn = Array.isArray(attData) && attData.some((row) => {
+        if (!row || row.event !== "time-in" || !row.device_time) return false;
+        const dt = new Date(row.device_time);
+        const hhmm = dt.toTimeString().slice(0, 5);
+        const minutes = toMinutes(hhmm);
+        return minutes >= afternoonStartMinutes && minutes <= afternoonEndMinutes;
+      });
+      if (hasAfternoonTimeIn) {
+        return {
+          inserted: false,
+          blocked: true,
+          event: "already-timed-in",
+          message: buildBlockedMessage("already-timed-in", settings),
+        };
+      }
+    }
+  } catch (e) {
+    // if anything goes wrong with the check, fall back to normal flow
+    console.warn("Afternoon duplicate check failed:", e);
+  }
 
   // Block only when rules say already-timed-in or attendance-closed;
   // time-out is now allowed even without a prior time-in.
