@@ -265,18 +265,15 @@ export default function PayrollPage() {
     });
     setShowPayslip(true);
   };
-  // RELEASE PAYROLL
-  const handleReleasePayroll = async (periodIdx) => {
-    const period = payrollPeriods[periodIdx];
+  // RELEASE PAYROLL (by DB id) — works with filtered/sorted lists
+  const handleReleasePayroll = async (dbId) => {
+    const idx = payrollPeriods.findIndex((p) => p.dbId === dbId);
+    if (idx === -1) return;
+    const period = payrollPeriods[idx];
     if (!period || !period.dbId) return;
     // Update released in Supabase
-    await supabase
-      .from("payroll_periods")
-      .update({ released: true })
-      .eq("id", period.dbId);
-    setPayrollPeriods((prev) =>
-      prev.map((p, i) => (i === periodIdx ? { ...p, released: true } : p))
-    );
+    await supabase.from("payroll_periods").update({ released: true }).eq("id", period.dbId);
+    setPayrollPeriods((prev) => prev.map((p) => (p.dbId === dbId ? { ...p, released: true } : p)));
     // Log activity with better user info and error handling
     let releasedBy = "admin";
     try {
@@ -295,7 +292,6 @@ export default function PayrollPage() {
         releasedBy,
       });
     } catch (err) {
-      // Optionally show/log error
       Swal.fire("Failed to log payroll release", err.message || err, "error");
     }
   };
@@ -543,6 +539,35 @@ export default function PayrollPage() {
     XLSX.writeFile(wb, "payroll_summary.xlsx");
   };
 
+  // Compute filtered and sorted payroll periods for display
+  const filteredPayrollPeriods = (payrollPeriods || [])
+    .filter((entry) => {
+      if (!entry) return false;
+      const { person } = entry;
+      if (!person) return false;
+      // Department filter
+      if (departmentFilter && (person.department || "") !== departmentFilter)
+        return false;
+      // Search (by name or id)
+      if (search && search.trim()) {
+        const q = search.trim().toLowerCase();
+        const idMatch = String(person.id || "").toLowerCase().includes(q);
+        const nameMatch = (person.name || "").toLowerCase().includes(q);
+        return idMatch || nameMatch;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const nameA = (a.person?.name || "").toLowerCase();
+      const nameB = (b.person?.name || "").toLowerCase();
+      if (nameA < nameB) return sortOrder === "asc" ? -1 : 1;
+      if (nameA > nameB) return sortOrder === "asc" ? 1 : -1;
+      // fallback to id
+      const idA = String(a.person?.id || "");
+      const idB = String(b.person?.id || "");
+      return sortOrder === "asc" ? idA.localeCompare(idB) : idB.localeCompare(idA);
+    });
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -639,14 +664,14 @@ export default function PayrollPage() {
               </tr>
             </thead>
             <tbody>
-              {payrollPeriods.length === 0 ? (
+              {filteredPayrollPeriods.length === 0 ? (
                 <tr>
                   <td colSpan={13} style={styles.emptyState}>
                     No payroll records found.
                   </td>
                 </tr>
               ) : (
-                payrollPeriods.map((p, idx) => {
+                filteredPayrollPeriods.map((p, idx) => {
                   const { person, period, payroll, released } = p;
                   const rowStyle = {
                     ...styles.tr,
@@ -814,7 +839,7 @@ export default function PayrollPage() {
                           </span>
                         ) : (
                           <button
-                            onClick={() => handleReleasePayroll(idx)}
+                            onClick={() => handleReleasePayroll(p.dbId)}
                             style={{
                               ...styles.button,
                               ...styles.buttonPrimary,
