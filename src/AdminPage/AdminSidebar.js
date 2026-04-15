@@ -9,6 +9,7 @@ import {
   MdPayments,
   MdPersonAddAlt1,
   MdBusiness,
+  MdHistory,
 } from "react-icons/md";
 
 // ✅ Navigation Items with Icons
@@ -40,6 +41,11 @@ const navItems = [
     label: "Payroll Released Activity Logs",
     path: "/admin/ReleasedPayrollLogs",
     icon: <MdPersonAddAlt1 />,
+  },
+  {
+    label: "Released History Payrolls",
+    path: "/admin/released-history",
+    icon: <MdHistory />,
   },
 ];
 

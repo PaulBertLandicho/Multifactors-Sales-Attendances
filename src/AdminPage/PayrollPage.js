@@ -7,7 +7,6 @@ import { getDetailedAttendance } from "./attendanceDetails";
 import { generateAllPayslipsPdf } from "./PayslipModals/generatePayslipPdf";
 import * as XLSX from "xlsx";
 import { FiSearch, FiEye, FiDownload } from "react-icons/fi";
-import { MdHistory } from "react-icons/md";
 
 import { supabase } from "../supabaseClient";
 import { logPayrollRelease } from "./payrollActivityLogs";
@@ -594,7 +593,7 @@ export default function PayrollPage() {
         </div>
         <button
           onClick={handleExportPayslipExcel}
-          style={{ ...styles.button, ...styles.buttonPrimary }}
+          style={{ marginRight: -300, ...styles.button, ...styles.buttonPrimary }}
         >
           {Icons.download} Export Excel
         </button>
@@ -610,13 +609,13 @@ export default function PayrollPage() {
         >
           Released Payroll Logs
         </button> */}
-        <button
+        {/* <button
           style={{ ...styles.button, ...styles.buttonSecondary }}
           onClick={() => (window.location.href = "/admin/released-history")}
         >
           <MdHistory style={{ marginRight: 8, fontSize: "1.2em" }} />
           Released History Payroll
-        </button>
+        </button> */}
       </div>
 
       {/* Table: Payroll by 15-day period */}
