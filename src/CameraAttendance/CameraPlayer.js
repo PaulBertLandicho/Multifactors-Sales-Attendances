@@ -87,6 +87,8 @@ export default function CameraPlayer({
   const [useLocalCamera, setUseLocalCamera] = useState(false); // Fallback flag
   const [currentTime, setCurrentTime] = useState(new Date());
   const lastScanRef = useRef({});
+  const fullscreenRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   // Removed: unused popupLockRef
   const unknownFaceLockRef = useRef(false);
   const animationFrameRef = useRef();
@@ -95,6 +97,29 @@ export default function CameraPlayer({
   const verificationIdRef = useRef(null);
   const verificationStartRef = useRef(0);
   const settingsAlertShownRef = useRef(false);
+
+  // Helper to show SweetAlert in the fullscreen element when active
+  const showSwal = (opts) => {
+    try {
+      const fsActive = document.fullscreenElement === fullscreenRef.current && fullscreenRef.current;
+      if (fsActive) {
+        // ensure a dedicated wrapper exists inside the fullscreen element
+        let wrapper = fullscreenRef.current.querySelector('#swal-fullscreen-wrapper');
+        if (!wrapper) {
+          wrapper = document.createElement('div');
+          wrapper.id = 'swal-fullscreen-wrapper';
+          wrapper.style.position = 'relative';
+          wrapper.style.zIndex = '2147483646';
+          fullscreenRef.current.appendChild(wrapper);
+        }
+        return Swal.fire({ target: wrapper, ...opts });
+      }
+      const target = document.body;
+      return Swal.fire({ target, ...opts });
+    } catch (e) {
+      return Swal.fire(opts);
+    }
+  };
 
   // ------------------- Helpers -------------------
   const captureCurrentFrame = useCallback(() => {
@@ -237,10 +262,10 @@ export default function CameraPlayer({
   useEffect(() => {
     if (settings && !validSettings && !settingsAlertShownRef.current) {
       settingsAlertShownRef.current = true;
-      Swal.fire({
+      showSwal({
         icon: "warning",
         title: "Work Hour Settings",
-        text: "Work hour settings are missing or invalid. Please configure them in Admin \\u003e Settings before using face attendance.",
+        text: "Work hour settings are missing or invalid. Please configure them in Admin \u003e Settings before using face attendance.",
       });
     }
   }, [settings, validSettings]);
@@ -249,6 +274,54 @@ export default function CameraPlayer({
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(t);
+  }, []);
+
+  // Fullscreen change handler
+  useEffect(() => {
+    // Ensure SweetAlert targets body by default
+    try {
+      Swal.setDefaults({ target: document.body });
+    } catch (e) {}
+
+    const onFsChange = () => {
+      const fs = document.fullscreenElement === fullscreenRef.current;
+      setIsFullscreen(!!fs);
+      try {
+        const container = Swal.getContainer ? Swal.getContainer() : null;
+        if (fs) {
+          document.body.style.overflow = "hidden";
+          // Move SweetAlert container into the fullscreen element so modals appear on top
+          if (container && fullscreenRef.current && !fullscreenRef.current.contains(container)) {
+            try {
+              fullscreenRef.current.appendChild(container);
+            } catch (e) {
+              // fallback to setting Swal target
+              try { Swal.setDefaults({ target: fullscreenRef.current || document.body }); } catch (e) {}
+            }
+          } else {
+            try { Swal.setDefaults({ target: fullscreenRef.current || document.body }); } catch (e) {}
+          }
+          if (container) container.style.zIndex = "2147483647";
+        } else {
+          document.body.style.overflow = "";
+          if (container && !document.body.contains(container)) {
+            try { document.body.appendChild(container); } catch (e) {}
+          }
+          try { Swal.setDefaults({ target: document.body }); } catch (e) {}
+          if (container) container.style.zIndex = "";
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    document.addEventListener("fullscreenchange", onFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      try {
+        Swal.setDefaults({ target: document.body });
+      } catch (e) {}
+    };
   }, []);
 
   // ------------------- Load persons -------------------
@@ -346,11 +419,11 @@ export default function CameraPlayer({
           ]);
           setModelsLoaded(true);
         } catch (err) {
-          Swal.fire({
-            icon: "error",
-            title: "Model Loading Failed",
-            text: "Face recognition models could not be loaded.",
-          });
+          showSwal({
+              icon: "error",
+              title: "Model Loading Failed",
+              text: "Face recognition models could not be loaded.",
+            });
         }
       }
     }
@@ -666,13 +739,13 @@ export default function CameraPlayer({
                     : `${result.event} (${result.status})`;
 
                 playVoice("success");
-                Swal.fire({
-                  icon: "success",
-                  title: bestMatch.name,
-                  text: message,
-                  timer: 2500,
-                  showConfirmButton: false,
-                });
+                      showSwal({
+                        icon: "success",
+                        title: bestMatch.name,
+                        text: message,
+                        timer: 2500,
+                        showConfirmButton: false,
+                      });
               } else if (result.blocked) {
                 // Throttle SweetAlert for blocked/info (already timed in) to once every 5 seconds
                 const nowMs = Date.now();
@@ -681,7 +754,7 @@ export default function CameraPlayer({
                   nowMs - lastScanRef.current.blockedInfoTs > 5000
                 ) {
                   playVoice("info");
-                  Swal.fire({
+                  showSwal({
                     icon: "info",
                     title: bestMatch.name,
                     text: result.message,
@@ -695,7 +768,7 @@ export default function CameraPlayer({
             .catch((err) => {
               console.error("ATTENDANCE ERROR:", err);
               playVoice("error");
-              Swal.fire({
+              showSwal({
                 icon: "error",
                 title: "Attendance Error",
                 text: err.message || String(err),
@@ -726,7 +799,7 @@ export default function CameraPlayer({
             nowMs - unknownFaceLockRef.current > 5000
           ) {
             playVoice("warning");
-            Swal.fire({
+            showSwal({
               icon: "warning",
               title: "That face is not registered",
               text: "",
@@ -784,10 +857,26 @@ export default function CameraPlayer({
   }, [registrationActive, settings]); // settings dependency included for completeness
 
   // ------------------- Render -------------------
+  const toggleFullScreen = async () => {
+    try {
+      if (isFullscreen) {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+      } else {
+        const el = fullscreenRef.current;
+        if (el) {
+          if (el.requestFullscreen) await el.requestFullscreen();
+          else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+        }
+      }
+    } catch (e) {
+      console.warn('Fullscreen toggle failed', e);
+    }
+  };
   return (
-    <div style={styles.container}>
+    <div ref={fullscreenRef} style={isFullscreen ? styles.containerFull : styles.container}>
       {/* Camera card */}
-      <div style={styles.cameraCard}>
+      <div style={isFullscreen ? { ...styles.cameraCard, ...styles.cameraCardFull } : styles.cameraCard}>
         <div style={styles.cameraHeader}>
           <span style={styles.cameraTitle}>📷 Live Feed</span>
           <span style={{ marginLeft: 12, color: '#475569', fontWeight: 600 }}>{currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
@@ -816,6 +905,21 @@ export default function CameraPlayer({
             >
               {debugMode ? "Hide" : "Debug"}
             </button>
+            <button
+              onClick={toggleFullScreen}
+              style={{
+                marginLeft: 8,
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "none",
+                cursor: "pointer",
+                background: isFullscreen ? "#f3f4f6" : "#10b981",
+                color: isFullscreen ? "#111827" : "#ffffff",
+                fontWeight: 700,
+              }}
+            >
+              {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            </button>
             {cameraStatus === CAMERA_STATUS.ERROR && (
               <span style={{ ...styles.badge, ...styles.badgeError }}>
                 ⚠️ Error
@@ -840,7 +944,7 @@ export default function CameraPlayer({
         </div>
 
         {/* Camera feed area */}
-        <div style={styles.feedWrapper}>
+        <div style={isFullscreen ? { ...styles.feedWrapper, ...styles.feedWrapperFull } : styles.feedWrapper}>
           {useLocalCamera ? (
             <video
               ref={videoRef}
@@ -862,7 +966,7 @@ export default function CameraPlayer({
               style={styles.feed}
             />
           )}
-          <canvas ref={overlayCanvasRef} style={styles.overlayCanvas} />
+          <canvas ref={overlayCanvasRef} style={isFullscreen ? { ...styles.overlayCanvas, ...styles.overlayCanvasFull } : styles.overlayCanvas} />
         </div>
 
         {/* Settings info card */}
@@ -888,6 +992,26 @@ export default function CameraPlayer({
               <span style={styles.graceBadge}>
                 ⏱️ {settings.afternoon_grace_minutes} min grace
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* Compact fullscreen settings overlay (visible in fullscreen) */}
+        {isFullscreen && !hideSettingsCard && settings && validSettings && (
+          <div style={styles.settingsOverlayFull}>
+            <div style={styles.settingRowSmall}>
+              <span style={{ marginRight: 6 }}>🌅</span>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <div style={{ fontWeight: 700, color: "#f8fafc" }}>Morning</div>
+                <div style={{ color: "#e5e7eb", fontSize: 13 }}>{settings.morning_start} – {settings.morning_end} · ⏱️ {settings.morning_grace_minutes}m</div>
+              </div>
+            </div>
+            <div style={styles.settingRowSmall}>
+              <span style={{ marginRight: 6 }}>☀️</span>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <div style={{ fontWeight: 700, color: "#f8fafc" }}>Afternoon</div>
+                <div style={{ color: "#e5e7eb", fontSize: 13 }}>{settings.afternoon_start} – {settings.afternoon_end} · ⏱️ {settings.afternoon_grace_minutes}m</div>
+              </div>
             </div>
           </div>
         )}
@@ -1022,6 +1146,51 @@ const styles = {
     aspectRatio: "16/9",
     backgroundColor: "#0b1120",
   },
+  containerFull: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    padding: 0,
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000000",
+    zIndex: 9999,
+  },
+  cameraCardFull: {
+    width: "100%",
+    height: "100%",
+    maxWidth: "100%",
+    borderRadius: 0,
+    boxShadow: "none",
+  },
+  feedWrapperFull: {
+    position: "relative",
+    width: "100%",
+    height: "calc(100vh - 72px)",
+    backgroundColor: "#000000",
+  },
+  settingsOverlayFull: {
+    position: "fixed",
+    top: 12,
+    left: 12,
+    background: "rgba(16, 185, 129, 0.12)",
+    border: "1px solid rgba(255,255,255,0.08)",
+    padding: "10px 12px",
+    borderRadius: 12,
+    zIndex: 2147483646,
+    backdropFilter: "blur(6px)",
+    boxShadow: "0 6px 18px rgba(0,0,0,0.4)",
+    minWidth: 220,
+  },
+  settingRowSmall: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "6px 0",
+  },
   feed: {
     width: "100%",
     height: "100%",
@@ -1029,6 +1198,14 @@ const styles = {
     display: "block",
   },
   overlayCanvas: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: "100%",
+    height: "100%",
+    pointerEvents: "none",
+  },
+  overlayCanvasFull: {
     position: "absolute",
     top: 0,
     left: 0,

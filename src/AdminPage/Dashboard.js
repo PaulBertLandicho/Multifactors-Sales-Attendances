@@ -372,7 +372,8 @@ export default function Dashboard() {
           const minutes = d.getHours() * 60 + d.getMinutes();
           const morningEnd = settings.morning_end.split(":").map(Number);
           const morningEndMin = morningEnd[0] * 60 + morningEnd[1];
-          if (minutes > morningEndMin) {
+          const morningGrace = Number(settings.morning_grace_minutes) || 0;
+          if (minutes > morningEndMin + morningGrace) {
             label = "Afternoon In";
             configTime = settings.afternoon_start;
           }
@@ -385,7 +386,8 @@ export default function Dashboard() {
           const minutes = d.getHours() * 60 + d.getMinutes();
           const morningEnd = settings.morning_end.split(":").map(Number);
           const morningEndMin = morningEnd[0] * 60 + morningEnd[1];
-          if (minutes > morningEndMin) {
+          const morningGrace = Number(settings.morning_grace_minutes) || 0;
+          if (minutes > morningEndMin + morningGrace) {
             label = "Afternoon Out";
             configTime = settings.afternoon_end;
           }

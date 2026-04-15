@@ -712,7 +712,9 @@ export default function AttendanceTable() {
                                     .map(Number);
                                   const morningEndMin =
                                     morningEnd[0] * 60 + morningEnd[1];
-                                  if (minutes > morningEndMin) {
+                                  const morningGrace = Number(settings.morning_grace_minutes) || 0;
+                                  // Treat times within the morning end + grace as still morning
+                                  if (minutes > morningEndMin + morningGrace) {
                                     label = "Afternoon In";
                                     configTime = settings.afternoon_start;
                                   }
@@ -733,7 +735,9 @@ export default function AttendanceTable() {
                                     .map(Number);
                                   const morningEndMin =
                                     morningEnd[0] * 60 + morningEnd[1];
-                                  if (minutes > morningEndMin) {
+                                  const morningGrace = Number(settings.morning_grace_minutes) || 0;
+                                  // Treat times within the morning end + grace as still morning
+                                  if (minutes > morningEndMin + morningGrace) {
                                     label = "Afternoon Out";
                                     configTime = settings.afternoon_end;
                                   }
