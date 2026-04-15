@@ -54,14 +54,14 @@ function buildLastNWeeks(n = 12) {
 function parsePeriodEnd(period) {
   if (!period) return null;
   const s = String(period).trim();
-  // ISO-like YYYY-MM-DD or YYYY/MM/DD
-  let m = s.match(/(\d{4}[-/]\d{2}[-/]\d{2})/);
-  if (m) return new Date(m[1].replace(/\//g, "-"));
+  // ISO-like YYYY-MM-DD or YYYY/MM/DD: pick the last occurrence if there are multiple (range)
+  let matches = Array.from(s.matchAll(/(\d{4}[-/]\d{2}[-/]\d{2})/g)).map((m) => m[1]);
+  if (matches.length) return new Date(matches[matches.length - 1].replace(/\//g, "-"));
 
-  // dd/mm/yyyy or dd-mm-yyyy
-  m = s.match(/(\d{2}[-/.]\d{2}[-/.]\d{4})/);
-  if (m) {
-    const parts = m[1].split(/[-/.]/);
+  // dd/mm/yyyy or dd-mm-yyyy: pick last occurrence
+  matches = Array.from(s.matchAll(/(\d{2}[-/.]\d{2}[-/.]\d{4})/g)).map((m) => m[1]);
+  if (matches.length) {
+    const parts = matches[matches.length - 1].split(/[-/.]/);
     return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
   }
 

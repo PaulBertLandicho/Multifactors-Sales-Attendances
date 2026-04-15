@@ -15,7 +15,7 @@ export default function PayrollPage() {
   const [persons, setPersons] = useState([]);
   const [deptRates, setDeptRates] = useState([]);
   const [payrollPeriods, setPayrollPeriods] = useState([]); // [{personId, period, payroll, released}]
-  const [holidays, setHolidays] = useState([]);
+  const [, setHolidays] = useState([]);
   const [settings, setSettings] = useState({});
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
@@ -195,7 +195,7 @@ export default function PayrollPage() {
               return null;
             }
 
-            return {
+              return {
               personId: person.id,
               person,
               period,
@@ -210,6 +210,50 @@ export default function PayrollPage() {
               attendance,
               released: !!dbRow.released,
               dbId: dbRow.id,
+              // Compute absent count for the period (weekdays only, exclude holidays), up to today
+              absentCount: (() => {
+                try {
+                  if (!period) return 0;
+                  const [start, end] = period.split("_to_");
+                  const startDate = new Date(start);
+                  const endDate = new Date(end);
+                  const todayStr = new Date().toISOString().slice(0, 10);
+
+                  const allDates = [];
+                  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                    // weekday only
+                    if (d.getDay() === 0 || d.getDay() === 6) continue;
+                    allDates.push(new Date(d).toISOString().slice(0, 10));
+                  }
+
+                  const attendedDatesSet = new Set(
+                    (detailed || []).map((a) => {
+                      try {
+                        return new Date(a.date).toISOString().slice(0, 10);
+                      } catch (e) {
+                        return String(a.date || "").slice(0, 10);
+                      }
+                    })
+                  );
+
+                  // holidaysData is available in outer scope; filter to person's department
+                  const holidaysForDept = (holidaysData || []).filter(
+                    (h) =>
+                      (h.department || "").toLowerCase().trim() ===
+                      (person.department || "").toLowerCase().trim()
+                  );
+                  const holidaySet = new Set(
+                    (holidaysForDept || []).map((h) => new Date(h.date).toISOString().slice(0, 10))
+                  );
+
+                  const absentDates = allDates.filter(
+                    (dateStr) => dateStr < todayStr && !attendedDatesSet.has(dateStr) && !holidaySet.has(dateStr)
+                  );
+                  return absentDates.length;
+                } catch (e) {
+                  return 0;
+                }
+              })(),
             };
           })
         )
@@ -476,17 +520,46 @@ export default function PayrollPage() {
         const totalDeductions =
           lateDeduction + deductions.reduce((acc, d) => acc + d.value, 0);
 
-        pdfParamsList.push({
-          payroll,
-          person,
-          period,
-          holidayPayDetails,
-          totalHolidayPay,
-          absentCount,
-          totalDeductions,
-          cashAdvanceEntries,
-          cashAdvanceTotalInPeriod,
-        });
+          // compute total OT hours (decimal) for this period to include in PDF
+          let totalOtMinutes = 0;
+          try {
+            const sched = payroll && payroll.settings ? payroll.settings : {};
+            const schedMorningEnd = sched.morning_end || "12:00";
+            const schedAfternoonEnd = sched.afternoon_end || "17:00";
+            (detailedAttendance || []).forEach((rec) => {
+              try {
+                const mOut = (rec.morningOut && String(rec.morningOut).trim()) || null;
+                const aOut = (rec.afternoonOut && String(rec.afternoonOut).trim()) || null;
+                // parse time HH:MM into minutes
+                const parseT = (t) => {
+                  if (!t) return null;
+                  const mm = String(t).trim().match(/^(\d{1,2}):(\d{2})/);
+                  if (!mm) return null;
+                  return Number(mm[1]) * 60 + Number(mm[2]);
+                };
+                const mOutMin = parseT(mOut);
+                const aOutMin = parseT(aOut);
+                const mEndMin = parseT(schedMorningEnd);
+                const aEndMin = parseT(schedAfternoonEnd);
+                if (typeof mOutMin === "number" && typeof mEndMin === "number" && mOutMin > mEndMin) totalOtMinutes += mOutMin - mEndMin;
+                if (typeof aOutMin === "number" && typeof aEndMin === "number" && aOutMin > aEndMin) totalOtMinutes += aOutMin - aEndMin;
+              } catch (e) {}
+            });
+          } catch (e) {}
+          const totalOtHours = Math.round((totalOtMinutes / 60) * 100) / 100;
+
+          pdfParamsList.push({
+            payroll,
+            person,
+            period,
+            holidayPayDetails,
+            totalHolidayPay,
+            absentCount,
+            totalDeductions,
+            cashAdvanceEntries,
+            cashAdvanceTotalInPeriod,
+            otHours: totalOtHours,
+          });
       } catch (err) {
         console.error(
           "Failed to prepare payslip PDF data for",
@@ -531,6 +604,7 @@ export default function PayrollPage() {
         Gross: payroll.gross,
         "Late Deduction": payroll.totalLateDeduction,
         "Net Pay": payroll.net,
+        "Absent Count": p.absentCount ?? 0,
       };
     });
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -657,8 +731,7 @@ export default function PayrollPage() {
                 <th style={styles.th}>Late Penalty (₱)</th>
                 <th style={styles.th}>Days Present</th>
                 <th style={styles.th}>Late Count</th>
-                <th style={styles.th}>Gross</th>
-                <th style={styles.th}>Late Deduction</th>
+                <th style={styles.th}>Absent</th>
                 <th style={styles.th}>Payslip</th>
                 <th style={styles.th}>Release</th>
               </tr>
@@ -666,7 +739,7 @@ export default function PayrollPage() {
             <tbody>
               {filteredPayrollPeriods.length === 0 ? (
                 <tr>
-                  <td colSpan={13} style={styles.emptyState}>
+                  <td colSpan={11} style={styles.emptyState}>
                     No payroll records found.
                   </td>
                 </tr>
@@ -697,133 +770,9 @@ export default function PayrollPage() {
                       </td>
                       <td style={styles.td}>{payroll.daysPresent}</td>
                       <td style={styles.td}>{payroll.lateCount}</td>
+                      <td style={styles.td}>{p.absentCount ?? 0}</td>
                       {/* Calculate and display Gross and Net Pay using the exact PayslipModal formulas */}
-                      <td style={styles.td}>
-                        {(() => {
-                          // Holiday pay within this period and department
-                          let totalHolidayPay = 0;
-                          if (holidays && holidays.length && period) {
-                            const [start, end] = period.split("_to_");
-                            const deptRate =
-                              deptRates.find(
-                                (d) =>
-                                  (d.department || "").toLowerCase().trim() ===
-                                  (person.department || "").toLowerCase().trim()
-                              ) || {};
-                            const regularRate = Number(
-                              deptRate.regular_holiday_rate ??
-                                deptRate.holiday_rate ??
-                                0
-                            );
-                            const specialRate = Number(
-                              deptRate.special_holiday_rate ?? 0
-                            );
-
-                            holidays.forEach((h) => {
-                              if (h.department !== person.department) return;
-                              if (h.date < start || h.date > end) return;
-                              let ratePercent = 0;
-                              if (h.type === "regular")
-                                ratePercent = regularRate;
-                              else if (h.type === "special")
-                                ratePercent = specialRate;
-                              if (!ratePercent) return;
-                              totalHolidayPay +=
-                                (payroll.dailyRate ?? 0) * (ratePercent / 100);
-                            });
-                          }
-
-                          const hourlyRate =
-                            Math.round(((payroll.dailyRate ?? 0) / 8) * 100) /
-                            100;
-                          const otHours =
-                            Math.round((payroll.otHours ?? 0) * 100) / 100;
-                          const otPay =
-                            Math.round(hourlyRate * otHours * 100) / 100;
-                          const gross =
-                            Math.round(
-                              ((payroll.dailyRate ?? 0) +
-                                otPay +
-                                totalHolidayPay) *
-                                100
-                            ) / 100;
-                          return `₱${gross.toFixed(2)}`;
-                        })()}
-                      </td>
-                      <td style={styles.td}>
-                        {(() => {
-                          // Same total deductions logic as in PayslipModal
-                          const lateCountLimit =
-                            payroll.lateCountLimit ||
-                            payroll.late_count_limit ||
-                            5;
-                          const latePenalty = person.late_penalty || 0;
-                          const lateDeduction =
-                            payroll.lateCount >= lateCountLimit
-                              ? payroll.lateCount * latePenalty
-                              : 0;
-                          const deductions = [
-                            person.sss ? Number(payroll.sss) : 0,
-                            person.pag_ibig ? Number(payroll.pag_ibig) : 0,
-                            person.philhealth ? Number(payroll.philhealth) : 0,
-                            Number(payroll.cashAdvance || 0),
-                          ];
-                          const totalDeductions =
-                            lateDeduction +
-                            deductions.reduce((acc, v) => acc + v, 0);
-
-                          // Reuse the same gross calculation as above
-                          let totalHolidayPay = 0;
-                          if (holidays && holidays.length && period) {
-                            const [start, end] = period.split("_to_");
-                            const deptRate =
-                              deptRates.find(
-                                (d) =>
-                                  (d.department || "").toLowerCase().trim() ===
-                                  (person.department || "").toLowerCase().trim()
-                              ) || {};
-                            const regularRate = Number(
-                              deptRate.regular_holiday_rate ??
-                                deptRate.holiday_rate ??
-                                0
-                            );
-                            const specialRate = Number(
-                              deptRate.special_holiday_rate ?? 0
-                            );
-
-                            holidays.forEach((h) => {
-                              if (h.department !== person.department) return;
-                              if (h.date < start || h.date > end) return;
-                              let ratePercent = 0;
-                              if (h.type === "regular")
-                                ratePercent = regularRate;
-                              else if (h.type === "special")
-                                ratePercent = specialRate;
-                              if (!ratePercent) return;
-                              totalHolidayPay +=
-                                (payroll.dailyRate ?? 0) * (ratePercent / 100);
-                            });
-                          }
-
-                          const hourlyRate =
-                            Math.round(((payroll.dailyRate ?? 0) / 8) * 100) /
-                            100;
-                          const otHours =
-                            Math.round((payroll.otHours ?? 0) * 100) / 100;
-                          const otPay =
-                            Math.round(hourlyRate * otHours * 100) / 100;
-                          const gross =
-                            Math.round(
-                              ((payroll.dailyRate ?? 0) +
-                                otPay +
-                                totalHolidayPay) *
-                                100
-                            ) / 100;
-                          const net =
-                            Math.round((gross - totalDeductions) * 100) / 100;
-                          return `₱${net.toFixed(2)}`;
-                        })()}
-                      </td>
+                      
                       <td style={styles.td}>
                         <button
                           onClick={() => handleShowPayslip(p)}

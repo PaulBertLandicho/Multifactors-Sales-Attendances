@@ -126,6 +126,28 @@ export default function PayslipModal({
   const handlePdf = async () => {
     const grossPay =
       Math.round((standardPayAmount + otPay + totalHolidayPay) * 100) / 100;
+    // compute total OT hours for the period to include in PDF (decimal hours)
+    let totalOtMinutesForPdf = 0;
+    try {
+      const sched = payroll && payroll.settings ? payroll.settings : {};
+      const schedMorningEnd = sched.morning_end || "12:00";
+      const schedAfternoonEnd = sched.afternoon_end || "17:00";
+      (detailedAttendance || []).forEach((rec) => {
+        try {
+          const mOut = parseTimeToMinutes(rec.morningOut);
+          const aOut = parseTimeToMinutes(rec.afternoonOut);
+          const mEnd = parseTimeToMinutes(schedMorningEnd);
+          const aEnd = parseTimeToMinutes(schedAfternoonEnd);
+          if (typeof mOut === "number" && typeof mEnd === "number" && mOut > mEnd) totalOtMinutesForPdf += mOut - mEnd;
+          if (typeof aOut === "number" && typeof aEnd === "number" && aOut > aEnd) totalOtMinutesForPdf += aOut - aEnd;
+        } catch (e) {}
+      });
+    } catch (e) {}
+    const totalOtHoursForPdf = Math.round((totalOtMinutesForPdf / 60) * 100) / 100;
+    // ensure payroll.otHours is available for older code paths
+    try {
+      payroll.otHours = totalOtHoursForPdf;
+    } catch (e) {}
     await generatePayslipPdf({
       payroll,
       person,
@@ -137,6 +159,7 @@ export default function PayslipModal({
       daysWorked,
       standardPayAmount,
       otPay,
+      otHours: totalOtHoursForPdf,
       gross: grossPay,
       cashAdvanceEntries,
       cashAdvanceTotalInPeriod,
@@ -182,6 +205,36 @@ export default function PayslipModal({
     return String(period);
   }
 
+  // Format an ISO date (yyyy-mm-dd) into 'April 15, 2026 (Thursday)'
+  const formatDateWithWeekday = (isoDateStr) => {
+    try {
+      const d = new Date(isoDateStr);
+      if (Number.isNaN(d.getTime())) return isoDateStr;
+      const dateLabel = d.toLocaleDateString("en-US", { month: "long", day: "2-digit", year: "numeric" });
+      const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
+      return `${dateLabel} (${weekday})`;
+    } catch (e) {
+      return isoDateStr;
+    }
+  };
+
+  // Helper: parse HH:MM or HH:MM:SS with optional AM/PM into minutes since midnight
+  function parseTimeToMinutes(t) {
+    if (!t) return null;
+    const m = String(t).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?$/);
+    if (!m) return null;
+    let hh = Number(m[1]);
+    const mm = Number(m[2]);
+    const ss = m[3] ? Number(m[3]) : 0;
+    const ampm = m[4];
+    if (ampm) {
+      const a = ampm.toLowerCase();
+      if (a === 'pm' && hh !== 12) hh += 12;
+      if (a === 'am' && hh === 12) hh = 0;
+    }
+    return hh * 60 + mm + Math.round(ss / 60);
+  }
+
   if (!payroll || !person) return null;
 
   // Calculate absent days in the 15-day period
@@ -204,17 +257,53 @@ export default function PayslipModal({
         allDates.push(new Date(d));
       }
     }
-    // Get all attendance dates (convert to yyyy-mm-dd)
-    const attendedDates = detailedAttendance.map((a) => {
-      const dt = new Date(a.date);
-      return dt.toISOString().slice(0, 10);
-    });
-    // Find dates in allDates not in attendedDates, but only if date is before today
+    // Build a lookup by date for detailed attendance
+    const attendanceByDate = Object.fromEntries(
+      (detailedAttendance || []).map((a) => {
+        const dt = new Date(a.date).toISOString().slice(0, 10);
+        return [dt, a];
+      })
+    );
+
+    // Determine expected sessions if person has shift/work_hours metadata
+    const ps = String(person && (person.shift || person.work_hours || "")).toLowerCase();
+    const expectsMorningOnly = (ps.includes("morning") && ps.includes("half")) || ps === "morning" || ps === "morning-half";
+    const expectsAfternoonOnly = (ps.includes("afternoon") && ps.includes("half")) || ps === "afternoon" || ps === "afternoon-half";
+    const expectsSingleSession = ps === "half" || ps === "half-day" || ps === "4" || ps === "4h" || ps.includes("half");
+
+    // For each date in the period (weekdays only) that is before today, determine missing sessions
     absentDates = allDates
       .map((d) => d.toISOString().slice(0, 10))
-      .filter(
-        (dateStr) => dateStr < todayStr && !attendedDates.includes(dateStr)
-      );
+      .filter((dateStr) => dateStr < todayStr)
+      .map((dateStr) => {
+        const rec = attendanceByDate[dateStr] || null;
+        if (!rec) {
+          // no attendance record at all -> full day absent
+          return { date: dateStr, missing: "Full Day" };
+        }
+        const hasMorning = !!rec.morningIn;
+        const hasAfternoon = !!rec.afternoonIn;
+
+        if (expectsMorningOnly) {
+          if (!hasMorning) return { date: dateStr, missing: "Morning" };
+          return null;
+        }
+        if (expectsAfternoonOnly) {
+          if (!hasAfternoon) return { date: dateStr, missing: "Afternoon" };
+          return null;
+        }
+        if (expectsSingleSession) {
+          // half-day staff: missing if neither session present
+          if (!hasMorning && !hasAfternoon) return { date: dateStr, missing: "Session" };
+          return null;
+        }
+        // default: if both sessions missing -> full day absent. If one session missing, mark which one
+        if (!hasMorning && !hasAfternoon) return { date: dateStr, missing: "Full Day" };
+        if (!hasMorning) return { date: dateStr, missing: "Morning" };
+        if (!hasAfternoon) return { date: dateStr, missing: "Afternoon" };
+        return null;
+      })
+      .filter(Boolean);
   }
   const absentCount = absentDates.length;
 
@@ -503,6 +592,7 @@ export default function PayslipModal({
                 <th style={styles.th}>Morning Out</th>
                 <th style={styles.th}>Afternoon In</th>
                 <th style={styles.th}>Afternoon Out</th>
+                <th style={styles.th}>OT</th>
                 <th style={styles.th}>Late Count</th>
                 <th style={styles.th}>Late Details</th>
                 {/* Removed unused OT (hrs) column */}
@@ -572,6 +662,26 @@ export default function PayslipModal({
                     afternoonOutDisplay = "Not time-out";
                   }
 
+                  // Compute per-row overtime (minutes) by comparing out times to scheduled end times.
+                  let otMinutes = 0;
+                  try {
+                    const scheduledMorningEnd = (settings && settings.morning_end) || "12:00";
+                    const scheduledAfternoonEnd = (settings && settings.afternoon_end) || "17:00";
+                    const morningOutMin = parseTimeToMinutes(rec.morningOut);
+                    const afternoonOutMin = parseTimeToMinutes(rec.afternoonOut);
+                    const schedMorningEndMin = parseTimeToMinutes(scheduledMorningEnd);
+                    const schedAfternoonEndMin = parseTimeToMinutes(scheduledAfternoonEnd);
+                    if (typeof afternoonOutMin === 'number' && typeof schedAfternoonEndMin === 'number' && afternoonOutMin > schedAfternoonEndMin) {
+                      otMinutes += afternoonOutMin - schedAfternoonEndMin;
+                    }
+                    // include morning overtime if present (rare)
+                    if (typeof morningOutMin === 'number' && typeof schedMorningEndMin === 'number' && morningOutMin > schedMorningEndMin) {
+                      otMinutes += morningOutMin - schedMorningEndMin;
+                    }
+                  } catch (e) { otMinutes = 0; }
+
+                  const recOtHours = Math.round((otMinutes / 60) * 100) / 100;
+
                   return (
                     <tr key={i} style={rowStyle}>
                       <td style={styles.td}>{rec.date}</td>
@@ -599,7 +709,8 @@ export default function PayslipModal({
                         {afternoonInDisplay}
                       </td>
                       <td style={styles.td}>{afternoonOutDisplay}</td>
-                      <td style={styles.td}>{rec.lateCount || 0}</td>
+                      <td style={styles.td}>{getHourMinute(recOtHours)} ({recOtHours.toFixed(2)})</td>
+                        <td style={styles.td}>{rec.lateCount || 0}</td>
                       <td style={styles.td}>
                         {rec.lateDetails && rec.lateDetails.length ? (
                           <ul style={{ margin: 0, paddingLeft: 16 }}>
@@ -620,7 +731,7 @@ export default function PayslipModal({
               ) : (
                 <tr>
                   <td
-                    colSpan="8"
+                    colSpan="9"
                     style={{
                       ...styles.td,
                       textAlign: "center",
@@ -639,21 +750,24 @@ export default function PayslipModal({
             <thead>
               <tr>
                 <th style={styles.th}>Absent Day</th>
+                <th style={styles.th}>Missing Session</th>
               </tr>
             </thead>
             <tbody>
               {absentCount > 0 ? (
-                absentDates.map((date, idx) => (
+                absentDates.map((item, idx) => (
                   <tr
-                    key={date}
+                    key={item.date}
                     style={idx % 2 === 0 ? styles.trEven : styles.trOdd}
                   >
-                    <td style={styles.td}>{date}</td>
+                    <td style={styles.td}>{formatDateWithWeekday(item.date)}</td>
+                    <td style={styles.td}>{item.missing}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
                   <td
+                    colSpan={2}
                     style={{
                       ...styles.td,
                       color: "#10b981",

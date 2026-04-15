@@ -1,8 +1,9 @@
 import PersonRegistration from "./AdminPage/PersonRegistration";
 import PayrollPage from "./AdminPage/PayrollPage";
 // App.js
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
+import { useLoading } from "./LoadingContext";
 import { supabase } from "./supabaseClient";
 
 import CameraPlayer from "./CameraAttendance/CameraPlayer";
@@ -43,6 +44,17 @@ function App() {
     return () => listener?.subscription.unsubscribe();
   }, []);
 
+  // show global loading on navigation
+  const { setLoading } = useLoading();
+  const location = useLocation();
+  useEffect(() => {
+    // show overlay immediately on navigation
+    setLoading(true);
+    // hide after a small delay — components that fetch data can still toggle this off
+    const t = setTimeout(() => setLoading(false), 300);
+    return () => clearTimeout(t);
+  }, [location.pathname, setLoading]);
+
   useEffect(() => {
     const timer = modalTimerRef.current;
 
@@ -56,7 +68,6 @@ function App() {
   // Removed unused: handleFaceScan, closeModal
 
   return (
-    <BrowserRouter>
       <div className="App">
         <header className="App-header">
           {!window.location.pathname.startsWith("/admin") && (
@@ -316,7 +327,6 @@ function App() {
           </Routes>
         </header>
       </div>
-    </BrowserRouter>
   );
 }
 

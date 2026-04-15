@@ -8,6 +8,8 @@ export function drawPayslipOnDoc(
     totalHolidayPay = 0,
     absentCount = 0,
     totalDeductions = 0,
+    // optional: total overtime hours as decimal (e.g. 1.5)
+    otHours,
     // additional computed values (optional)
     daysWorked = payroll?.daysPresent || 0,
     standardPayAmount = null,
@@ -144,7 +146,18 @@ export function drawPayslipOnDoc(
     "Total of days worked (present):",
     String(daysWorked || payroll.daysPresent || 0)
   );
-  drawLinedField("Overtime hrs:", String(payroll.otHours || ""));
+  // Determine overtime hours to display: prefer explicit param, fallback to payroll value
+  const otHoursToShow = typeof otHours !== "undefined" ? otHours : Number(payroll.otHours || 0);
+  const formatHoursDecimalToLabel = (hrs) => {
+    if (!hrs || Number(hrs) <= 0) return "0.00";
+    const h = Math.floor(hrs);
+    const m = Math.round((hrs - h) * 60);
+    const parts = [];
+    if (h > 0) parts.push(`${h}hr`);
+    if (m > 0) parts.push(`${m}min`);
+    return `${Number(hrs).toFixed(2)} (${parts.join(" and ") || "0min"})`;
+  };
+  drawLinedField("Overtime hrs:", formatHoursDecimalToLabel(otHoursToShow));
   drawLinedField("Holiday Day(s):", String(holidayPayDetails.length || 0));
   // Allowance line with no preset value
   // Use explicit gross if provided, otherwise fallback to payroll.gross
