@@ -191,7 +191,7 @@ export default function DepartmentRates() {
                 disabled={saving}
                 style={{
                   marginLeft: 8,
-                  background: "#10b981",
+                  background: "#237227",
                   color: "#fff",
                   border: "none",
                   borderRadius: 8,
@@ -416,7 +416,7 @@ const styles = {
   titleUnderline: {
     height: "4px",
     width: "100px",
-    background: "#10b981",
+    background: "#237227",
     margin: "8px auto 0",
     borderRadius: "2px",
   },
@@ -441,8 +441,8 @@ const styles = {
     borderBottom: "3px solid transparent",
   },
   activeTab: {
-    color: "#10b981",
-    borderBottom: "3px solid #10b981",
+    color: "#237227",
+    borderBottom: "3px solid #237227",
     backgroundColor: "transparent",
   },
   inactiveTab: {
@@ -540,7 +540,7 @@ const styles = {
     border: "none",
     cursor: "pointer",
     transition: "all 0.2s",
-    background: "#10b981",
+    background: "#237227",
     color: "#ffffff",
     boxShadow: "0 4px 10px rgba(16, 185, 129, 0.3)",
     width: "100%",
@@ -557,7 +557,7 @@ const styles = {
     width: "50px",
     height: "50px",
     border: "4px solid #e5e7eb",
-    borderTop: "4px solid #10b981",
+    borderTop: "4px solid #237227",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },
@@ -571,7 +571,7 @@ styleSheet.textContent = `
     100% { transform: rotate(360deg); }
   }
   input:focus {
-    border-color: #10b981 !important;
+    border-color: #237227 !important;
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
   }
   button:hover:not(:disabled) {

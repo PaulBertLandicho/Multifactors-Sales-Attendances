@@ -105,14 +105,6 @@ export default function AdminLogin() {
               />
               Remember me
             </label>
-            <button
-              type="button"
-              onClick={() => navigate("/admin/forgot-password")}
-              style={styles.forgotButton}
-              aria-label="Forgot password"
-            >
-              Forgot password?
-            </button>
           </div>
 
           {error && <div style={styles.error}>{error}</div>}
@@ -169,7 +161,7 @@ const styles = {
   underline: {
     width: "56px",
     height: "4px",
-    background: "#10b981",
+    background: "#237227",
     margin: "8px auto",
     borderRadius: "6px",
   },
@@ -218,7 +210,7 @@ const styles = {
     padding: "12px",
     borderRadius: "30px",
     border: "none",
-    background: "linear-gradient(90deg,#06b6d4,#10b981)",
+    background: "linear-gradient(90deg,#06b6d4,#237227)",
     color: "#fff",
     cursor: "pointer",
     fontWeight: 600,
@@ -246,20 +238,6 @@ const styles = {
     alignItems: "center",
     color: "#374151",
     fontSize: "14px",
-  },
-  forgot: {
-    color: "#06b6d4",
-    textDecoration: "none",
-    fontSize: "13px",
-  },
-  forgotButton: {
-    background: "transparent",
-    border: "none",
-    color: "#06b6d4",
-    textDecoration: "none",
-    fontSize: "13px",
-    cursor: "pointer",
-    padding: 0,
   },
   eyeButton: {
     background: "transparent",

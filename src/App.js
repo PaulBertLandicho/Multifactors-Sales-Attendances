@@ -100,8 +100,8 @@ function App() {
                         style={{
                           padding: "10px 24px",
                           borderRadius: 999,
-                          border: "1px solid #10b981",
-                          background: "#10b981",
+                          border: "1px solid #237227",
+                          background: "#237227",
                           color: "#ffffff",
                           cursor: "pointer",
                           fontSize: 14,
@@ -333,7 +333,7 @@ function App() {
 // Light theme styles with green accent
 const styles = {
   headerTitle: {
-    color: "#10b981",
+    color: "#237227",
     fontSize: "2rem",
     fontWeight: 600,
     textAlign: "center",

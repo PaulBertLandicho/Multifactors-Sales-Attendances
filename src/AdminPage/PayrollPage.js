@@ -681,18 +681,17 @@ export default function PayrollPage() {
               </option>
             ))}
           </select>
-          <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            style={styles.select}
+          <button
+            aria-label="Toggle sort order"
+            onClick={() => setSortOrder((s) => (s === "asc" ? "desc" : "asc"))}
+            style={styles.sortToggle}
           >
-            <option value="asc">Ascending</option>
-            <option value="desc">Descending</option>
-          </select>
+            {sortOrder === "asc" ? "Asc" : "Desc"}
+          </button>
         </div>
         <button
           onClick={handleExportPayslipExcel}
-          style={{ marginRight: -300, ...styles.button, ...styles.buttonPrimary }}
+          style={{ marginRight: -350, ...styles.button, ...styles.buttonPrimary }}
         >
           {Icons.download} Export Excel
         </button>
@@ -783,7 +782,7 @@ export default function PayrollPage() {
                       </td>
                       <td style={styles.td}>
                         {released ? (
-                          <span style={{ color: "#10b981", fontWeight: 600 }}>
+                          <span style={{ color: "#237227", fontWeight: 600 }}>
                             ✔ Released
                           </span>
                         ) : (
@@ -861,7 +860,7 @@ const styles = {
   titleUnderline: {
     height: "4px",
     width: "100px",
-    background: "#10b981",
+    background: "#237227",
     margin: "8px auto 0",
     borderRadius: "2px",
   },
@@ -913,6 +912,19 @@ const styles = {
     cursor: "pointer",
     minWidth: "160px",
   },
+  sortToggle: {
+    padding: "8px 16px",
+    borderRadius: 22,
+    background: "#f3f4f6",
+    border: "1px solid #e6eef6",
+    color: "#374151",
+    fontSize: "0.95rem",
+    cursor: "pointer",
+    boxShadow: "0 2px 6px rgba(16,24,40,0.06)",
+    minWidth: "72px",
+    textAlign: "center",
+    fontWeight: 600,
+  },
   button: {
     display: "inline-flex",
     alignItems: "center",
@@ -927,7 +939,7 @@ const styles = {
     boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
   },
   buttonPrimary: {
-    background: "#10b981",
+    background: "#237227",
     color: "#ffffff",
   },
 
@@ -1010,7 +1022,7 @@ const styles = {
     width: "50px",
     height: "50px",
     border: "4px solid #e5e7eb",
-    borderTop: "4px solid #10b981",
+    borderTop: "4px solid #237227",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },
@@ -1024,7 +1036,7 @@ styleSheet.textContent = `
     100% { transform: rotate(360deg); }
   }
   input:focus, select:focus {
-    border-color: #10b981 !important;
+    border-color: #237227 !important;
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
   }
   button:hover:not(:disabled) {

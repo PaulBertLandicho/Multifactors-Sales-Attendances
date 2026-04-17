@@ -68,7 +68,7 @@ export default function AdminSidebar({ onLogout }) {
             padding: 6,
           }}
         />
-        <span style={styles.logoText}>Multifactors Sales</span>
+        <span style={styles.logoText}>Multifactors Sales Facial Attendances</span>
       </div>
 
       {/* Navigation */}
@@ -89,7 +89,7 @@ export default function AdminSidebar({ onLogout }) {
               onMouseEnter={(e) => {
                 if (!isActive) {
                   e.currentTarget.style.backgroundColor = "#e6f7f0";
-                  e.currentTarget.style.color = "#10b981";
+                  e.currentTarget.style.color = "#237227";
                 }
               }}
               onMouseLeave={(e) => {
@@ -165,7 +165,7 @@ const styles = {
     width: 48,
     height: 48,
     borderRadius: 15,
-    background: "#10b981",
+    background: "#237227",
   },
 
   logoText: {
@@ -199,9 +199,9 @@ const styles = {
   },
 
   navItemActive: {
-    background: "#10b981",
+    background: "#237227",
     color: "#ffffff",
-    boxShadow: "0 4px 14px rgba(16, 185, 129, 0.4)",
+    boxShadow: "0 4px 14px rgba(40, 56, 51, 0.4)",
   },
 
   navIcon: {

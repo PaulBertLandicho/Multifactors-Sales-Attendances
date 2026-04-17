@@ -83,7 +83,7 @@ export default function AttendanceTable() {
     titleUnderline: {
       height: "4px",
       width: "80px",
-      background: "#10b981",
+      background: "#237227",
       margin: "0 auto",
       borderRadius: "2px",
     },
@@ -131,6 +131,19 @@ export default function AttendanceTable() {
       cursor: "pointer",
       minWidth: "140px",
     },
+    sortToggle: {
+      padding: "8px 16px",
+      borderRadius: "22px",
+      background: "#f3f4f6",
+      border: "1px solid #d1d5db",
+      color: "#374151",
+      fontSize: "0.95rem",
+      cursor: "pointer",
+      boxShadow: "0 2px 6px rgba(16,24,40,0.06)",
+      minWidth: "72px",
+      textAlign: "center",
+      fontWeight: 600,
+    },
     actionButtons: {
       display: "flex",
       gap: "12px",
@@ -150,7 +163,7 @@ export default function AttendanceTable() {
       boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
     },
     buttonPrimary: {
-      background: "#10b981",
+      background: "#237227",
       color: "#ffffff",
     },
     buttonSecondary: {
@@ -240,6 +253,21 @@ export default function AttendanceTable() {
       gap: "4px",
       backgroundColor: "#f3f4f6",
       color: "#1f2937",
+    },
+    countBadge: {
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "8px 12px",
+      borderRadius: 999,
+      border: "1px solid #e6eef6",
+      background: "#fff",
+      color: "#6b7280",
+      fontSize: "0.95rem",
+      minWidth: "84px",
+      textAlign: "center",
+      marginRight: 8,
+      fontWeight: 600,
     },
     emptyState: {
       textAlign: "center",
@@ -550,17 +578,19 @@ export default function AttendanceTable() {
               {Icons.close} Clear
             </button>
           )}
-          <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            style={styles.filterSelect}
+          <button
+            aria-label="Toggle sort order"
+            onClick={() => setSortOrder((s) => (s === "asc" ? "desc" : "asc"))}
+            style={styles.sortToggle}
           >
-            <option value="desc">Descending</option>
-            <option value="asc">Ascending</option>
-          </select>
+            {sortOrder === "asc" ? "Asc" : "Desc"}
+          </button>
         </div>
 
         <div style={styles.actionButtons}>
+          <div style={styles.countBadge}>
+            {(showArchived ? archivedRecords.length : sortedRecords.length) + " records"}
+          </div>
           <button
             onClick={() => setShowArchived((a) => !a)}
             style={{ ...styles.button, ...styles.buttonSecondary }}

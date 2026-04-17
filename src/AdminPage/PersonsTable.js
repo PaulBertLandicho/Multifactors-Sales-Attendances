@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
-import { FiDownload, FiArchive, FiEdit } from "react-icons/fi";
+import { FiDownload, FiArchive, FiEdit, FiBriefcase, FiPhone } from "react-icons/fi";
 
 export default function PersonsTable() {
   // Camera state/hooks for Edit Person modal
@@ -71,23 +71,23 @@ export default function PersonsTable() {
   };
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
-  const [sortKey, setSortKey] = useState("created_at");
-  const [sortOrder, setSortOrder] = useState("desc");
+  const [sortKey] = useState("created_at");
+  const [sortOrder] = useState("desc");
   const [showArchived, setShowArchived] = useState(false);
-  const [deptOptions, setDeptOptions] = useState([]);
   const [persons, setPersons] = useState([]);
+  const [payrollMap, setPayrollMap] = useState({});
+  const [payrollGrossMap, setPayrollGrossMap] = useState({});
+  const [presenceMap, setPresenceMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editPerson, setEditPerson] = useState(null);
+  const [editCashAdvances, setEditCashAdvances] = useState([]);
+  const [loadingCashAdvances, setLoadingCashAdvances] = useState(false);
+  const [newCashAmount, setNewCashAmount] = useState("");
+  const [newCashNote, setNewCashNote] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
   const editPhotoInputRef = useRef(null);
-  const [showCashHistoryModal, setShowCashHistoryModal] = useState(false);
-  const [cashHistory, setCashHistory] = useState([]);
-  const [cashHistoryLoading, setCashHistoryLoading] = useState(false);
-  const [cashHistoryError, setCashHistoryError] = useState(null);
-  const [selectedHistoryPerson, setSelectedHistoryPerson] = useState(null);
-  const [newCashAdvanceAmount, setNewCashAdvanceAmount] = useState(0);
-  const [addingCashAdvance, setAddingCashAdvance] = useState(false);
 
   const Icons = {
     download: <FiDownload />,
@@ -101,7 +101,73 @@ export default function PersonsTable() {
         setError(null);
         const { data, error: err } = await supabase.from("persons").select("*");
         if (err) throw err;
-        setPersons(data || []);
+        const list = data || [];
+        setPersons(list);
+
+        // Fetch latest payroll/net for these persons
+        try {
+          const ids = list.map((p) => p.id).filter(Boolean);
+          if (ids.length) {
+            const { data: payrolls, error: payErr } = await supabase
+              .from("payroll_periods")
+              .select("person_id, net, gross, period")
+              .in("person_id", ids)
+              .order("period", { ascending: false });
+            if (!payErr && Array.isArray(payrolls)) {
+              const map = {};
+              const gmap = {};
+              for (const pr of payrolls) {
+                if (!map[pr.person_id]) map[pr.person_id] = pr.net || 0;
+                if (!gmap[pr.person_id]) gmap[pr.person_id] = pr.gross || 0;
+              }
+              setPayrollMap(map);
+              setPayrollGrossMap(gmap);
+            }
+            // Fetch today's attendance for presence
+            try {
+              const start = new Date();
+              start.setHours(0, 0, 0, 0);
+              const end = new Date();
+              end.setHours(23, 59, 59, 999);
+              const { data: atts, error: attErr } = await supabase
+                .from("attendance")
+                .select("person_id, event, device_time")
+                .in("person_id", ids)
+                .gte("device_time", start.toISOString())
+                .lte("device_time", end.toISOString());
+              if (!attErr && Array.isArray(atts)) {
+                const pmap = {};
+                atts.forEach((r) => {
+                  const pid = r.person_id;
+                  if (!pmap[pid]) pmap[pid] = { morning: false, afternoon: false, firstScan: null };
+                  try {
+                    const dt = new Date(r.device_time);
+                    const hour = dt.getHours();
+                    if ((r.event || "").toLowerCase() === "time-in") {
+                      if (hour < 12) pmap[pid].morning = true;
+                      else pmap[pid].afternoon = true;
+                    }
+                    // track earliest time-in for the person today
+                    if (!pmap[pid].firstScan) pmap[pid].firstScan = dt.toISOString();
+                    else {
+                      const existing = new Date(pmap[pid].firstScan);
+                      if (dt.getTime() < existing.getTime()) pmap[pid].firstScan = dt.toISOString();
+                    }
+                  } catch (e) {}
+                });
+                // mark present if any session true
+                Object.keys(pmap).forEach((k) => {
+                  pmap[k].present = !!(pmap[k].morning || pmap[k].afternoon);
+                });
+                setPresenceMap(pmap);
+              }
+            } catch (e) {
+              // ignore attendance fetch errors
+            }
+          }
+        } catch (e) {
+          // ignore payroll fetch errors
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -110,60 +176,137 @@ export default function PersonsTable() {
     }
     fetchPersons();
     const interval = setInterval(fetchPersons, 5000);
-    // load department options from department_rates
-    (async function loadDeptOptions() {
-      try {
-        const { data, error } = await supabase
-          .from("department_rates")
-          .select("department");
-        if (!error && Array.isArray(data)) {
-          const depts = Array.from(new Set(data.map((r) => r.department).filter(Boolean)));
-          setDeptOptions(depts.sort());
-        }
-      } catch (e) {
-        console.error("Failed to load department rates", e);
-      }
-    })();
     return () => clearInterval(interval);
   }, []);
 
   const handleEdit = (person) => {
     setEditPerson({ ...person });
     setShowEditModal(true);
-    // preload cash advance history for the edit modal
-    fetchCashHistory(person);
   };
 
-  // fetch history without opening the separate modal
-  const fetchCashHistory = async (person) => {
-    if (!person || !person.id) return;
-    setCashHistoryLoading(true);
-    setCashHistoryError(null);
+  const editPersonId = editPerson && editPerson.id ? editPerson.id : null;
+
+  // Load recent cash advance history for the person when opening the edit modal
+  useEffect(() => {
+    let mounted = true;
+    async function loadCashAdvances() {
+      if (!showEditModal || !editPersonId) {
+        setEditCashAdvances([]);
+        return;
+      }
+      setLoadingCashAdvances(true);
+      try {
+        const { data, error } = await supabase
+          .from("cash_advances")
+          .select("id, amount, note, created_at")
+          .eq("person_id", editPersonId)
+          .order("created_at", { ascending: false })
+          .limit(10);
+        if (!mounted) return;
+        if (error) {
+          console.error("Error fetching cash advances:", error);
+          setEditCashAdvances([]);
+        } else {
+          setEditCashAdvances(data || []);
+        }
+      } catch (e) {
+        console.error(e);
+        if (mounted) setEditCashAdvances([]);
+      } finally {
+        if (mounted) setLoadingCashAdvances(false);
+      }
+    }
+    loadCashAdvances();
+    return () => {
+      mounted = false;
+    };
+  }, [showEditModal, editPersonId]);
+
+  const refreshCashAdvances = async () => {
+    if (!editPerson || !editPerson.id) return;
+    setLoadingCashAdvances(true);
     try {
       const { data, error } = await supabase
         .from("cash_advances")
-        .select("id, person_id, amount, created_at, note")
-        .eq("person_id", person.id)
-        .order("created_at", { ascending: false });
+        .select("id, amount, note, created_at")
+        .eq("person_id", editPerson.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
       if (error) throw error;
-      setCashHistory(data || []);
-    } catch (err) {
-      setCashHistoryError(err.message || String(err));
-      setCashHistory([]);
+      setEditCashAdvances(data || []);
+    } catch (e) {
+      console.error("refreshCashAdvances error", e);
+      setEditCashAdvances([]);
     } finally {
-      setCashHistoryLoading(false);
+      setLoadingCashAdvances(false);
     }
   };
 
-  // Sorting handler
-  const handleSort = (key) => {
-    if (sortKey === key) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortKey(key);
-      setSortOrder("asc");
+  const computeAndUpdatePersonCashAdvance = async () => {
+    if (!editPerson || !editPerson.id) return;
+    try {
+      const { data: rows, error } = await supabase
+        .from("cash_advances")
+        .select("amount")
+        .eq("person_id", editPerson.id);
+      if (error) throw error;
+      const total = (rows || []).reduce((s, r) => s + Number(r.amount || 0), 0);
+      // Update local editPerson and main persons list
+      setEditPerson((p) => (p ? { ...p, cash_advance: total } : p));
+      setPersons((prev) => prev.map((p) => (p.id === editPerson.id ? { ...p, cash_advance: total } : p)));
+    } catch (e) {
+      console.error("computeAndUpdatePersonCashAdvance", e);
     }
   };
+
+  const addCashAdvance = async () => {
+    if (!editPerson || !editPerson.id) return;
+    const amt = Number(newCashAmount);
+    if (Number.isNaN(amt) || amt <= 0) {
+      Swal.fire("Invalid amount", "Enter a positive cash advance amount.", "error");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const { error } = await supabase
+        .from("cash_advances")
+        .insert({ person_id: editPerson.id, amount: amt, note: newCashNote || null })
+        .select()
+        .single();
+      if (error) throw error;
+      await refreshCashAdvances();
+      await computeAndUpdatePersonCashAdvance();
+      setNewCashAmount("");
+      setNewCashNote("");
+      Swal.fire("Added", "Cash advance recorded.", "success");
+    } catch (e) {
+      console.error(e);
+      Swal.fire("Error", e.message || String(e), "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const deleteCashAdvance = async (id) => {
+    if (!id) return;
+    const res = await Swal.fire({ title: "Delete entry?", text: "This will remove the cash advance record.", icon: "warning", showCancelButton: true, confirmButtonText: "Delete" });
+    if (!res.isConfirmed) return;
+    setActionLoading(true);
+    try {
+      const { error } = await supabase.from("cash_advances").delete().eq("id", id);
+      if (error) throw error;
+      await refreshCashAdvances();
+      await computeAndUpdatePersonCashAdvance();
+      Swal.fire("Deleted", "Cash advance removed.", "success");
+    } catch (e) {
+      console.error(e);
+      Swal.fire("Error", e.message || String(e), "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Note: sorting is controlled by `sortKey`/`sortOrder` state via UI inputs.
 
   // Archive modal
   const handleArchive = async (person) => {
@@ -194,35 +337,6 @@ export default function PersonsTable() {
         }
       }
     });
-  };
-
-  // View cash advance history for a person
-  const handleViewCashHistory = async (person) => {
-    setSelectedHistoryPerson(person);
-    setShowCashHistoryModal(true);
-    setCashHistory([]);
-    setCashHistoryError(null);
-    setCashHistoryLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("cash_advances")
-        .select("id, person_id, amount, created_at")
-        .eq("person_id", person.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      setCashHistory(data || []);
-    } catch (err) {
-      setCashHistoryError(err.message || String(err));
-    } finally {
-      setCashHistoryLoading(false);
-    }
-  };
-
-  const closeCashHistoryModal = () => {
-    setShowCashHistoryModal(false);
-    setSelectedHistoryPerson(null);
-    setCashHistory([]);
-    setCashHistoryError(null);
   };
 
   // Helper to get photo for a person (latest attendance photo or registration photo)
@@ -267,11 +381,6 @@ export default function PersonsTable() {
       cash_advance,
       registration_photo,
     } = editPerson;
-    // Determine previous cash advance to record history for any increase
-    const prevPerson = persons.find((p) => p.id === id) || {};
-    const prevCash = Number(prevPerson.cash_advance || 0);
-    const newCash = Number(cash_advance || 0);
-    const delta = Math.round((newCash - prevCash) * 100) / 100;
     // Ensure checkboxes are stored as 1/0
     const sssVal = !!Number(editPerson.sss) ? 1 : 0;
     const pagIbigVal = !!Number(editPerson.pag_ibig) ? 1 : 0;
@@ -315,68 +424,6 @@ export default function PersonsTable() {
       );
       Swal.fire("Updated!", "", "success");
       handleEditModalClose();
-      // If cash advance increased, record a history entry
-      try {
-        if (delta > 0) {
-          const { error: histErr } = await supabase
-            .from("cash_advances")
-            .insert([
-              {
-                person_id: id,
-                amount: delta,
-                created_at: new Date().toISOString(),
-              },
-            ]);
-          if (histErr) {
-            console.warn("Failed to insert cash advance history:", histErr.message);
-          } else {
-            // update local history if modal open for this person
-            if (selectedHistoryPerson && selectedHistoryPerson.id === id) {
-              // refresh history
-              handleViewCashHistory(prevPerson || { id });
-            }
-          }
-        }
-      } catch (e) {
-        console.warn("Error recording cash advance history", e);
-      }
-    }
-  };
-
-  // Add a new cash advance entry for the currently editing person
-  const handleAddCashAdvance = async () => {
-    if (!editPerson || !editPerson.id) return;
-    const amount = Number(newCashAdvanceAmount || 0);
-    if (!amount || amount <= 0) {
-      Swal.fire("Error", "Enter a valid amount.", "error");
-      return;
-    }
-    setAddingCashAdvance(true);
-    try {
-      // insert history row
-      const { error: histErr } = await supabase.from("cash_advances").insert([
-        { person_id: editPerson.id, amount, created_at: new Date().toISOString() },
-      ]);
-      if (histErr) throw histErr;
-      // update persons.cash_advance (increment)
-      const newTotal = Math.round((Number(editPerson.cash_advance || 0) + amount) * 100) / 100;
-      const { error: upErr } = await supabase
-        .from("persons")
-        .update({ cash_advance: newTotal })
-        .eq("id", editPerson.id);
-      if (upErr) throw upErr;
-      // update local state
-      setEditPerson((prev) => (prev ? { ...prev, cash_advance: newTotal } : prev));
-      setPersons((prev) => prev.map((p) => (p.id === editPerson.id ? { ...p, cash_advance: newTotal } : p)));
-      // refresh history list
-      await fetchCashHistory(editPerson);
-      setNewCashAdvanceAmount(0);
-      Swal.fire("Recorded", "Cash advance added.", "success");
-    } catch (err) {
-      console.error("Error adding cash advance:", err);
-      Swal.fire("Error", err.message || String(err), "error");
-    } finally {
-      setAddingCashAdvance(false);
     }
   };
 
@@ -393,22 +440,43 @@ export default function PersonsTable() {
   });
 
   const sortedPersons = [...filteredPersons].sort((a, b) => {
-    let aVal, bVal;
-    if (sortKey === "created_at") {
-      aVal = new Date(a.created_at);
-      bVal = new Date(b.created_at);
-    } else if (sortKey === "name") {
-      aVal = (a.name || "").toLowerCase();
-      bVal = (b.name || "").toLowerCase();
-    } else if (sortKey === "department") {
-      aVal = (a.department || "").toLowerCase();
-      bVal = (b.department || "").toLowerCase();
-    } else {
-      aVal = (a[sortKey] || "").toLowerCase();
-      bVal = (b[sortKey] || "").toLowerCase();
-    }
-    if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
-    if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+    // Always prioritize present persons first
+    try {
+      const aPresent = !!(presenceMap && presenceMap[a.id] && presenceMap[a.id].present);
+      const bPresent = !!(presenceMap && presenceMap[b.id] && presenceMap[b.id].present);
+      if (aPresent !== bPresent) return aPresent ? -1 : 1;
+
+      // If both present, sort by earliest attendance time (firstScan) ascending
+      if (aPresent && bPresent) {
+        const aTime = presenceMap[a.id] && presenceMap[a.id].firstScan ? new Date(presenceMap[a.id].firstScan).getTime() : Infinity;
+        const bTime = presenceMap[b.id] && presenceMap[b.id].firstScan ? new Date(presenceMap[b.id].firstScan).getTime() : Infinity;
+        if (aTime !== bTime) return aTime - bTime; // earlier (smaller) first
+      }
+    } catch (e) {}
+
+    // Within the same group (both absent or both present with same time), apply sortKey/sortOrder
+    try {
+      let aVal, bVal;
+      if (sortKey === "created_at") {
+        aVal = new Date(a.created_at).getTime() || 0;
+        bVal = new Date(b.created_at).getTime() || 0;
+      } else if (sortKey === "name") {
+        aVal = (a.name || "").toLowerCase();
+        bVal = (b.name || "").toLowerCase();
+      } else if (sortKey === "department") {
+        aVal = (a.department || "").toLowerCase();
+        bVal = (b.department || "").toLowerCase();
+      } else {
+        aVal = (a[sortKey] || "").toString().toLowerCase();
+        bVal = (b[sortKey] || "").toString().toLowerCase();
+      }
+
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortOrder === "asc" ? aVal - bVal : bVal - aVal;
+      }
+      if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
+      if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
+    } catch (e) {}
     return 0;
   });
 
@@ -496,128 +564,96 @@ export default function PersonsTable() {
         </button>
       </div>
 
-      {/* Table */}
+      {/* Card Grid */}
       <div style={styles.tableContainer}>
-        <div style={styles.tableWrapper}>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th} onClick={() => handleSort("photo")}>
-                  Photo{" "}
-                  {sortKey === "photo" && (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
-                <th style={styles.th} onClick={() => handleSort("id")}>
-                  ID {sortKey === "id" && (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
-                <th style={styles.th} onClick={() => handleSort("name")}>
-                  Name {sortKey === "name" && (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
-                <th style={styles.th} onClick={() => handleSort("department")}>
-                  Department{" "}
-                  {sortKey === "department" &&
-                    (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
-                <th
-                  style={styles.th}
-                  onClick={() => handleSort("phone_number")}
-                >
-                  Phone{" "}
-                  {sortKey === "phone_number" &&
-                    (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
-                <th style={styles.th} onClick={() => handleSort("address")}>
-                  Address{" "}
-                  {sortKey === "address" && (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
-                <th style={styles.th} onClick={() => handleSort("sex")}>
-                  Sex {sortKey === "sex" && (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
-                <th style={styles.th} onClick={() => handleSort("created_at")}>
-                  Registered At{" "}
-                  {sortKey === "created_at" &&
-                    (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
-                <th style={styles.th}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedPersons.length === 0 ? (
-                <tr>
-                  <td colSpan={9} style={styles.emptyState}>
-                    No persons found.
-                  </td>
-                </tr>
-              ) : (
-                sortedPersons.map((p, idx) => {
-                  const rowStyle = {
-                    ...styles.tr,
-                    backgroundColor: idx % 2 === 0 ? "#f9fafb" : "#ffffff",
-                  };
-                  return (
-                    <tr key={p.id} style={rowStyle}>
-                      <td style={styles.td}>
+        <div style={{ padding: 24 }}>
+          <div style={styles.cardsGrid}>
+            {sortedPersons.length === 0 ? (
+              <div style={styles.emptyState}>No persons found.</div>
+            ) : (
+              sortedPersons.map((p) => {
+                const initials = (p.name || "")
+                  .split(" ")
+                  .map((n) => (n ? n[0] : ""))
+                  .slice(0, 2)
+                  .join("")
+                  .toUpperCase();
+                // Compute display amount: prefer explicit daily_rate, then payroll gross, then net
+                const displayAmount = Number(
+                  p.daily_rate ?? payrollGrossMap[p.id] ?? p.gross ?? payrollMap[p.id] ?? p.net ?? 0
+                );
+                return (
+                  <div key={p.id} style={styles.card}>
+                    <div style={styles.cardHeader}>
+                      <div style={styles.cardAvatarWrapper}>
                         {getPersonPhoto(p) ? (
                           <img
                             src={getPersonPhoto(p)}
-                            alt="person"
-                            style={styles.photo}
+                            alt={p.name || "person"}
+                            style={styles.cardAvatar}
                           />
                         ) : (
-                          <span style={{ color: "#9ca3af" }}>No photo</span>
+                          <div style={styles.cardAvatarPlaceholder}>{initials || "?"}</div>
                         )}
-                      </td>
-                      <td style={{ ...styles.td, fontFamily: "monospace" }}>
-                        {p.id}
-                      </td>
-                      <td style={styles.td}>{p.name || ""}</td>
-                      <td style={styles.td}>{p.department || ""}</td>
-                      <td style={styles.td}>{p.phone_number || ""}</td>
-                      <td style={styles.td}>{p.address || ""}</td>
-                      <td style={styles.td}>{p.sex || ""}</td>
-                      <td style={styles.td}>
-                        {p.created_at
-                          ? new Date(p.created_at).toLocaleString()
-                          : ""}
-                      </td>
-                      <td style={styles.td}>
-                        <div style={styles.actionCell}>
-                          <button
-                            onClick={() => handleEdit(p)}
-                            style={{
-                              ...styles.smallButton,
-                              ...styles.buttonSuccess,
-                            }}
-                          >
-                            {Icons.edit} Edit
-                          </button>
-                          <button
-                            onClick={() => handleViewCashHistory(p)}
-                            style={{
-                              ...styles.smallButton,
-                              ...styles.buttonSecondary,
-                            }}
-                          >
-                            Cash Advances
-                          </button>
-                          {!p.archived && (
-                            <button
-                              onClick={() => handleArchive(p)}
-                              style={{
-                                ...styles.smallButton,
-                                ...styles.buttonSecondary,
-                              }}
-                            >
-                              {Icons.archive} Archive
-                            </button>
-                          )}
+                      </div>
+                      <div style={styles.cardStatus}>
+                        {p.archived ? (
+                          <span style={styles.badgeArchived}>Archived</span>
+                        ) : presenceMap[p.id] && presenceMap[p.id].present ? (
+                          <span style={styles.badgePresent}>Present</span>
+                        ) : (
+                          <span style={styles.badgeAbsent}>Absent</span>
+                        )}
+                      </div>
+                    </div>
+
+                      <div style={styles.cardBody}>
+                      <h3 style={styles.cardName}>{p.name || "Unnamed"}</h3>
+                      <div style={styles.cardId}>{p.id}</div>
+
+                      <div style={styles.cardInfoRow}>
+                        <span style={styles.iconAndText}>
+                          <FiBriefcase style={styles.deptIcon} /> {p.department || ""}
+                        </span>
+                      </div>
+                       <div style={styles.phoneRow}>
+                        <span style={styles.iconAndText}>
+                          <FiPhone style={styles.phoneIcon} /> {p.phone_number || ""}
+                        </span>
+                      </div>
+                      <div style={styles.netPayRow}>
+                        <div style={styles.iconAndTexts}>
+                          Daily Rate (₱): <strong>
+                            {`₱${displayAmount.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}`}
+                          </strong>
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                      </div>
+                    </div>
+
+                    <div style={styles.cardActions}>
+                      <button
+                        onClick={() => handleEdit(p)}
+                        style={{ ...styles.smallButton, ...styles.buttonSuccess }}
+                      >
+                        {Icons.edit} Edit
+                      </button>
+                      {!p.archived && (
+                        <button
+                          onClick={() => handleArchive(p)}
+                          style={{ ...styles.smallButton, ...styles.buttonSecondary }}
+                        >
+                          {Icons.archive} Archive
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 
@@ -769,20 +805,13 @@ export default function PersonsTable() {
               </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Department</label>
-                <select
+                <input
                   value={editPerson.department || ""}
                   onChange={(e) =>
                     setEditPerson({ ...editPerson, department: e.target.value })
                   }
-                  style={styles.modalSelect}
-                >
-                  <option value="">Select department</option>
-                  {deptOptions.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
+                  style={styles.modalInput}
+                />
               </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Phone</label>
@@ -865,27 +894,51 @@ export default function PersonsTable() {
                   </label>
                 </div>
               </div>
-              
-              <div style={{ ...styles.modalField, marginTop: 8 }}>
+              <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Add Cash Advance</label>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <input
                     type="number"
-                    min="0"
-                    step="0.01"
-                    value={newCashAdvanceAmount}
-                    onChange={(e) => setNewCashAdvanceAmount(e.target.value)}
-                    style={{ ...styles.modalInput, maxWidth: 200 }}
                     placeholder="Amount"
+                    value={newCashAmount}
+                    onChange={(e) => setNewCashAmount(e.target.value)}
+                    style={{ ...styles.modalInput, maxWidth: 160 }}
                   />
-                  <button
-                    type="button"
-                    onClick={handleAddCashAdvance}
-                    disabled={addingCashAdvance}
-                    style={{ ...styles.button, ...styles.buttonPrimary }}
-                  >
-                    {addingCashAdvance ? "Adding..." : "Add Cash Advance"}
+                  <input
+                    placeholder="Note (optional)"
+                    value={newCashNote}
+                    onChange={(e) => setNewCashNote(e.target.value)}
+                    style={{ ...styles.modalInput, flex: 1 }}
+                  />
+                  <button type="button" onClick={addCashAdvance} disabled={actionLoading} style={{ ...styles.button, ...styles.buttonPrimary, padding: "8px 12px" }}>
+                    {actionLoading ? "Working..." : "Add"}
                   </button>
+                </div>
+
+                <div style={{ marginTop: 10 }}>
+                  <label style={styles.modalLabel}>Cash Advance History</label>
+                  {loadingCashAdvances ? (
+                    <div style={{ color: "#6b7280" }}>Loading...</div>
+                  ) : editCashAdvances && editCashAdvances.length ? (
+                    <div style={{ maxHeight: 140, overflow: "auto", border: "1px solid #e6eef6", borderRadius: 8, padding: 6 }}>
+                      {editCashAdvances.map((c) => (
+                        <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", borderBottom: "1px solid #f1f5f9" }}>
+                          <div style={{ color: "#374151", fontSize: 13 }}>{new Date(c.created_at).toLocaleString()}</div>
+                          <div style={{ textAlign: "right", display: 'flex', gap: 12, alignItems: 'center' }}>
+                            <div>
+                              <div style={{ fontWeight: 700, color: "#0f172a" }}>{`₱${Number(c.amount || 0).toFixed(2)}`}</div>
+                              {c.note ? <div style={{ fontSize: 12, color: "#9ca3af" }}>{c.note}</div> : null}
+                            </div>
+                            <div>
+                              <button type="button" onClick={() => deleteCashAdvance(c.id)} style={{ ...styles.smallButton, ...styles.buttonSecondary }} disabled={actionLoading}>Delete</button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ color: "#9ca3af" }}>No cash advance history</div>
+                  )}
                 </div>
               </div>
               <div style={styles.modalActions}>
@@ -904,65 +957,6 @@ export default function PersonsTable() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-      {/* Cash Advance History Modal */}
-      {showCashHistoryModal && selectedHistoryPerson && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <button onClick={closeCashHistoryModal} style={styles.modalClose}>
-              &times;
-            </button>
-            <h2 style={styles.modalTitle}>Cash Advance History</h2>
-            <p style={{ textAlign: "center", color: "#6b7280" }}>
-              {selectedHistoryPerson.name} • ID: {selectedHistoryPerson.id}
-            </p>
-            <div style={{ maxHeight: 400, overflowY: "auto", marginTop: 12 }}>
-              {cashHistoryLoading ? (
-                <div style={styles.spinnerContainer}>
-                  <div style={styles.spinner} />
-                </div>
-              ) : cashHistoryError ? (
-                <p style={{ color: "red" }}>{cashHistoryError}</p>
-              ) : cashHistory.length === 0 ? (
-                <p style={{ color: "#6b7280", textAlign: "center" }}>
-                  No cash advance records
-                </p>
-              ) : (
-                <table style={styles.table}>
-                  <thead>
-                    <tr>
-                      <th style={styles.th}>Date</th>
-                      <th style={styles.th}>Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {cashHistory.map((h, i) => (
-                      <tr key={h.id} style={i % 2 === 0 ? styles.tr : {}}>
-                        <td style={styles.td}>
-                          {h.created_at
-                            ? new Date(h.created_at).toLocaleString()
-                            : "-"}
-                        </td>
-                        <td style={styles.td}>₱{Number(h.amount).toFixed(2)}</td>
-                      </tr>
-                    ))}
-                    <tr style={styles.tr}>
-                      <td style={{ ...styles.td, fontWeight: 700 }}>Total</td>
-                      <td style={{ ...styles.td, fontWeight: 700 }}>
-                        ₱{cashHistory.reduce((s, c) => s + Number(c.amount || 0), 0).toFixed(2)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              )}
-            </div>
-            <div style={{ marginTop: 16, textAlign: "right" }}>
-              <button onClick={closeCashHistoryModal} style={{ ...styles.button, ...styles.buttonSecondary }}>
-                Close
-              </button>
-            </div>
           </div>
         </div>
       )}
@@ -997,7 +991,7 @@ const styles = {
   titleUnderline: {
     height: "4px",
     width: "100px",
-    background: "#10b981",
+    background: "#237227",
     margin: "8px auto 0",
     borderRadius: "2px",
   },
@@ -1063,7 +1057,7 @@ const styles = {
     boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
   },
   buttonPrimary: {
-    background: "#10b981",
+    background: "#237227",
     color: "#ffffff",
   },
   buttonSecondary: {
@@ -1072,7 +1066,7 @@ const styles = {
     border: "1px solid #d1d5db",
   },
   buttonSuccess: {
-    background: "#10b981",
+    background: "#237227",
     color: "#ffffff",
   },
   smallButton: {
@@ -1146,6 +1140,155 @@ const styles = {
     gap: "8px",
     flexWrap: "wrap",
   },
+  cardsGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    gap: "20px",
+    alignItems: "stretch",
+  },
+  card: {
+    background: "#ffffff",
+    borderRadius: "12px",
+    border: "1px solid #e5e7eb",
+    padding: "20px",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "space-between",
+    boxShadow: "0 8px 20px rgba(16,185,129,0.05)",
+  },
+  cardHeader: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "12px",
+  },
+  cardAvatarWrapper: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "84px",
+    height: "84px",
+    marginRight: "12px",
+  },
+  cardAvatar: {
+    width: "84px",
+    height: "84px",
+    borderRadius: "50%",
+    objectFit: "cover",
+    border: "4px solid #fff",
+    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+  },
+  cardAvatarPlaceholder: {
+    width: "84px",
+    height: "84px",
+    borderRadius: "50%",
+    background: "linear-gradient(135deg,#3b82f6,#06b6d4)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#fff",
+    fontWeight: 700,
+    fontSize: "1.2rem",
+  },
+  cardStatus: {
+    marginLeft: "auto",
+  },
+  badgePresent: {
+    background: "#237227",
+    color: "#fff",
+    padding: "6px 10px",
+    borderRadius: "20px",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+  },
+  badgeAbsent: {
+    background: "#ef4444",
+    color: "#fff",
+    padding: "6px 10px",
+    borderRadius: "20px",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+  },
+  badgeActive: {
+    background: "#237227",
+    color: "#fff",
+    padding: "6px 10px",
+    borderRadius: "20px",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+  },
+  badgeArchived: {
+    background: "#ef4444",
+    color: "#fff",
+    padding: "6px 10px",
+    borderRadius: "20px",
+    fontSize: "0.8rem",
+    fontWeight: 600,
+  },
+  cardBody: {
+    paddingTop: "6px",
+    paddingBottom: "12px",
+  },
+  cardName: {
+    margin: 0,
+    fontSize: "1.05rem",
+    fontWeight: 700,
+    color: "#111827",
+  },
+  cardId: {
+    display: "inline-block",
+    marginTop: "6px",
+    padding: "6px 10px",
+    borderRadius: "12px",
+    background: "#e5e7eb",
+    color: "#374151",
+    fontSize: "0.8rem",
+    fontFamily: "monospace",
+  },
+  cardInfoRow: {
+    marginTop: "10px",
+    color: "#6b7280",
+    fontSize: "0.95rem",
+  },
+  iconAndText: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    color: "#374151",
+  },
+  deptIcon: {
+    color: "#06b6d4",
+    fontSize: "1.05rem",
+  },
+  phoneRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: "8px",
+  },
+  phoneIcon: {
+    color: "#3b82f6",
+    fontSize: "1rem",
+  },
+  netPayRow: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: "8px",
+  },
+  iconAndTexts: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    fontWeight: 700,
+    color: "#237227",
+  },
+  cardActions: {
+    display: "flex",
+    gap: "8px",
+    marginTop: "12px",
+    justifyContent: "flex-start",
+  },
   emptyState: {
     textAlign: "center",
     padding: "60px 20px",
@@ -1172,7 +1315,7 @@ const styles = {
     width: "50px",
     height: "50px",
     border: "4px solid #e5e7eb",
-    borderTop: "4px solid #10b981",
+    borderTop: "4px solid #237227",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },
@@ -1278,7 +1421,7 @@ styleSheet.textContent = `
     100% { transform: rotate(360deg); }
   }
   input:focus, select:focus, button:focus {
-    border-color: #10b981 !important;
+    border-color: #237227 !important;
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
     outline: none;
   }
@@ -1300,7 +1443,7 @@ styleSheet.textContent = `
     color: #4b5563 !important;
   }
   .swal-light-confirm {
-    background: #10b981 !important;
+    background: #237227 !important;
     border: none !important;
     border-radius: 40px !important;
     padding: 10px 24px !important;

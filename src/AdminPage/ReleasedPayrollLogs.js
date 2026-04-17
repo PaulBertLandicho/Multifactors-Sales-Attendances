@@ -203,7 +203,7 @@ const styles = {
   titleUnderline: {
     height: "4px",
     width: "100px",
-    background: "#10b981",
+    background: "#237227",
     margin: "8px auto 0",
     borderRadius: "2px",
   },
@@ -269,7 +269,7 @@ const styles = {
     boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
   },
   buttonPrimary: {
-    background: "#10b981",
+    background: "#237227",
     color: "#ffffff",
   },
 
@@ -352,7 +352,7 @@ const styles = {
     width: "50px",
     height: "50px",
     border: "4px solid #e5e7eb",
-    borderTop: "4px solid #10b981",
+    borderTop: "4px solid #237227",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },
@@ -366,7 +366,7 @@ styleSheet.textContent = `
     100% { transform: rotate(360deg); }
   }
   input:focus, select:focus {
-    border-color: #10b981 !important;
+    border-color: #237227 !important;
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
   }
   button:hover:not(:disabled) {

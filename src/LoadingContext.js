@@ -34,7 +34,7 @@ export function LoadingProvider({ children }) {
                   {/* outer dotted ring */}
                   <circle cx="32" cy="32" r="26" fill="none" stroke="#e5e7eb" strokeWidth="3" strokeLinecap="round" strokeDasharray="1 6" />
                   {/* inner rotating arc */}
-                  <circle cx="32" cy="32" r="18" fill="none" stroke="#10b981" strokeWidth="4" strokeLinecap="round" strokeDasharray="36 113" transform="rotate(-90 32 32)" />
+                  <circle cx="32" cy="32" r="18" fill="none" stroke="#237227" strokeWidth="4" strokeLinecap="round" strokeDasharray="36 113" transform="rotate(-90 32 32)" />
                 </g>
               </svg>
             </div>

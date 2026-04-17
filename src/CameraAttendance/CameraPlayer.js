@@ -913,7 +913,7 @@ export default function CameraPlayer({
                 borderRadius: 8,
                 border: "none",
                 cursor: "pointer",
-                background: isFullscreen ? "#f3f4f6" : "#10b981",
+                background: isFullscreen ? "#f3f4f6" : "#237227",
                 color: isFullscreen ? "#111827" : "#ffffff",
                 fontWeight: 700,
               }}

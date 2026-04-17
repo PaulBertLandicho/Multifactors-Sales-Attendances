@@ -289,7 +289,30 @@ export default function PersonDetails({
 
     let personId = form.id;
     const isNew = !personId;
-    if (isNew) personId = uuidv4();
+    if (isNew) {
+      // Generate a readable incremental employee ID like EMP001, EMP002, ...
+      // We look for existing IDs starting with 'EMP' and pick the next number.
+      try {
+        const { data: empRows, error: empErr } = await supabase
+          .from("persons")
+          .select("id")
+          .like("id", "EMP%");
+
+        if (empErr) throw empErr;
+        const numbers = (empRows || [])
+          .map((r) => {
+            const m = /^EMP0*(\d+)$/.exec(r.id || "");
+            return m ? parseInt(m[1], 10) : null;
+          })
+          .filter((n) => n !== null);
+        const max = numbers.length ? Math.max(...numbers) : 0;
+        const next = max + 1;
+        personId = `EMP${String(next).padStart(3, "0")}`;
+      } catch (e) {
+        // Fallback to UUID if anything goes wrong with the ID generation
+        personId = uuidv4();
+      }
+    }
 
     // Determine final department value
     let finalDepartment = form.department;

@@ -163,7 +163,7 @@ export default function HolidayManagerGlobal({
                 key={h.id || idx}
                 style={{
                   ...holidayStyles.holidayListItem,
-                  color: h.type === "regular" ? "#10b981" : "#f59e42",
+                  color: h.type === "regular" ? "#237227" : "#f59e42",
                 }}
               >
                 <span style={holidayStyles.holidayDate}>{h.date}</span>
@@ -194,7 +194,7 @@ export default function HolidayManagerGlobal({
           </div>
           <ul style={holidayStyles.holidayListPending}>
             {regularHolidays.filter(Boolean).map((date, idx) => (
-              <li key={"reg-" + idx} style={{ color: "#10b981" }}>
+              <li key={"reg-" + idx} style={{ color: "#237227" }}>
                 {date} (Regular Holiday)
               </li>
             ))}
@@ -212,10 +212,9 @@ export default function HolidayManagerGlobal({
         {/* Regular Holidays Card */}
         <div style={holidayStyles.addCard}>
           <div style={holidayStyles.addCardHeader}>
-            <span style={holidayStyles.addCardIcon}>🎌</span>
             <span style={holidayStyles.addCardTitle}>
               Regular Holidays{" "}
-              <span style={{ color: "#10b981", fontWeight: 600 }}>
+              <span style={{ color: "#237227", fontWeight: 600 }}>
                 ({regularRate}%)
               </span>
             </span>
@@ -248,7 +247,6 @@ export default function HolidayManagerGlobal({
         {/* Special Holidays Card */}
         <div style={holidayStyles.addCard}>
           <div style={holidayStyles.addCardHeader}>
-            <span style={holidayStyles.addCardIcon}>🏳️‍🌈</span>
             <span style={holidayStyles.addCardTitle}>
               Special Holidays{" "}
               <span style={{ color: "#f59e42", fontWeight: 600 }}>
@@ -319,7 +317,7 @@ const holidayStyles = {
   },
   sectionSubtitle: {
     fontSize: "1.1rem",
-    color: "#10b981",
+    color: "#237227",
     fontWeight: 500,
     marginLeft: 8,
   },
@@ -459,9 +457,6 @@ const holidayStyles = {
     gap: "10px",
     marginBottom: 10,
   },
-  addCardIcon: {
-    fontSize: "1.3rem",
-  },
   addCardTitle: {
     fontWeight: 600,
     fontSize: "1.08rem",
@@ -496,7 +491,7 @@ const holidayStyles = {
   },
   addButton: {
     marginTop: 8,
-    background: "#10b981",
+    background: "#237227",
     color: "#fff",
     border: "none",
     borderRadius: "8px",
@@ -512,7 +507,7 @@ const holidayStyles = {
     marginTop: 16,
   },
   saveButton: {
-    background: "#10b981",
+    background: "#237227",
     color: "#fff",
     border: "none",
     borderRadius: "20px",

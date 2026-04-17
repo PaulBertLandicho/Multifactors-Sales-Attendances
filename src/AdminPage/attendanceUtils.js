@@ -13,7 +13,7 @@ export function toMinutes(currentTime) {
   return hours * 60 + minutes;
 }
 
-export function determineExpectedEvent(currentTime, lastEvent, settings) {
+export function determineExpectedEvent(currentTime, lastEvent, settings, lastEventDeviceTimeIso = null) {
   if (!settings) return "time-in";
 
   const nowMinutes = toMinutes(currentTime);
@@ -46,6 +46,30 @@ export function determineExpectedEvent(currentTime, lastEvent, settings) {
     nowMinutes >= afternoonStartMinutes &&
     nowMinutes <= afternoonEndMinutes
   ) {
+    // If the most recent event was a morning time-in (i.e. the last time-in occurred
+    // during the morning window), allow recording a morning time-out even if the
+    // current clock is already in the afternoon. This avoids blocking a legitimate
+    // morning "time-out" when the user scans later in the day.
+    try {
+      if (
+        lastEvent === "time-in" &&
+        lastEventDeviceTimeIso &&
+        typeof lastEventDeviceTimeIso === "string"
+      ) {
+        const dt = new Date(lastEventDeviceTimeIso);
+        if (!isNaN(dt.getTime())) {
+          const hhmm = dt.toTimeString().slice(0, 5);
+          const lastMinutes = toMinutes(hhmm);
+          if (lastMinutes >= morningStartMinutes && lastMinutes <= morningEndMinutes) {
+            return "time-out";
+          }
+        }
+      }
+    } catch (e) {
+      // If any parsing fails, fall back to normal behavior below.
+      console.warn("determineExpectedEvent: failed to evaluate lastEventDeviceTimeIso", e);
+    }
+
     // Allow afternoon time-in regardless of previous morning events (including missing morning-out).
     // We'll rely on a short duplicate-window check elsewhere to avoid near-duplicate inserts.
     return "time-in";
@@ -192,7 +216,13 @@ export async function recordAttendanceForPerson({
   }
 
   const lastEvent = attData?.[0]?.event || null;
-  const event = determineExpectedEvent(currentTime, lastEvent, settings);
+  const lastEventDeviceTimeIso = attData?.[0]?.device_time || null;
+  const event = determineExpectedEvent(
+    currentTime,
+    lastEvent,
+    settings,
+    lastEventDeviceTimeIso
+  );
 
   // Additional protection: if this is an afternoon time-in, block it when
   // the same person already has an afternoon time-in earlier today.

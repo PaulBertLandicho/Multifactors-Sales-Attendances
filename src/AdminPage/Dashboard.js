@@ -407,13 +407,28 @@ export default function Dashboard() {
     grid: { display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))", gap: 16, marginBottom: 20 },
     card: { background: "#fff", borderRadius: 12, padding: 18, boxShadow: "0 8px 24px rgba(16,185,129,0.06)", border: "1px solid #e6f4ef", display: "flex", alignItems: "center", gap: 12 },
     iconWrap: { width: 48, height: 48, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: "linear-gradient(135deg,#ecfdf5,#d1fae5)", color: "#059669" },
-    title: { fontSize: 14, color: "#374151" },
-    value: { fontSize: 20, fontWeight: 700, color: "#064e3b" },
+    title: { fontSize: 14, color: "#237227" },
+    value: { fontSize: 20, fontWeight: 700, color: "#237227" },
     chartGrid: { display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, alignItems: "start" },
     chartCard: { background: "#fff", borderRadius: 12, padding: 24, boxShadow: "0 8px 24px rgba(2,132,199,0.04)", border: "1px solid #e6f0f7" },
     payrollCard: { background: "#fff", borderRadius: 12, padding: 18, boxShadow: "0 8px 24px rgba(2,132,199,0.02)", border: "1px solid #eef2f6" },
     chartSvg: { width: "100%", height: 280 },
     payrollList: { marginTop: 8, display: "grid", gap: 8 }
+  };
+
+  // Add pill-style sort toggle style
+  styles.sortToggle = {
+    padding: "8px 16px",
+    borderRadius: 22,
+    background: "#f3f4f6",
+    border: "1px solid #e6eef6",
+    color: "#374151",
+    fontSize: "0.95rem",
+    cursor: "pointer",
+    boxShadow: "0 2px 6px rgba(16,24,40,0.06)",
+    minWidth: "72px",
+    textAlign: "center",
+    fontWeight: 600,
   };
 
   // SVG line chart generator with axes, grid, labels and tooltip
@@ -568,7 +583,7 @@ export default function Dashboard() {
 
   return (
     <div style={styles.container}>
-      <h2 style={{ margin: 0, color: "#064e3b" }}>Dashboard</h2>
+      <h2 style={{ margin: 0, color: "#237227" }}>Dashboard</h2>
       <p style={{ color: "#6b7280", marginTop: 6 }}>Overview of attendance and payroll</p>
 
       <div style={styles.grid}>
@@ -645,7 +660,7 @@ export default function Dashboard() {
 
         <div style={styles.payrollCard}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <h4 style={{ margin: 0, color: "#064e3b" }}>Payrolls Pending Release</h4>
+            <h4 style={{ margin: 0, color: "#237227" }}>Payrolls Pending Release</h4>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {notReadyPayrolls > 0 && (
                 <div title={`${notReadyPayrolls} payroll(s) pending but not yet ended`} style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -660,7 +675,7 @@ export default function Dashboard() {
               <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 10, borderRadius: 8, background: "#f8fafc", border: "1px solid #eef2f6" }}>
                 <div style={{ color: "#0f172a" }}>{formatPeriod(p.period)}</div>
                 <div>
-                  <button onClick={() => releasePayroll(p.id)} style={{ padding: "6px 12px", borderRadius: 8, background: "#10b981", color: "#fff", border: "none", cursor: "pointer" }}>Release</button>
+                  <button onClick={() => releasePayroll(p.id)} style={{ padding: "6px 12px", borderRadius: 8, background: "#237227", color: "#fff", border: "none", cursor: "pointer" }}>Release</button>
                 </div>
               </div>
             ))}
@@ -672,7 +687,7 @@ export default function Dashboard() {
     {/* Full width Today's Attendance card (table-like) */}
     <div style={{ marginTop: 16, background: "#fff", borderRadius: 12, padding: 12, border: "1px solid #eef2f6" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderBottom: "1px solid #f1f5f9" }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Today's Attendance</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#237227" }}>Today's Attendance</div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 13, color: "#6b7280" }}>{filteredTodayEntries.length} records</div>
           <div style={{ fontSize: 12, color: "#9ca3af" }}>{todayLabel}</div>
@@ -700,10 +715,13 @@ export default function Dashboard() {
           {departments.map((d) => <option key={d} value={d}>{d}</option>)}
         </select>
 
-        <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} style={{ padding: '8px 10px', borderRadius: 999, border: '1px solid #e6eef6', background: '#fff' }}>
-          <option value="descending">Descending</option>
-          <option value="ascending">Ascending</option>
-        </select>
+        <button
+          aria-label="Toggle sort order"
+          onClick={() => setSortOrder((s) => (s === "ascending" ? "descending" : "ascending"))}
+          style={styles.sortToggle}
+        >
+          {sortOrder === "ascending" ? "Asc" : "Desc"}
+        </button>
 
 
         <button onClick={() => {
@@ -727,11 +745,12 @@ export default function Dashboard() {
             a.remove();
             URL.revokeObjectURL(url);
           } catch (e) { console.error(e); }
-        }} style={{ padding: '8px 12px', borderRadius: 999, border: 'none', background: '#10b981', color: '#fff' }}>Export Excel</button>
+        }} style={{ padding: '8px 12px', borderRadius: 999, border: 'none', background: '#237227', color: '#fff' }}>Export Excel</button>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 2fr 1fr 1fr 1fr", gap: 8, alignItems: "center", padding: "10px 12px", fontSize: 13, color: "#6b7280", borderBottom: "1px solid #f8fafc" }}>
         <div>PHOTO / ATTENDANCE TIME</div>
+        <div>EMPLOYEE ID</div>
         <div>EMPLOYEE NAME</div>
         <div>DEPARTMENT / WORK HOURS</div>
         <div>ATTENDANCE STATUS</div>
@@ -789,10 +808,14 @@ export default function Dashboard() {
               </div>
 
               <div>
+                <div style={{ fontSize: 13, color: "#0f172a", fontWeight: 700 }}>{person && person.id ? person.id : (r.person_id || '-')}</div>
+              </div>
+
+              <div>
                 <div style={{ fontSize: 13, color: "#0f172a", fontWeight: 600 }}>{name}</div>
               </div>
 
-                <div>
+              <div>
                 <div style={{ color: "#0f172a" }}>{(person && person.department) || r.department || "-"}</div>
                 <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 6 }}>{getWorkHoursLabel(r)}</div>
               </div>
@@ -814,7 +837,7 @@ export default function Dashboard() {
           onMouseLeave={() => scheduleHideTooltip()}
           style={{ position: 'fixed', left: tooltip.x, top: tooltip.y, background: '#fff', border: '1px solid #e6eef6', borderRadius: 8, padding: 12, boxShadow: '0 8px 24px rgba(2,6,23,0.06)', zIndex: 9999, maxWidth: 300 }}
         >
-          <div style={{ fontWeight: 700, color: '#064e3b', marginBottom: 8 }}>{tooltip.title}</div>
+          <div style={{ fontWeight: 700, color: '#237227', marginBottom: 8 }}>{tooltip.title}</div>
           <div style={{ maxHeight: 220, overflow: 'auto', fontSize: 13, color: '#374151' }}>
             {(tooltip.items && tooltip.items.length) ? tooltip.items.map((n, i) => <div key={i} style={{ padding: '4px 0', borderBottom: i < tooltip.items.length - 1 ? '1px solid #f1f5f9' : 'none' }}>{n}</div>) : <div style={{ color: '#9ca3af' }}>None</div>}
           </div>

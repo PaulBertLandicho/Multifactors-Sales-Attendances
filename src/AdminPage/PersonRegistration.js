@@ -167,9 +167,9 @@ export default function PersonRegistration() {
                 padding: "48px 64px",
                 fontSize: "3rem",
                 fontWeight: 700,
-                color: "#10b981",
+                color: "#237227",
                 boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-                border: "2px solid #10b981",
+                border: "2px solid #237227",
               }}
             >
               {countdown}
@@ -328,7 +328,7 @@ const styles = {
   titleUnderline: {
     height: "4px",
     width: "100px",
-    background: "#10b981",
+    background: "#237227",
     margin: "8px auto 0",
     borderRadius: "2px",
   },
@@ -394,7 +394,7 @@ const styles = {
     boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
   },
   buttonPrimary: {
-    background: "#10b981",
+    background: "#237227",
     color: "#ffffff",
   },
 
@@ -477,7 +477,7 @@ const styles = {
     width: "50px",
     height: "50px",
     border: "4px solid #e5e7eb",
-    borderTop: "4px solid #10b981",
+    borderTop: "4px solid #237227",
     borderRadius: "50%",
     animation: "spin 1s linear infinite",
   },

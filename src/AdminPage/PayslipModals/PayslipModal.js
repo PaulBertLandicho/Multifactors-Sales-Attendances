@@ -437,7 +437,7 @@ export default function PayslipModal({
     title: {
       fontSize: "2rem",
       fontWeight: 700,
-      color: "#10b981",
+      color: "#237227",
       textAlign: "center",
       margin: "0 0 8px 0",
     },
@@ -452,7 +452,7 @@ export default function PayslipModal({
       fontWeight: 600,
       color: "#1f2937",
       margin: "32px 0 16px 0",
-      borderBottom: "2px solid #10b981",
+      borderBottom: "2px solid #237227",
       paddingBottom: "8px",
     },
     table: {
@@ -485,7 +485,7 @@ export default function PayslipModal({
       textAlign: "right",
       fontSize: "1.6rem",
       fontWeight: 700,
-      color: "#10b981",
+      color: "#237227",
       margin: "16px 0 0 0",
     },
     buttonContainer: {
@@ -507,7 +507,7 @@ export default function PayslipModal({
       alignItems: "center",
       justifyContent: "center",
     },
-    buttonPrimary: { background: "#10b981", color: "#fff" },
+    buttonPrimary: { background: "#237227", color: "#fff" },
     buttonSecondary: {
       background: "#e5e7eb",
       color: "#1f2937",
@@ -528,7 +528,7 @@ export default function PayslipModal({
             <p
               style={{
                 textAlign: "center",
-                color: "#10b981",
+                color: "#237227",
                 fontWeight: 600,
                 marginBottom: 8,
               }}
@@ -540,7 +540,7 @@ export default function PayslipModal({
             <p
               style={{
                 textAlign: "center",
-                color: "#10b981",
+                color: "#237227",
                 fontWeight: 700,
                 fontSize: "1.1rem",
                 marginBottom: 8,
@@ -770,7 +770,7 @@ export default function PayslipModal({
                     colSpan={2}
                     style={{
                       ...styles.td,
-                      color: "#10b981",
+                      color: "#237227",
                       textAlign: "center",
                     }}
                   >
@@ -882,7 +882,7 @@ export default function PayslipModal({
                         )
                       </td>
                       <td style={styles.td}>
-                        <span style={{ color: "#10b981", fontWeight: 600 }}>
+                        <span style={{ color: "#237227", fontWeight: 600 }}>
                           {" "}
                           ({h.ratePercent}%)
                         </span>
