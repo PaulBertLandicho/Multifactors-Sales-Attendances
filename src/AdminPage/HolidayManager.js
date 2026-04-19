@@ -3,6 +3,8 @@
 
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
+import { FiCalendar, FiTrash2, FiClock, FiX } from "react-icons/fi";
+import Icon from "../components/Icon";
 import { supabase } from "../supabaseClient";
 
 // Global HolidayManager for all departments
@@ -49,7 +51,7 @@ export default function HolidayManagerGlobal({
   const handleDeleteSavedHoliday = async (holiday) => {
     if (
       !window.confirm(
-        `Delete holiday on ${holiday.date} (${holiday.type}) for all departments?`
+        `Delete holiday on ${holiday.date} (${holiday.type}) for all departments?`,
       )
     )
       return;
@@ -152,7 +154,9 @@ export default function HolidayManagerGlobal({
       {month && allHolidays.length > 0 && (
         <div style={holidayStyles.card}>
           <div style={holidayStyles.cardHeader}>
-            <span style={holidayStyles.cardIcon}>📅</span>
+            <span style={holidayStyles.cardIcon}>
+              <Icon as={FiCalendar} size={22} ariaLabel="Holidays" />
+            </span>
             <span style={holidayStyles.cardTitle}>
               All Global Holidays for {month} (Saved)
             </span>
@@ -175,7 +179,12 @@ export default function HolidayManagerGlobal({
                   style={holidayStyles.deleteButton}
                   title="Delete holiday"
                 >
-                  🗑️
+                  <Icon
+                    as={FiTrash2}
+                    ariaLabel="Delete holiday"
+                    color="#ffffff"
+                    style={{ marginRight: 8 }}
+                  />
                 </button>
               </li>
             ))}
@@ -187,7 +196,9 @@ export default function HolidayManagerGlobal({
       {(regularHolidays.length > 0 || specialHolidays.length > 0) && (
         <div style={holidayStyles.cardPending}>
           <div style={holidayStyles.cardHeaderPending}>
-            <span style={holidayStyles.cardIconPending}>⏳</span>
+            <span style={holidayStyles.cardIconPending}>
+              <Icon as={FiClock} size={20} ariaLabel="Pending" />
+            </span>
             <span style={holidayStyles.cardTitlePending}>
               Pending Holidays for {month} (To Save)
             </span>
@@ -232,7 +243,7 @@ export default function HolidayManagerGlobal({
                 style={holidayStyles.removeButton}
                 title="Remove date"
               >
-                ✖
+                <Icon as={FiX} ariaLabel="Remove date" />
               </button>
             </div>
           ))}
@@ -267,7 +278,7 @@ export default function HolidayManagerGlobal({
                 style={holidayStyles.removeButton}
                 title="Remove date"
               >
-                ✖
+                <Icon as={FiX} ariaLabel="Remove date" />
               </button>
             </div>
           ))}

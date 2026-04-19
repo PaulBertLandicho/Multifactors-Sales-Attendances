@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 // import { supabase } from '../supabaseClient';
 import { supabase } from "../supabaseClient";
+import { useLoading } from "../LoadingContext";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import { MdFilterList } from "react-icons/md";
@@ -23,7 +24,7 @@ export default function AttendanceTable() {
   const [showArchived, setShowArchived] = useState(false);
   const [records, setRecords] = useState([]);
   const [persons, setPersons] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { setLoading } = useLoading();
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState(null);
   // Removed unused form and setForm state
@@ -50,7 +51,7 @@ export default function AttendanceTable() {
 
   const Icons = {
     filter: <MdFilterList />,
-    download: <FiDownload />,
+    download: <FiDownload color="#ffffff" style={{ marginRight: 8 }} />,
     archive: <FiArchive />,
     restore: <FiRotateCcw />,
     add: <FiPlus />,
@@ -310,11 +311,9 @@ export default function AttendanceTable() {
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [setLoading]);
 
-  if (loading && !records.length && !error) {
-    return <p>Loading attendance records...</p>;
-  }
+  // Page-level loading handled by LoadingContext overlay
 
   if (error) {
     return <p style={{ color: "red" }}>{error}</p>;
@@ -368,7 +367,7 @@ export default function AttendanceTable() {
         Swal.fire("Error", archErr.message, "error");
       } else {
         setRecords((prev) =>
-          prev.map((r) => (r.id === rec.id ? { ...r, archived: true } : r))
+          prev.map((r) => (r.id === rec.id ? { ...r, archived: true } : r)),
         );
         Swal.fire("Archived!", "", "success");
       }
@@ -385,7 +384,7 @@ export default function AttendanceTable() {
       Swal.fire("Error", resErr.message, "error");
     } else {
       setRecords((prev) =>
-        prev.map((r) => (r.id === rec.id ? { ...r, archived: false } : r))
+        prev.map((r) => (r.id === rec.id ? { ...r, archived: false } : r)),
       );
       Swal.fire("Restored!", "", "success");
     }
@@ -482,7 +481,9 @@ export default function AttendanceTable() {
     .filter((r) => r.archived)
     .filter((r) => {
       if (!selectedDate) return true;
-      const rd = r.device_time ? new Date(r.device_time).toISOString().slice(0, 10) : null;
+      const rd = r.device_time
+        ? new Date(r.device_time).toISOString().slice(0, 10)
+        : null;
       return rd === selectedDate;
     })
     .sort((a, b) => new Date(b.device_time) - new Date(a.device_time));
@@ -557,7 +558,7 @@ export default function AttendanceTable() {
           >
             <option value="">All Departments</option>
             {Array.from(
-              new Set(persons.map((p) => p.department).filter(Boolean))
+              new Set(persons.map((p) => p.department).filter(Boolean)),
             ).map((dept) => (
               <option key={dept} value={dept}>
                 {dept}
@@ -589,7 +590,8 @@ export default function AttendanceTable() {
 
         <div style={styles.actionButtons}>
           <div style={styles.countBadge}>
-            {(showArchived ? archivedRecords.length : sortedRecords.length) + " records"}
+            {(showArchived ? archivedRecords.length : sortedRecords.length) +
+              " records"}
           </div>
           <button
             onClick={() => setShowArchived((a) => !a)}
@@ -654,7 +656,7 @@ export default function AttendanceTable() {
                                     <span style={styles.photoTime}>
                                       {row.device_time
                                         ? new Date(
-                                            row.device_time
+                                            row.device_time,
                                           ).toLocaleString(undefined, {
                                             hour: "2-digit",
                                             minute: "2-digit",
@@ -742,7 +744,8 @@ export default function AttendanceTable() {
                                     .map(Number);
                                   const morningEndMin =
                                     morningEnd[0] * 60 + morningEnd[1];
-                                  const morningGrace = Number(settings.morning_grace_minutes) || 0;
+                                  const morningGrace =
+                                    Number(settings.morning_grace_minutes) || 0;
                                   // Treat times within the morning end + grace as still morning
                                   if (minutes > morningEndMin + morningGrace) {
                                     label = "Afternoon In";
@@ -765,7 +768,8 @@ export default function AttendanceTable() {
                                     .map(Number);
                                   const morningEndMin =
                                     morningEnd[0] * 60 + morningEnd[1];
-                                  const morningGrace = Number(settings.morning_grace_minutes) || 0;
+                                  const morningGrace =
+                                    Number(settings.morning_grace_minutes) || 0;
                                   // Treat times within the morning end + grace as still morning
                                   if (minutes > morningEndMin + morningGrace) {
                                     label = "Afternoon Out";
@@ -819,7 +823,7 @@ export default function AttendanceTable() {
                         </td>
                       </tr>
                     );
-                  }
+                  },
                 )
               )}
             </tbody>

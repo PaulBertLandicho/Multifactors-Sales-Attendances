@@ -3,32 +3,45 @@
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { supabase } from "../supabaseClient";
-import { FiPlusCircle } from "react-icons/fi";
+import {
+  FiPlusCircle,
+  FiHome,
+  FiTrendingDown,
+} from "react-icons/fi";
+import Icon from "../components/Icon";
+import { useLoading } from "../LoadingContext";
 
 export default function DepartmentRates() {
   const [rates, setRates] = useState([]);
   // Track original department names for rename
   const [originalNames, setOriginalNames] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { setLoading } = useLoading();
   const [saving, setSaving] = useState(false);
   // Removed unused navigate
   const Icons = {
-    circlePlus: <FiPlusCircle />,
+    circlePlus: <Icon as={FiPlusCircle} ariaLabel="Add" color="#ffffff" />,
   };
   useEffect(() => {
     fetchRates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchRates = async () => {
-    const { data, error } = await supabase
-      .from("department_rates")
-      .select("*")
-      .order("department");
-    if (!error && data) {
-      setRates(data);
-      setOriginalNames(data.map((row) => row.department));
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("department_rates")
+        .select("*")
+        .order("department");
+      if (!error && data) {
+        setRates(data);
+        setOriginalNames(data.map((row) => row.department));
+      }
+    } catch (e) {
+      console.error("Error fetching department rates:", e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // Add Department (modal version)
@@ -45,7 +58,7 @@ export default function DepartmentRates() {
 
     // Check duplicate
     const exists = rates.find(
-      (r) => r.department.toLowerCase() === deptName.toLowerCase()
+      (r) => r.department.toLowerCase() === deptName.toLowerCase(),
     );
 
     if (exists) {
@@ -100,7 +113,7 @@ export default function DepartmentRates() {
         rates.some(
           (r, i) =>
             i !== index &&
-            r.department.toLowerCase() === item.department.toLowerCase()
+            r.department.toLowerCase() === item.department.toLowerCase(),
         )
       ) {
         Swal.fire("Error", "Department name already exists", "error");
@@ -146,7 +159,7 @@ export default function DepartmentRates() {
     fetchRates();
   };
 
-  if (loading) return <div>Loading employee rates...</div>;
+  
 
   return (
     <div style={styles.container}>
@@ -171,7 +184,9 @@ export default function DepartmentRates() {
         {rates.map((row, idx) => (
           <div key={row.department} style={styles.card}>
             <div style={styles.cardHeader}>
-              <span style={styles.cardIcon}>🏢</span>
+              <span style={styles.cardIcon}>
+                <Icon as={FiHome} size={28} ariaLabel="Department" />
+              </span>
               <input
                 type="text"
                 value={row.department}
@@ -246,7 +261,10 @@ export default function DepartmentRates() {
 
             {/* Rates Section */}
             <div style={styles.section}>
-              <h3 style={styles.sectionTitle}>💰 Rates</h3>
+              <h3 style={styles.sectionTitle}>
+                <span aria-label="Peso" style={{ marginRight: 8, fontSize: 18, fontWeight: 700 }}>₱</span>
+                Rates
+              </h3>
               <div style={styles.inputGrid}>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>Daily Rate (₱)</label>
@@ -314,7 +332,14 @@ export default function DepartmentRates() {
 
             {/* Deductions Section */}
             <div style={styles.section}>
-              <h3 style={styles.sectionTitle}>📉 Deductions</h3>
+              <h3 style={styles.sectionTitle}>
+                <Icon
+                  as={FiTrendingDown}
+                  style={{ marginRight: 8 }}
+                  ariaLabel="Deductions"
+                />
+                Deductions
+              </h3>
               <div style={styles.inputGrid}>
                 <div style={styles.inputGroup}>
                   <label style={styles.label}>SSS (₱)</label>

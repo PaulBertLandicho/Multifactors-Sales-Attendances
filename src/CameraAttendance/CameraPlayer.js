@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import * as faceapi from "face-api.js/build/commonjs/index.js";
 import Swal from "sweetalert2";
+import { FiCamera, FiLoader, FiCircle, FiUser, FiSearch, FiRefreshCw, FiAlertTriangle, FiSun, FiMoon, FiClock } from "react-icons/fi";
+import Icon from "../components/Icon";
 import { supabase } from "../supabaseClient";
 import { recordAttendanceForPerson } from "../AdminPage/attendanceUtils";
 import {
@@ -878,17 +880,17 @@ export default function CameraPlayer({
       {/* Camera card */}
       <div style={isFullscreen ? { ...styles.cameraCard, ...styles.cameraCardFull } : styles.cameraCard}>
         <div style={styles.cameraHeader}>
-          <span style={styles.cameraTitle}>📷 Live Feed</span>
+          <span style={styles.cameraTitle}><Icon as={FiCamera} style={{ marginRight: 8 }} ariaLabel="Camera" />Live Feed</span>
           <span style={{ marginLeft: 12, color: '#475569', fontWeight: 600 }}>{currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
           <div style={styles.statusBadges}>
             {cameraStatus === CAMERA_STATUS.CONNECTING && (
               <span style={{ ...styles.badge, ...styles.badgeConnecting }}>
-                ⏳ Connecting...
+                <Icon as={FiLoader} style={{ marginRight: 8 }} ariaLabel="Connecting" />Connecting...
               </span>
             )}
             {cameraStatus === CAMERA_STATUS.LIVE && (
               <span style={{ ...styles.badge, ...styles.badgeLive }}>
-                ● Live
+                <Icon as={FiCircle} style={{ marginRight: 8 }} ariaLabel="Live" />Live
               </span>
             )}
             <button
@@ -922,22 +924,22 @@ export default function CameraPlayer({
             </button>
             {cameraStatus === CAMERA_STATUS.ERROR && (
               <span style={{ ...styles.badge, ...styles.badgeError }}>
-                ⚠️ Error
+                <Icon as={FiAlertTriangle} style={{ marginRight: 8 }} ariaLabel="Error" />Error
               </span>
             )}
             {!modelsLoaded && (
               <span style={{ ...styles.badge, ...styles.badgeLoading }}>
-                🔄 Loading models
+                <Icon as={FiRefreshCw} style={{ marginRight: 8 }} ariaLabel="Loading models" />Loading models
               </span>
             )}
             {modelsLoaded && scanning && !verifying && validSettings && (
               <span style={{ ...styles.badge, ...styles.badgeScanning }}>
-                👤 Scanning
+                <Icon as={FiUser} style={{ marginRight: 8 }} ariaLabel="Scanning" />Scanning
               </span>
             )}
             {verifying && validSettings && (
               <span style={{ ...styles.badge, ...styles.badgeVerifying }}>
-                🔍 Verifying<span style={styles.dots}>...</span>
+                <Icon as={FiSearch} style={{ marginRight: 8 }} ariaLabel="Verifying" />Verifying<span style={styles.dots}>...</span>
               </span>
             )}
           </div>
@@ -972,25 +974,25 @@ export default function CameraPlayer({
         {/* Settings info card */}
         {/* Hide settings info card if hideSettingsCard is true */}
         {!hideSettingsCard && settings && validSettings && (
-          <div style={styles.settingsCard}>
+            <div style={styles.settingsCard}>
             <div style={styles.settingRow}>
-              <span style={styles.settingIcon}>🌅</span>
+              <span style={styles.settingIcon}><Icon as={FiSun} ariaLabel="Sun" /></span>
               <span style={styles.settingLabel}>Morning:</span>
               <span style={styles.settingValue}>
                 {settings.morning_start} – {settings.morning_end}
               </span>
               <span style={styles.graceBadge}>
-                ⏱️ {settings.morning_grace_minutes} min grace
+                <Icon as={FiClock} style={{ marginRight: 6 }} ariaLabel="Morning grace" />{settings.morning_grace_minutes} min grace
               </span>
             </div>
             <div style={styles.settingRow}>
-              <span style={styles.settingIcon}>☀️</span>
+              <span style={styles.settingIcon}><Icon as={FiMoon} ariaLabel="Moon small" /></span>
               <span style={styles.settingLabel}>Afternoon:</span>
               <span style={styles.settingValue}>
                 {settings.afternoon_start} – {settings.afternoon_end}
               </span>
               <span style={styles.graceBadge}>
-                ⏱️ {settings.afternoon_grace_minutes} min grace
+                <FiClock style={{ marginRight: 6 }} />{settings.afternoon_grace_minutes} min grace
               </span>
             </div>
           </div>
@@ -998,19 +1000,19 @@ export default function CameraPlayer({
 
         {/* Compact fullscreen settings overlay (visible in fullscreen) */}
         {isFullscreen && !hideSettingsCard && settings && validSettings && (
-          <div style={styles.settingsOverlayFull}>
+            <div style={styles.settingsOverlayFull}>
             <div style={styles.settingRowSmall}>
-              <span style={{ marginRight: 6 }}>🌅</span>
+              <span style={{ marginRight: 6 }}><FiSun /></span>
               <div style={{ display: "flex", flexDirection: "column" }}>
                 <div style={{ fontWeight: 700, color: "#f8fafc" }}>Morning</div>
-                <div style={{ color: "#e5e7eb", fontSize: 13 }}>{settings.morning_start} – {settings.morning_end} · ⏱️ {settings.morning_grace_minutes}m</div>
+                <div style={{ color: "#e5e7eb", fontSize: 13 }}>{settings.morning_start} – {settings.morning_end} <span style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center' }}><Icon as={FiClock} style={{ marginRight: 6 }} ariaLabel="Morning grace" />{settings.morning_grace_minutes}m</span></div>
               </div>
             </div>
             <div style={styles.settingRowSmall}>
-              <span style={{ marginRight: 6 }}>☀️</span>
+              <span style={{ marginRight: 6 }}><Icon as={FiMoon} ariaLabel="Moon small" /></span>
               <div style={{ display: "flex", flexDirection: "column" }}>
                 <div style={{ fontWeight: 700, color: "#f8fafc" }}>Afternoon</div>
-                <div style={{ color: "#e5e7eb", fontSize: 13 }}>{settings.afternoon_start} – {settings.afternoon_end} · ⏱️ {settings.afternoon_grace_minutes}m</div>
+                <div style={{ color: "#e5e7eb", fontSize: 13 }}>{settings.afternoon_start} – {settings.afternoon_end} <span style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center' }}><Icon as={FiClock} style={{ marginRight: 6 }} ariaLabel="Afternoon grace" />{settings.afternoon_grace_minutes}m</span></div>
               </div>
             </div>
           </div>
@@ -1040,7 +1042,7 @@ export default function CameraPlayer({
         {/* Error or missing settings messages */}
         {!validSettings && (
           <div style={styles.errorMessage}>
-            ⚠️ Work hour settings are missing or invalid
+            <Icon as={FiAlertTriangle} style={{ marginRight: 8 }} ariaLabel="Work hour warning" />Work hour settings are missing or invalid
           </div>
         )}
         {cameraStatus === CAMERA_STATUS.ERROR && (

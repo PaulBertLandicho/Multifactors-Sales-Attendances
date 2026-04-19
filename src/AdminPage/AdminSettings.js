@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
+import { FiSun, FiMoon, FiAlertTriangle, FiCalendar } from "react-icons/fi";
+import Icon from "../components/Icon";
 import { supabase } from "../supabaseClient";
 import HolidayManagerGlobal from "./HolidayManager";
+import { useLoading } from "../LoadingContext";
 
 export default function AdminSettings() {
   const [settings, setSettings] = useState({
@@ -11,48 +14,58 @@ export default function AdminSettings() {
     late_count_limit: 5,
     payroll_period_days: 15, // Default to 15 days, can be adjusted
   });
-  const [loading, setLoading] = useState(true);
+  const { setLoading } = useLoading();
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function fetchSettings() {
-      const { data, error } = await supabase
-        .from("settings")
-        .select("*")
-        .single();
-      if (!error && data) {
-        // Fallbacks for missing/invalid values
-        setSettings({
-          morning_start: data.morning_start
-            ? data.morning_start.slice(0, 5)
-            : "08:00",
-          morning_end: data.morning_end
-            ? data.morning_end.slice(0, 5)
-            : "11:59",
-          afternoon_start: data.afternoon_start
-            ? data.afternoon_start.slice(0, 5)
-            : "13:00",
-          afternoon_end: data.afternoon_end
-            ? data.afternoon_end.slice(0, 5)
-            : "17:00",
-          morning_grace_minutes: Number.isFinite(data.morning_grace_minutes)
-            ? data.morning_grace_minutes
-            : 15,
-          afternoon_grace_minutes: Number.isFinite(data.afternoon_grace_minutes)
-            ? data.afternoon_grace_minutes
-            : 15,
-          late_count_limit: Number.isFinite(data.late_count_limit)
-            ? data.late_count_limit
-            : 5,
-          payroll_period_days: Number.isFinite(data.payroll_period_days)
-            ? data.payroll_period_days
-            : 15,
-        });
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("settings")
+          .select("*")
+          .single();
+        if (!error && data) {
+          // Fallbacks for missing/invalid values
+          setSettings({
+            morning_start: data.morning_start
+              ? data.morning_start.slice(0, 5)
+              : "08:00",
+            morning_end: data.morning_end
+              ? data.morning_end.slice(0, 5)
+              : "11:59",
+            afternoon_start: data.afternoon_start
+              ? data.afternoon_start.slice(0, 5)
+              : "13:00",
+            afternoon_end: data.afternoon_end
+              ? data.afternoon_end.slice(0, 5)
+              : "17:00",
+            morning_grace_minutes: Number.isFinite(
+              data.morning_grace_minutes,
+            )
+              ? data.morning_grace_minutes
+              : 15,
+            afternoon_grace_minutes: Number.isFinite(
+              data.afternoon_grace_minutes,
+            )
+              ? data.afternoon_grace_minutes
+              : 15,
+            late_count_limit: Number.isFinite(data.late_count_limit)
+              ? data.late_count_limit
+              : 5,
+            payroll_period_days: Number.isFinite(data.payroll_period_days)
+              ? data.payroll_period_days
+              : 15,
+          });
+        }
+      } catch (e) {
+        console.error("Error fetching settings:", e);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
     fetchSettings();
-  }, []);
+  }, [setLoading]);
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
@@ -107,7 +120,7 @@ export default function AdminSettings() {
     setSaving(false);
   };
 
-  if (loading) return <div>Loading...</div>;
+  // Page-level loading handled by LoadingContext overlay
 
   return (
     <div style={styles.container}>
@@ -120,10 +133,10 @@ export default function AdminSettings() {
       <div style={styles.cardsRow}>
         {/* Morning Shift Card */}
         <div style={styles.card}>
-          <div style={styles.cardHeader}>
-            <span style={styles.cardIcon}>🌅</span>
-            <h2 style={styles.cardTitle}>Morning Shift</h2>
-          </div>
+            <div style={styles.cardHeader}>
+              <span style={styles.cardIcon}><Icon as={FiSun} size={28} ariaLabel="Morning shift" /></span>
+              <h2 style={styles.cardTitle}>Morning Shift</h2>
+            </div>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Start Time</label>
             <input
@@ -167,9 +180,9 @@ export default function AdminSettings() {
         {/* Afternoon Shift Card */}
         <div style={styles.card}>
           <div style={styles.cardHeader}>
-            <span style={styles.cardIcon}>☀️</span>
-            <h2 style={styles.cardTitle}>Afternoon Shift</h2>
-          </div>
+              <span style={styles.cardIcon}><Icon as={FiMoon} size={28} ariaLabel="Afternoon shift" /></span>
+              <h2 style={styles.cardTitle}>Afternoon Shift</h2>
+            </div>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Start Time</label>
             <input
@@ -213,7 +226,7 @@ export default function AdminSettings() {
         {/* Late Count Limit Card */}
         <div style={styles.card}>
           <div style={styles.cardHeader}>
-            <span style={styles.cardIcon}>⚠️</span>
+            <span style={styles.cardIcon}><Icon as={FiAlertTriangle} size={24} ariaLabel="Warning" /></span>
             <h2 style={styles.cardTitle}>Late Count Limit</h2>
           </div>
           <div style={styles.inputGroup}>
@@ -232,7 +245,7 @@ export default function AdminSettings() {
             </div>
             <span style={styles.hint}>Late occurrences before deduction</span>
           </div>
-          <span style={styles.cardIcon}>📆</span>
+          <span style={styles.cardIcon}><Icon as={FiCalendar} size={24} ariaLabel="Payroll calendar" /></span>
           <h2 style={styles.cardTitle}>Payroll Period Length</h2>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Days per Payroll Period</label>
@@ -258,7 +271,7 @@ export default function AdminSettings() {
         {/* Payroll Period Days Card */}
         {/* <div style={styles.card}>
           <div style={styles.cardHeader}>
-            <span style={styles.cardIcon}>📆</span>
+            <span style={styles.cardIcon}><Icon as={FiCalendar} size={20} ariaLabel="Payroll calendar small" /></span>
             <h2 style={styles.cardTitle}>Payroll Period Length</h2>
           </div>
           <div style={styles.inputGroup}>

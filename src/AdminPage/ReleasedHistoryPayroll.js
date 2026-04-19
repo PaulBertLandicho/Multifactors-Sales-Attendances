@@ -124,14 +124,14 @@ export default function ReleasedHistoryPayroll() {
       detailedAttendance = getDetailedAttendance(
         attendance || [],
         payroll.person_id,
-        settings || {}
+        settings || {},
       );
       // Recalculate payroll using the same logic as PayrollPage
       const basePayroll = calculatePayroll(
         attendance || [],
         [person],
         deptRates || [],
-        settings || {}
+        settings || {},
       )[0];
       const lateCount = detailedAttendance
         .map((rec) => rec.lateDetails || [])
@@ -176,11 +176,11 @@ export default function ReleasedHistoryPayroll() {
       Period: row.period || "",
       "Daily Rate":
         modalData.payroll && selected && selected.id === row.id
-          ? modalData.payroll.dailyRate ?? 0
+          ? (modalData.payroll.dailyRate ?? 0)
           : "",
       "Late Penalty":
         modalData.payroll && selected && selected.id === row.id
-          ? modalData.payroll.latePenalty ?? 0
+          ? (modalData.payroll.latePenalty ?? 0)
           : "",
       "Days Present":
         modalData.payroll && selected && selected.id === row.id
@@ -192,16 +192,16 @@ export default function ReleasedHistoryPayroll() {
           : "",
       Gross:
         modalData.payroll && selected && selected.id === row.id
-          ? modalData.payroll.gross ?? 0
+          ? (modalData.payroll.gross ?? 0)
           : "",
       "Late Deduction":
         modalData.payroll && selected && selected.id === row.id
-          ? modalData.payroll.totalLateDeduction ?? 0
-          : row.total_late_deduction ?? "",
+          ? (modalData.payroll.totalLateDeduction ?? 0)
+          : (row.total_late_deduction ?? ""),
       "Net Pay":
         modalData.payroll && selected && selected.id === row.id
-          ? modalData.payroll.net ?? 0
-          : row.net ?? "",
+          ? (modalData.payroll.net ?? 0)
+          : (row.net ?? ""),
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
@@ -212,7 +212,7 @@ export default function ReleasedHistoryPayroll() {
   // Get unique departments for filter dropdown
   const departmentOptions = [
     ...new Set(
-      releasedPayrolls.map((p) => p.person?.department).filter(Boolean)
+      releasedPayrolls.map((p) => p.person?.department).filter(Boolean),
     ),
   ];
 
@@ -305,7 +305,7 @@ export default function ReleasedHistoryPayroll() {
           onClick={handleExportExcel}
           style={{ ...styles.button, ...styles.buttonPrimary }}
         >
-          <FiDownload /> Export Excel
+          <FiDownload color="#ffffff" style={{ marginRight: 8 }} /> Export Excel
         </button>
       </div>
       <div style={styles.tableContainer}>
@@ -366,30 +366,30 @@ export default function ReleasedHistoryPayroll() {
                       const fromModal = modalData.payroll || {};
 
                       const dailyRate = isSelected
-                        ? fromModal.dailyRate ??
+                        ? (fromModal.dailyRate ??
                           fromModal.daily_rate ??
-                          p.daily_rate
+                          p.daily_rate)
                         : p.daily_rate;
                       const latePenalty = isSelected
-                        ? fromModal.latePenalty ??
+                        ? (fromModal.latePenalty ??
                           fromModal.late_penalty ??
-                          p.late_penalty
+                          p.late_penalty)
                         : p.late_penalty;
                       const daysPresent = isSelected
-                        ? fromModal.daysPresent ?? p.days_present
+                        ? (fromModal.daysPresent ?? p.days_present)
                         : p.days_present;
                       const lateCount = isSelected
-                        ? fromModal.lateCount ?? p.late_count
+                        ? (fromModal.lateCount ?? p.late_count)
                         : p.late_count;
                       const gross = isSelected
-                        ? fromModal.gross ?? p.gross
+                        ? (fromModal.gross ?? p.gross)
                         : p.gross;
                       const lateDeduction = isSelected
-                        ? fromModal.totalLateDeduction ??
+                        ? (fromModal.totalLateDeduction ??
                           p.total_late_deduction ??
-                          p.late_deduction
-                        : p.total_late_deduction ?? p.late_deduction;
-                      const net = isSelected ? fromModal.net ?? p.net : p.net;
+                          p.late_deduction)
+                        : (p.total_late_deduction ?? p.late_deduction);
+                      const net = isSelected ? (fromModal.net ?? p.net) : p.net;
 
                       return (
                         <>

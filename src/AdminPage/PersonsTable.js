@@ -1,8 +1,16 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
+import { useLoading } from "../LoadingContext";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
-import { FiDownload, FiArchive, FiEdit, FiBriefcase, FiPhone } from "react-icons/fi";
+import {
+  FiDownload,
+  FiArchive,
+  FiEdit,
+  FiBriefcase,
+  FiPhone,
+  FiMail,
+} from "react-icons/fi";
 
 export default function PersonsTable() {
   // Camera state/hooks for Edit Person modal
@@ -78,7 +86,8 @@ export default function PersonsTable() {
   const [payrollMap, setPayrollMap] = useState({});
   const [payrollGrossMap, setPayrollGrossMap] = useState({});
   const [presenceMap, setPresenceMap] = useState({});
-  const [loading, setLoading] = useState(true);
+  const { setLoading } = useLoading();
+  const initialLoadRef = useRef(true);
   const [error, setError] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editPerson, setEditPerson] = useState(null);
@@ -90,13 +99,14 @@ export default function PersonsTable() {
   const editPhotoInputRef = useRef(null);
 
   const Icons = {
-    download: <FiDownload />,
+    download: <FiDownload color="#ffffff" style={{ marginRight: 8 }} />,
     archive: <FiArchive />,
-    edit: <FiEdit />,
+    edit: <FiEdit color="#ffffff" style={{ marginRight: 8 }} />,
   };
 
   useEffect(() => {
     async function fetchPersons() {
+      if (initialLoadRef.current) setLoading(true);
       try {
         setError(null);
         const { data, error: err } = await supabase.from("persons").select("*");
@@ -139,7 +149,12 @@ export default function PersonsTable() {
                 const pmap = {};
                 atts.forEach((r) => {
                   const pid = r.person_id;
-                  if (!pmap[pid]) pmap[pid] = { morning: false, afternoon: false, firstScan: null };
+                  if (!pmap[pid])
+                    pmap[pid] = {
+                      morning: false,
+                      afternoon: false,
+                      firstScan: null,
+                    };
                   try {
                     const dt = new Date(r.device_time);
                     const hour = dt.getHours();
@@ -148,10 +163,12 @@ export default function PersonsTable() {
                       else pmap[pid].afternoon = true;
                     }
                     // track earliest time-in for the person today
-                    if (!pmap[pid].firstScan) pmap[pid].firstScan = dt.toISOString();
+                    if (!pmap[pid].firstScan)
+                      pmap[pid].firstScan = dt.toISOString();
                     else {
                       const existing = new Date(pmap[pid].firstScan);
-                      if (dt.getTime() < existing.getTime()) pmap[pid].firstScan = dt.toISOString();
+                      if (dt.getTime() < existing.getTime())
+                        pmap[pid].firstScan = dt.toISOString();
                     }
                   } catch (e) {}
                 });
@@ -172,12 +189,13 @@ export default function PersonsTable() {
         setError(err.message);
       } finally {
         setLoading(false);
+        initialLoadRef.current = false;
       }
     }
     fetchPersons();
     const interval = setInterval(fetchPersons, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [setLoading]);
 
   const handleEdit = (person) => {
     setEditPerson({ ...person });
@@ -253,7 +271,11 @@ export default function PersonsTable() {
       const total = (rows || []).reduce((s, r) => s + Number(r.amount || 0), 0);
       // Update local editPerson and main persons list
       setEditPerson((p) => (p ? { ...p, cash_advance: total } : p));
-      setPersons((prev) => prev.map((p) => (p.id === editPerson.id ? { ...p, cash_advance: total } : p)));
+      setPersons((prev) =>
+        prev.map((p) =>
+          p.id === editPerson.id ? { ...p, cash_advance: total } : p,
+        ),
+      );
     } catch (e) {
       console.error("computeAndUpdatePersonCashAdvance", e);
     }
@@ -263,14 +285,22 @@ export default function PersonsTable() {
     if (!editPerson || !editPerson.id) return;
     const amt = Number(newCashAmount);
     if (Number.isNaN(amt) || amt <= 0) {
-      Swal.fire("Invalid amount", "Enter a positive cash advance amount.", "error");
+      Swal.fire(
+        "Invalid amount",
+        "Enter a positive cash advance amount.",
+        "error",
+      );
       return;
     }
     setActionLoading(true);
     try {
       const { error } = await supabase
         .from("cash_advances")
-        .insert({ person_id: editPerson.id, amount: amt, note: newCashNote || null })
+        .insert({
+          person_id: editPerson.id,
+          amount: amt,
+          note: newCashNote || null,
+        })
         .select()
         .single();
       if (error) throw error;
@@ -289,11 +319,20 @@ export default function PersonsTable() {
 
   const deleteCashAdvance = async (id) => {
     if (!id) return;
-    const res = await Swal.fire({ title: "Delete entry?", text: "This will remove the cash advance record.", icon: "warning", showCancelButton: true, confirmButtonText: "Delete" });
+    const res = await Swal.fire({
+      title: "Delete entry?",
+      text: "This will remove the cash advance record.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Delete",
+    });
     if (!res.isConfirmed) return;
     setActionLoading(true);
     try {
-      const { error } = await supabase.from("cash_advances").delete().eq("id", id);
+      const { error } = await supabase
+        .from("cash_advances")
+        .delete()
+        .eq("id", id);
       if (error) throw error;
       await refreshCashAdvances();
       await computeAndUpdatePersonCashAdvance();
@@ -331,7 +370,9 @@ export default function PersonsTable() {
           Swal.fire("Error", archErr.message, "error");
         } else {
           setPersons((prev) =>
-            prev.map((p) => (p.id === person.id ? { ...p, archived: true } : p))
+            prev.map((p) =>
+              p.id === person.id ? { ...p, archived: true } : p,
+            ),
           );
           Swal.fire("Archived!", "", "success");
         }
@@ -363,7 +404,7 @@ export default function PersonsTable() {
       const dataUrl = reader.result;
       if (typeof dataUrl !== "string") return;
       setEditPerson((prev) =>
-        prev ? { ...prev, registration_photo: dataUrl } : prev
+        prev ? { ...prev, registration_photo: dataUrl } : prev,
       );
     };
     reader.readAsDataURL(file);
@@ -377,6 +418,7 @@ export default function PersonsTable() {
       department,
       phone_number,
       address,
+      email,
       sex,
       cash_advance,
       registration_photo,
@@ -392,6 +434,7 @@ export default function PersonsTable() {
         department,
         phone_number,
         address,
+        email,
         sex,
         sss: sssVal,
         pag_ibig: pagIbigVal,
@@ -412,6 +455,7 @@ export default function PersonsTable() {
                 department,
                 phone_number,
                 address,
+                email,
                 sex,
                 sss: sssVal,
                 pag_ibig: pagIbigVal,
@@ -419,8 +463,8 @@ export default function PersonsTable() {
                 cash_advance,
                 registration_photo: registration_photo || null,
               }
-            : p
-        )
+            : p,
+        ),
       );
       Swal.fire("Updated!", "", "success");
       handleEditModalClose();
@@ -442,14 +486,28 @@ export default function PersonsTable() {
   const sortedPersons = [...filteredPersons].sort((a, b) => {
     // Always prioritize present persons first
     try {
-      const aPresent = !!(presenceMap && presenceMap[a.id] && presenceMap[a.id].present);
-      const bPresent = !!(presenceMap && presenceMap[b.id] && presenceMap[b.id].present);
+      const aPresent = !!(
+        presenceMap &&
+        presenceMap[a.id] &&
+        presenceMap[a.id].present
+      );
+      const bPresent = !!(
+        presenceMap &&
+        presenceMap[b.id] &&
+        presenceMap[b.id].present
+      );
       if (aPresent !== bPresent) return aPresent ? -1 : 1;
 
       // If both present, sort by earliest attendance time (firstScan) ascending
       if (aPresent && bPresent) {
-        const aTime = presenceMap[a.id] && presenceMap[a.id].firstScan ? new Date(presenceMap[a.id].firstScan).getTime() : Infinity;
-        const bTime = presenceMap[b.id] && presenceMap[b.id].firstScan ? new Date(presenceMap[b.id].firstScan).getTime() : Infinity;
+        const aTime =
+          presenceMap[a.id] && presenceMap[a.id].firstScan
+            ? new Date(presenceMap[a.id].firstScan).getTime()
+            : Infinity;
+        const bTime =
+          presenceMap[b.id] && presenceMap[b.id].firstScan
+            ? new Date(presenceMap[b.id].firstScan).getTime()
+            : Infinity;
         if (aTime !== bTime) return aTime - bTime; // earlier (smaller) first
       }
     } catch (e) {}
@@ -480,9 +538,7 @@ export default function PersonsTable() {
     return 0;
   });
 
-  if (loading && !persons.length && !error) {
-    return <p>Loading persons...</p>;
-  }
+  // Page-level loading handled by LoadingContext overlay
   if (error) {
     return <p style={{ color: "red" }}>{error}</p>;
   }
@@ -496,6 +552,7 @@ export default function PersonsTable() {
       Department: row.department || "",
       Phone: row.phone_number || "",
       Address: row.address || "",
+      Email: row.email || "",
       Sex: row.sex || "",
       RegisteredAt: row.created_at
         ? new Date(row.created_at).toLocaleString()
@@ -541,7 +598,7 @@ export default function PersonsTable() {
                 <option key={dept} value={dept}>
                   {dept}
                 </option>
-              )
+              ),
             )}
           </select>
           <button
@@ -580,7 +637,12 @@ export default function PersonsTable() {
                   .toUpperCase();
                 // Compute display amount: prefer explicit daily_rate, then payroll gross, then net
                 const displayAmount = Number(
-                  p.daily_rate ?? payrollGrossMap[p.id] ?? p.gross ?? payrollMap[p.id] ?? p.net ?? 0
+                  p.daily_rate ??
+                    payrollGrossMap[p.id] ??
+                    p.gross ??
+                    payrollMap[p.id] ??
+                    p.net ??
+                    0,
                 );
                 return (
                   <div key={p.id} style={styles.card}>
@@ -593,7 +655,9 @@ export default function PersonsTable() {
                             style={styles.cardAvatar}
                           />
                         ) : (
-                          <div style={styles.cardAvatarPlaceholder}>{initials || "?"}</div>
+                          <div style={styles.cardAvatarPlaceholder}>
+                            {initials || "?"}
+                          </div>
                         )}
                       </div>
                       <div style={styles.cardStatus}>
@@ -607,23 +671,32 @@ export default function PersonsTable() {
                       </div>
                     </div>
 
-                      <div style={styles.cardBody}>
+                    <div style={styles.cardBody}>
                       <h3 style={styles.cardName}>{p.name || "Unnamed"}</h3>
                       <div style={styles.cardId}>{p.id}</div>
 
                       <div style={styles.cardInfoRow}>
                         <span style={styles.iconAndText}>
-                          <FiBriefcase style={styles.deptIcon} /> {p.department || ""}
+                          <FiBriefcase style={styles.deptIcon} />{" "}
+                          {p.department || ""}
                         </span>
                       </div>
-                       <div style={styles.phoneRow}>
+                      <div style={styles.phoneRow}>
                         <span style={styles.iconAndText}>
-                          <FiPhone style={styles.phoneIcon} /> {p.phone_number || ""}
+                          <FiMail style={styles.emailIcon} />
+                          <span style={styles.contactText}>{p.email || ""}</span>
+                        </span>
+                      </div>
+                      <div style={styles.phoneRow}>
+                        <span style={styles.iconAndText}>
+                          <FiPhone style={styles.phoneIcon} />
+                          <span style={styles.contactText}>{p.phone_number || ""}</span>
                         </span>
                       </div>
                       <div style={styles.netPayRow}>
                         <div style={styles.iconAndTexts}>
-                          Daily Rate (₱): <strong>
+                          Daily Rate (₱):{" "}
+                          <strong>
                             {`₱${displayAmount.toLocaleString(undefined, {
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2,
@@ -636,14 +709,20 @@ export default function PersonsTable() {
                     <div style={styles.cardActions}>
                       <button
                         onClick={() => handleEdit(p)}
-                        style={{ ...styles.smallButton, ...styles.buttonSuccess }}
+                        style={{
+                          ...styles.smallButton,
+                          ...styles.buttonSuccess,
+                        }}
                       >
                         {Icons.edit} Edit
                       </button>
                       {!p.archived && (
                         <button
                           onClick={() => handleArchive(p)}
-                          style={{ ...styles.smallButton, ...styles.buttonSecondary }}
+                          style={{
+                            ...styles.smallButton,
+                            ...styles.buttonSecondary,
+                          }}
                         >
                           {Icons.archive} Archive
                         </button>
@@ -827,6 +906,16 @@ export default function PersonsTable() {
                 />
               </div>
               <div style={styles.modalField}>
+                <label style={styles.modalLabel}>Email</label>
+                <input
+                  value={editPerson.email || ""}
+                  onChange={(e) =>
+                    setEditPerson({ ...editPerson, email: e.target.value })
+                  }
+                  style={styles.modalInput}
+                />
+              </div>
+              <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Address</label>
                 <input
                   value={editPerson.address || ""}
@@ -896,7 +985,14 @@ export default function PersonsTable() {
               </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Add Cash Advance</label>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
                   <input
                     type="number"
                     placeholder="Amount"
@@ -910,7 +1006,16 @@ export default function PersonsTable() {
                     onChange={(e) => setNewCashNote(e.target.value)}
                     style={{ ...styles.modalInput, flex: 1 }}
                   />
-                  <button type="button" onClick={addCashAdvance} disabled={actionLoading} style={{ ...styles.button, ...styles.buttonPrimary, padding: "8px 12px" }}>
+                  <button
+                    type="button"
+                    onClick={addCashAdvance}
+                    disabled={actionLoading}
+                    style={{
+                      ...styles.button,
+                      ...styles.buttonPrimary,
+                      padding: "8px 12px",
+                    }}
+                  >
                     {actionLoading ? "Working..." : "Add"}
                   </button>
                 </div>
@@ -920,24 +1025,68 @@ export default function PersonsTable() {
                   {loadingCashAdvances ? (
                     <div style={{ color: "#6b7280" }}>Loading...</div>
                   ) : editCashAdvances && editCashAdvances.length ? (
-                    <div style={{ maxHeight: 140, overflow: "auto", border: "1px solid #e6eef6", borderRadius: 8, padding: 6 }}>
+                    <div
+                      style={{
+                        maxHeight: 140,
+                        overflow: "auto",
+                        border: "1px solid #e6eef6",
+                        borderRadius: 8,
+                        padding: 6,
+                      }}
+                    >
                       {editCashAdvances.map((c) => (
-                        <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 8px", borderBottom: "1px solid #f1f5f9" }}>
-                          <div style={{ color: "#374151", fontSize: 13 }}>{new Date(c.created_at).toLocaleString()}</div>
-                          <div style={{ textAlign: "right", display: 'flex', gap: 12, alignItems: 'center' }}>
+                        <div
+                          key={c.id}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            padding: "6px 8px",
+                            borderBottom: "1px solid #f1f5f9",
+                          }}
+                        >
+                          <div style={{ color: "#374151", fontSize: 13 }}>
+                            {new Date(c.created_at).toLocaleString()}
+                          </div>
+                          <div
+                            style={{
+                              textAlign: "right",
+                              display: "flex",
+                              gap: 12,
+                              alignItems: "center",
+                            }}
+                          >
                             <div>
-                              <div style={{ fontWeight: 700, color: "#0f172a" }}>{`₱${Number(c.amount || 0).toFixed(2)}`}</div>
-                              {c.note ? <div style={{ fontSize: 12, color: "#9ca3af" }}>{c.note}</div> : null}
+                              <div
+                                style={{ fontWeight: 700, color: "#0f172a" }}
+                              >{`₱${Number(c.amount || 0).toFixed(2)}`}</div>
+                              {c.note ? (
+                                <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                                  {c.note}
+                                </div>
+                              ) : null}
                             </div>
                             <div>
-                              <button type="button" onClick={() => deleteCashAdvance(c.id)} style={{ ...styles.smallButton, ...styles.buttonSecondary }} disabled={actionLoading}>Delete</button>
+                              <button
+                                type="button"
+                                onClick={() => deleteCashAdvance(c.id)}
+                                style={{
+                                  ...styles.smallButton,
+                                  ...styles.buttonSecondary,
+                                }}
+                                disabled={actionLoading}
+                              >
+                                Delete
+                              </button>
                             </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div style={{ color: "#9ca3af" }}>No cash advance history</div>
+                    <div style={{ color: "#9ca3af" }}>
+                      No cash advance history
+                    </div>
                   )}
                 </div>
               </div>
@@ -1255,6 +1404,7 @@ const styles = {
     alignItems: "center",
     gap: "8px",
     color: "#374151",
+    flexWrap: "wrap",
   },
   deptIcon: {
     color: "#06b6d4",
@@ -1269,6 +1419,19 @@ const styles = {
   phoneIcon: {
     color: "#3b82f6",
     fontSize: "1rem",
+  },
+  emailIcon: {
+    color: "#6b7280",
+    fontSize: "1rem",
+    marginRight: 6,
+    marginTop: 2,
+  },
+  contactText: {
+    maxWidth: "220px",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    color: "#374151",
+    display: "inline-block",
   },
   netPayRow: {
     display: "flex",

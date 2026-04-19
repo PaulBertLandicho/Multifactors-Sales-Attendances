@@ -3,6 +3,8 @@ import React, { useState, useCallback, useRef, useEffect } from "react";
 import Swal from "sweetalert2";
 import RegistrationCamera from "../CameraAttendance/RegistrationCamera";
 import PersonDetails from "./PersonDetails";
+import { FiX } from "react-icons/fi";
+import Icon from "../components/Icon";
 
 // --- Voice sound assets (simple beep/notification) ---
 const playVoice = (type = "info") => {
@@ -287,7 +289,7 @@ export default function PersonRegistration() {
                   lineHeight: 1,
                 }}
               >
-                ×
+                <Icon as={FiX} size={22} ariaLabel="Close" />
               </button>
               <PersonDetails
                 scanPayload={pendingScan}

@@ -6,7 +6,14 @@ import PayslipModal from "../AdminPage/PayslipModals/PayslipModal";
 import { getDetailedAttendance } from "./attendanceDetails";
 import { generateAllPayslipsPdf } from "./PayslipModals/generatePayslipPdf";
 import * as XLSX from "xlsx";
-import { FiSearch, FiEye, FiDownload } from "react-icons/fi";
+import {
+  FiSearch,
+  FiEye,
+  FiDownload,
+  FiPrinter,
+  FiCheckCircle,
+} from "react-icons/fi";
+import Icon from "../components/Icon";
 
 import { supabase } from "../supabaseClient";
 import { logPayrollRelease } from "./payrollActivityLogs";
@@ -26,9 +33,11 @@ export default function PayrollPage() {
   const [sortOrder, setSortOrder] = useState("asc");
 
   const Icons = {
-    search: <FiSearch />,
-    download: <FiDownload />,
-    eye: <FiEye />,
+    search: <Icon as={FiSearch} />,
+    download: (
+      <Icon as={FiDownload} color="#ffffff" style={{ marginRight: 8 }} />
+    ),
+    eye: <Icon as={FiEye} />,
   };
 
   useEffect(() => {
@@ -45,7 +54,7 @@ export default function PayrollPage() {
         supabase
           .from("persons")
           .select(
-            "id, name, department, daily_rate, late_penalty, sss, pag_ibig, philhealth, cash_advance, registration_photo"
+            "id, name, department, daily_rate, late_penalty, sss, pag_ibig, philhealth, cash_advance, registration_photo",
           ),
         supabase.from("department_rates").select("*"),
         supabase.from("settings").select("*").eq("id", 1).single(),
@@ -74,17 +83,17 @@ export default function PayrollPage() {
       personsData.forEach((person) => {
         // Get all attendance for this person (include both time-in and time-out)
         const personAttendance = attData.filter(
-          (a) => a.person_id === person.id
+          (a) => a.person_id === person.id,
         );
         // Sort attendance by date
         const sortedAttendance = [...personAttendance].sort(
-          (a, b) => new Date(a.device_time) - new Date(b.device_time)
+          (a, b) => new Date(a.device_time) - new Date(b.device_time),
         );
         if (!sortedAttendance.length) return;
         // Find the range of dates
         const firstDate = new Date(sortedAttendance[0].device_time);
         const lastDate = new Date(
-          sortedAttendance[sortedAttendance.length - 1].device_time
+          sortedAttendance[sortedAttendance.length - 1].device_time,
         );
         // Start from the firstDate, create periods of periodDays
         let periodStart = new Date(firstDate);
@@ -106,7 +115,7 @@ export default function PayrollPage() {
               row &&
               row.person_id === person.id &&
               row.period === periodStr &&
-              row.released
+              row.released,
           );
           if (periodAttendance.length > 0 && !alreadyReleased) {
             periods.push({
@@ -129,12 +138,12 @@ export default function PayrollPage() {
               attendance,
               [person],
               deptData,
-              settingsData
+              settingsData,
             )[0];
             const detailed = getDetailedAttendance(
               attendance,
               person.id,
-              settingsData
+              settingsData,
             );
             const lateCount = detailed
               .map((rec) => rec.lateDetails || [])
@@ -153,7 +162,7 @@ export default function PayrollPage() {
             // Find if this period exists in DB (defensive against unexpected null rows)
             let dbRow = payrollDb.find(
               (row) =>
-                row && row.person_id === person.id && row.period === period
+                row && row.person_id === person.id && row.period === period,
             );
             if (!dbRow) {
               // Insert new row
@@ -182,7 +191,7 @@ export default function PayrollPage() {
               if (insertError || !inserted) {
                 console.error(
                   "Failed to insert payroll_periods row",
-                  insertError
+                  insertError,
                 );
                 // Skip this period rather than crashing the UI
                 return null;
@@ -195,7 +204,7 @@ export default function PayrollPage() {
               return null;
             }
 
-              return {
+            return {
               personId: person.id,
               person,
               period,
@@ -220,7 +229,11 @@ export default function PayrollPage() {
                   const todayStr = new Date().toISOString().slice(0, 10);
 
                   const allDates = [];
-                  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+                  for (
+                    let d = new Date(startDate);
+                    d <= endDate;
+                    d.setDate(d.getDate() + 1)
+                  ) {
                     // weekday only
                     if (d.getDay() === 0 || d.getDay() === 6) continue;
                     allDates.push(new Date(d).toISOString().slice(0, 10));
@@ -233,21 +246,26 @@ export default function PayrollPage() {
                       } catch (e) {
                         return String(a.date || "").slice(0, 10);
                       }
-                    })
+                    }),
                   );
 
                   // holidaysData is available in outer scope; filter to person's department
                   const holidaysForDept = (holidaysData || []).filter(
                     (h) =>
                       (h.department || "").toLowerCase().trim() ===
-                      (person.department || "").toLowerCase().trim()
+                      (person.department || "").toLowerCase().trim(),
                   );
                   const holidaySet = new Set(
-                    (holidaysForDept || []).map((h) => new Date(h.date).toISOString().slice(0, 10))
+                    (holidaysForDept || []).map((h) =>
+                      new Date(h.date).toISOString().slice(0, 10),
+                    ),
                   );
 
                   const absentDates = allDates.filter(
-                    (dateStr) => dateStr < todayStr && !attendedDatesSet.has(dateStr) && !holidaySet.has(dateStr)
+                    (dateStr) =>
+                      dateStr < todayStr &&
+                      !attendedDatesSet.has(dateStr) &&
+                      !holidaySet.has(dateStr),
                   );
                   return absentDates.length;
                 } catch (e) {
@@ -255,7 +273,7 @@ export default function PayrollPage() {
                 }
               })(),
             };
-          })
+          }),
         )
       ).filter(Boolean);
 
@@ -270,23 +288,43 @@ export default function PayrollPage() {
     if (!period) return "";
     try {
       const s = String(period).replace(/_/g, " ");
-      const matches = Array.from(s.matchAll(/(\d{4}[-/]\d{2}[-/]\d{2})/g)).map(m => m[1]);
+      const matches = Array.from(s.matchAll(/(\d{4}[-/]\d{2}[-/]\d{2})/g)).map(
+        (m) => m[1],
+      );
       if (matches.length >= 2) {
-        const d1 = new Date(matches[0].replace(/\//g, '-'));
-        const d2 = new Date(matches[1].replace(/\//g, '-'));
+        const d1 = new Date(matches[0].replace(/\//g, "-"));
+        const d2 = new Date(matches[1].replace(/\//g, "-"));
         if (!Number.isNaN(d1.getTime()) && !Number.isNaN(d2.getTime())) {
-          const f1 = d1.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
-          const f2 = d2.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+          const f1 = d1.toLocaleDateString("en-US", {
+            month: "long",
+            day: "2-digit",
+            year: "numeric",
+          });
+          const f2 = d2.toLocaleDateString("en-US", {
+            month: "long",
+            day: "2-digit",
+            year: "numeric",
+          });
           return `${f1} to ${f2}`;
         }
       }
       const single = s.match(/(\d{4}[-/]\d{2}[-/]\d{2})/);
       if (single) {
-        const d = new Date(single[1].replace(/\//g, '-'));
-        if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+        const d = new Date(single[1].replace(/\//g, "-"));
+        if (!Number.isNaN(d.getTime()))
+          return d.toLocaleDateString("en-US", {
+            month: "long",
+            day: "2-digit",
+            year: "numeric",
+          });
       }
       const p = new Date(s);
-      if (!Number.isNaN(p.getTime())) return p.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+      if (!Number.isNaN(p.getTime()))
+        return p.toLocaleDateString("en-US", {
+          month: "long",
+          day: "2-digit",
+          year: "numeric",
+        });
     } catch (e) {}
     return String(period);
   }
@@ -299,7 +337,7 @@ export default function PayrollPage() {
     const detailedAttendance = getDetailedAttendance(
       attendance,
       person.id,
-      settings
+      settings,
     );
     setSelected({
       person,
@@ -316,8 +354,13 @@ export default function PayrollPage() {
     const period = payrollPeriods[idx];
     if (!period || !period.dbId) return;
     // Update released in Supabase
-    await supabase.from("payroll_periods").update({ released: true }).eq("id", period.dbId);
-    setPayrollPeriods((prev) => prev.map((p) => (p.dbId === dbId ? { ...p, released: true } : p)));
+    await supabase
+      .from("payroll_periods")
+      .update({ released: true })
+      .eq("id", period.dbId);
+    setPayrollPeriods((prev) =>
+      prev.map((p) => (p.dbId === dbId ? { ...p, released: true } : p)),
+    );
     // Log activity with better user info and error handling
     let releasedBy = "admin";
     try {
@@ -351,7 +394,7 @@ export default function PayrollPage() {
     const printWindow = window.open("", "_blank");
 
     printWindow.document.write(
-      document.querySelector(".payslip-container")?.outerHTML || ""
+      document.querySelector(".payslip-container")?.outerHTML || "",
     );
 
     printWindow.document.close();
@@ -364,7 +407,7 @@ export default function PayrollPage() {
       Swal.fire(
         "No payroll records",
         "There are no payroll records to generate.",
-        "info"
+        "info",
       );
       return;
     }
@@ -379,7 +422,7 @@ export default function PayrollPage() {
         const detailedAttendance = getDetailedAttendance(
           attendance,
           person.id,
-          settings
+          settings,
         );
 
         let absentDates = [];
@@ -409,7 +452,7 @@ export default function PayrollPage() {
             .map((d) => d.toISOString().slice(0, 10))
             .filter(
               (dateStr) =>
-                dateStr < todayStr && !attendedDates.includes(dateStr)
+                dateStr < todayStr && !attendedDates.includes(dateStr),
             );
         }
         const absentCount = absentDates.length;
@@ -436,12 +479,12 @@ export default function PayrollPage() {
           deptRates.find(
             (d) =>
               (d.department || "").toLowerCase().trim() ===
-              (person.department || "").toLowerCase().trim()
+              (person.department || "").toLowerCase().trim(),
           ) || {};
 
         const deptHolidayRates = {
           regular: Number(
-            deptRate.regular_holiday_rate ?? deptRate.holiday_rate ?? 0
+            deptRate.regular_holiday_rate ?? deptRate.holiday_rate ?? 0,
           ),
           special: Number(deptRate.special_holiday_rate ?? 0),
         };
@@ -488,7 +531,7 @@ export default function PayrollPage() {
             cashAdvanceEntries = caData || [];
             cashAdvanceTotalInPeriod = cashAdvanceEntries.reduce(
               (s, r) => s + Number(r.amount || 0),
-              0
+              0,
             );
           }
         } catch (err) {
@@ -507,7 +550,10 @@ export default function PayrollPage() {
             label: "PhilHealth",
             value: person.philhealth ? Number(payroll.philhealth) : 0,
           },
-          { label: "Cash Advance", value: Number(cashAdvanceTotalInPeriod || 0) },
+          {
+            label: "Cash Advance",
+            value: Number(cashAdvanceTotalInPeriod || 0),
+          },
         ];
 
         const lateCountLimit =
@@ -520,51 +566,65 @@ export default function PayrollPage() {
         const totalDeductions =
           lateDeduction + deductions.reduce((acc, d) => acc + d.value, 0);
 
-          // compute total OT hours (decimal) for this period to include in PDF
-          let totalOtMinutes = 0;
-          try {
-            const sched = payroll && payroll.settings ? payroll.settings : {};
-            const schedMorningEnd = sched.morning_end || "12:00";
-            const schedAfternoonEnd = sched.afternoon_end || "17:00";
-            (detailedAttendance || []).forEach((rec) => {
-              try {
-                const mOut = (rec.morningOut && String(rec.morningOut).trim()) || null;
-                const aOut = (rec.afternoonOut && String(rec.afternoonOut).trim()) || null;
-                // parse time HH:MM into minutes
-                const parseT = (t) => {
-                  if (!t) return null;
-                  const mm = String(t).trim().match(/^(\d{1,2}):(\d{2})/);
-                  if (!mm) return null;
-                  return Number(mm[1]) * 60 + Number(mm[2]);
-                };
-                const mOutMin = parseT(mOut);
-                const aOutMin = parseT(aOut);
-                const mEndMin = parseT(schedMorningEnd);
-                const aEndMin = parseT(schedAfternoonEnd);
-                if (typeof mOutMin === "number" && typeof mEndMin === "number" && mOutMin > mEndMin) totalOtMinutes += mOutMin - mEndMin;
-                if (typeof aOutMin === "number" && typeof aEndMin === "number" && aOutMin > aEndMin) totalOtMinutes += aOutMin - aEndMin;
-              } catch (e) {}
-            });
-          } catch (e) {}
-          const totalOtHours = Math.round((totalOtMinutes / 60) * 100) / 100;
-
-          pdfParamsList.push({
-            payroll,
-            person,
-            period,
-            holidayPayDetails,
-            totalHolidayPay,
-            absentCount,
-            totalDeductions,
-            cashAdvanceEntries,
-            cashAdvanceTotalInPeriod,
-            otHours: totalOtHours,
+        // compute total OT hours (decimal) for this period to include in PDF
+        let totalOtMinutes = 0;
+        try {
+          const sched = payroll && payroll.settings ? payroll.settings : {};
+          const schedMorningEnd = sched.morning_end || "12:00";
+          const schedAfternoonEnd = sched.afternoon_end || "17:00";
+          (detailedAttendance || []).forEach((rec) => {
+            try {
+              const mOut =
+                (rec.morningOut && String(rec.morningOut).trim()) || null;
+              const aOut =
+                (rec.afternoonOut && String(rec.afternoonOut).trim()) || null;
+              // parse time HH:MM into minutes
+              const parseT = (t) => {
+                if (!t) return null;
+                const mm = String(t)
+                  .trim()
+                  .match(/^(\d{1,2}):(\d{2})/);
+                if (!mm) return null;
+                return Number(mm[1]) * 60 + Number(mm[2]);
+              };
+              const mOutMin = parseT(mOut);
+              const aOutMin = parseT(aOut);
+              const mEndMin = parseT(schedMorningEnd);
+              const aEndMin = parseT(schedAfternoonEnd);
+              if (
+                typeof mOutMin === "number" &&
+                typeof mEndMin === "number" &&
+                mOutMin > mEndMin
+              )
+                totalOtMinutes += mOutMin - mEndMin;
+              if (
+                typeof aOutMin === "number" &&
+                typeof aEndMin === "number" &&
+                aOutMin > aEndMin
+              )
+                totalOtMinutes += aOutMin - aEndMin;
+            } catch (e) {}
           });
+        } catch (e) {}
+        const totalOtHours = Math.round((totalOtMinutes / 60) * 100) / 100;
+
+        pdfParamsList.push({
+          payroll,
+          person,
+          period,
+          holidayPayDetails,
+          totalHolidayPay,
+          absentCount,
+          totalDeductions,
+          cashAdvanceEntries,
+          cashAdvanceTotalInPeriod,
+          otHours: totalOtHours,
+        });
       } catch (err) {
         console.error(
           "Failed to prepare payslip PDF data for",
           periodEntry.person?.name,
-          err
+          err,
         );
       }
     }
@@ -573,7 +633,7 @@ export default function PayrollPage() {
       Swal.fire(
         "No data",
         "Could not prepare any payslip data for PDF.",
-        "warning"
+        "warning",
       );
       return;
     }
@@ -582,7 +642,7 @@ export default function PayrollPage() {
     Swal.fire(
       "PDF generated",
       "A combined PDF with all payslips has been downloaded.",
-      "success"
+      "success",
     );
   };
 
@@ -625,7 +685,9 @@ export default function PayrollPage() {
       // Search (by name or id)
       if (search && search.trim()) {
         const q = search.trim().toLowerCase();
-        const idMatch = String(person.id || "").toLowerCase().includes(q);
+        const idMatch = String(person.id || "")
+          .toLowerCase()
+          .includes(q);
         const nameMatch = (person.name || "").toLowerCase().includes(q);
         return idMatch || nameMatch;
       }
@@ -639,7 +701,9 @@ export default function PayrollPage() {
       // fallback to id
       const idA = String(a.person?.id || "");
       const idB = String(b.person?.id || "");
-      return sortOrder === "asc" ? idA.localeCompare(idB) : idB.localeCompare(idA);
+      return sortOrder === "asc"
+        ? idA.localeCompare(idB)
+        : idB.localeCompare(idA);
     });
 
   return (
@@ -674,7 +738,7 @@ export default function PayrollPage() {
           >
             <option value="">All Departments</option>
             {Array.from(
-              new Set(persons.map((p) => p.department).filter(Boolean))
+              new Set(persons.map((p) => p.department).filter(Boolean)),
             ).map((dept) => (
               <option key={dept} value={dept}>
                 {dept}
@@ -691,7 +755,11 @@ export default function PayrollPage() {
         </div>
         <button
           onClick={handleExportPayslipExcel}
-          style={{ marginRight: -350, ...styles.button, ...styles.buttonPrimary }}
+          style={{
+            marginRight: -350,
+            ...styles.button,
+            ...styles.buttonPrimary,
+          }}
         >
           {Icons.download} Export Excel
         </button>
@@ -699,7 +767,8 @@ export default function PayrollPage() {
           onClick={handleGenerateAllPayslipPdf}
           style={{ ...styles.button, ...styles.buttonPrimary }}
         >
-          🖨️ Generate All Payslips PDF
+          <FiPrinter style={{ marginRight: 8 }} />
+          Generate All Payslips PDF
         </button>
         {/* <button
           style={{ ...styles.button, ...styles.buttonSecondary, marginLeft: 12 }}
@@ -771,7 +840,7 @@ export default function PayrollPage() {
                       <td style={styles.td}>{payroll.lateCount}</td>
                       <td style={styles.td}>{p.absentCount ?? 0}</td>
                       {/* Calculate and display Gross and Net Pay using the exact PayslipModal formulas */}
-                      
+
                       <td style={styles.td}>
                         <button
                           onClick={() => handleShowPayslip(p)}
@@ -782,8 +851,21 @@ export default function PayrollPage() {
                       </td>
                       <td style={styles.td}>
                         {released ? (
-                          <span style={{ color: "#237227", fontWeight: 600 }}>
-                            ✔ Released
+                          <span
+                            style={{
+                              color: "#237227",
+                              fontWeight: 600,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 8,
+                            }}
+                          >
+                            <Icon
+                              as={FiCheckCircle}
+                              size={18}
+                              ariaLabel="Released"
+                            />
+                            Released
                           </span>
                         ) : (
                           <button
@@ -823,7 +905,7 @@ export default function PayrollPage() {
             const match = payrollPeriods.find(
               (p) =>
                 p.person.id === selected.person.id &&
-                p.period === selected.period
+                p.period === selected.period,
             );
             return match ? match.released : false;
           })()}

@@ -57,7 +57,7 @@ export default function PersonDetails({
     persons.find((person) => person.id === selectedId) || null;
   const isLinkingExistingPerson = isRegistrationMode && Boolean(selectedId);
   const selectedPersonHasFace = Boolean(
-    selectedPerson?.descriptor && selectedPerson.descriptor.length
+    selectedPerson?.descriptor && selectedPerson.descriptor.length,
   );
 
   // Guard refs to avoid overlapping fetches
@@ -69,7 +69,7 @@ export default function PersonDetails({
     async (opts = { force: false }) => {
       if (!SUPABASE_CONFIGURED || !supabase) {
         setError(
-          "Supabase not configured in frontend. Please set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY."
+          "Supabase not configured in frontend. Please set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.",
         );
         setLoading(false);
         return;
@@ -112,6 +112,7 @@ export default function PersonDetails({
             department: first.department || "",
             phone_number: first.phone_number || "",
             address: first.address || "",
+            email: first.email || "",
             sex: first.sex || "",
           });
           if (
@@ -156,6 +157,7 @@ export default function PersonDetails({
                 department: best.p.department || prev.department,
                 phone_number: best.p.phone_number || prev.phone_number,
                 address: best.p.address || prev.address,
+                email: best.p.email || prev.email,
                 sex: best.p.sex || prev.sex,
               }));
             } else {
@@ -171,7 +173,7 @@ export default function PersonDetails({
         const msg = e && e.message ? e.message : String(e);
         if (msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
           setError(
-            "Network error: unable to reach Supabase. Check your internet connection and REACT_APP_SUPABASE_URL."
+            "Network error: unable to reach Supabase. Check your internet connection and REACT_APP_SUPABASE_URL.",
           );
         } else {
           setError(msg);
@@ -182,7 +184,7 @@ export default function PersonDetails({
         setLoading(false);
       }
     },
-    [descriptor, selectedId]
+    [descriptor, selectedId],
   );
 
   useEffect(() => {
@@ -228,6 +230,7 @@ export default function PersonDetails({
       phone_number: person.phone_number || "",
       address: person.address || "",
       sex: person.sex || "",
+      email: person.email || "",
     });
     if (person.department && !DEFAULT_DEPARTMENTS.includes(person.department)) {
       setCustomDepartment(true);
@@ -269,6 +272,7 @@ export default function PersonDetails({
       department: "",
       phone_number: "",
       address: "",
+      email: "",
       sex: "",
     });
   }
@@ -282,7 +286,7 @@ export default function PersonDetails({
     e.preventDefault();
     if (!SUPABASE_CONFIGURED || !supabase) {
       setError(
-        "Supabase not configured in frontend. Please set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY."
+        "Supabase not configured in frontend. Please set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.",
       );
       return;
     }
@@ -407,6 +411,7 @@ export default function PersonDetails({
         phone_number: form.phone_number || null,
         address: form.address || null,
         sex: form.sex || null,
+        email: form.email || null,
         descriptor: descriptor ? Array.from(descriptor) : null,
         daily_rate,
         late_penalty,
@@ -434,6 +439,7 @@ export default function PersonDetails({
         department: finalDepartment,
         phone_number: form.phone_number,
         address: form.address,
+        email: form.email,
         sex: form.sex,
       });
 
@@ -648,6 +654,15 @@ export default function PersonDetails({
                       textAlign: "left",
                     }}
                   >
+                    Email
+                  </th>
+                  <th
+                    style={{
+                      borderBottom: "1px solid #444",
+                      padding: "8px",
+                      textAlign: "left",
+                    }}
+                  >
                     Address
                   </th>
                   <th
@@ -695,6 +710,11 @@ export default function PersonDetails({
                     <td
                       style={{ borderBottom: "1px solid #333", padding: "6px" }}
                     >
+                      {p.email || ""}
+                    </td>
+                    <td
+                      style={{ borderBottom: "1px solid #333", padding: "6px" }}
+                    >
                       {p.address || ""}
                     </td>
                     <td
@@ -728,8 +748,8 @@ export default function PersonDetails({
             {isLinkingExistingPerson
               ? "Link Face To Existing Person"
               : selectedId
-              ? "Edit Person"
-              : "Add Person"}
+                ? "Edit Person"
+                : "Add Person"}
           </h3>
           {isRegistrationMode && !selectedId && (
             <p
@@ -803,6 +823,18 @@ export default function PersonDetails({
               <input
                 name="phone_number"
                 value={form.phone_number}
+                onChange={onChange}
+                style={{ width: "100%", padding: "6px", marginTop: "4px" }}
+              />
+            </label>
+          </div>
+          {/* Address field */}
+          <div style={{ marginBottom: "8px", textAlign: "left" }}>
+            <label>
+              Email
+              <input
+                name="email"
+                value={form.email}
                 onChange={onChange}
                 style={{ width: "100%", padding: "6px", marginTop: "4px" }}
               />

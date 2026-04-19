@@ -9,7 +9,7 @@ export default function ReleasedPayrollLogs() {
   const [sortOrder, setSortOrder] = useState("desc");
   const Icons = {
     search: <FiSearch />,
-    download: <FiDownload />,
+    download: <FiDownload color="#ffffff" style={{ marginRight: 8 }} />,
     eye: <FiEye />,
   };
   useEffect(() => {

@@ -44,6 +44,7 @@ create table public.department_rates (
   constraint department_rates_pkey primary key (department)
 ) TABLESPACE pg_default;
 
+
 create trigger trigger_update_persons
 after
 update on department_rates for EACH row

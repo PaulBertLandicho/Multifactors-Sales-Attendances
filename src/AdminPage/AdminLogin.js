@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import { FaEye, FaEyeSlash, FaEnvelope, FaLock } from "react-icons/fa";
+import { FaEye, FaEyeSlash, FaEnvelope, FaLock, FaSignInAlt } from "react-icons/fa";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -41,7 +41,13 @@ export default function AdminLogin() {
     <div style={styles.container}>
       <div style={styles.card}>
         <div style={styles.header}>
-          <div style={styles.icon}>🔐</div>
+          <div style={styles.icon}>
+            <img
+              src="/image/logo/multifactorssales_logo-removebg.png"
+              alt="Multifactors Sales Logo"
+              style={{ width: 250, height: 150 }}
+            />
+          </div>
           <h2 style={styles.title}>Admin Login</h2>
           <div style={styles.underline}></div>
           <div style={styles.headerSub}>
@@ -117,7 +123,13 @@ export default function AdminLogin() {
               ...(loading ? styles.buttonDisabled : {}),
             }}
           >
-            {loading ? "Logging in..." : "Sign in"}
+            {loading ? (
+              "Logging in..."
+            ) : (
+              <>
+                <FaSignInAlt style={styles.signInIcon} /> Sign in
+              </>
+            )}
           </button>
         </form>
       </div>
@@ -210,7 +222,7 @@ const styles = {
     padding: "12px",
     borderRadius: "30px",
     border: "none",
-    background: "linear-gradient(90deg,#06b6d4,#237227)",
+    background: "#237227",
     color: "#fff",
     cursor: "pointer",
     fontWeight: 600,
@@ -253,6 +265,10 @@ const styles = {
     transform: "translateY(-50%)",
     padding: 0,
     lineHeight: 1,
+  },
+  signInIcon: {
+    marginRight: 8,
+    verticalAlign: "middle",
   },
   footerNote: {
     marginTop: "12px",
