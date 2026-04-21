@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 // ✅ Icons
-import { FiLogOut, FiUsers, FiHome } from "react-icons/fi";
+import { FiLogOut, FiUsers, FiHome, FiMenu } from "react-icons/fi";
 import {
   MdOutlineAccessTime,
   MdSettings,
@@ -27,11 +27,11 @@ const navItems = [
   },
   { label: "View Payroll", path: "/admin/payroll", icon: <MdPayments /> },
   { label: "Persons", path: "/admin/persons", icon: <FiUsers /> },
-  {
-    label: "Register Person",
-    path: "/admin/register-person",
-    icon: <MdPersonAddAlt1 />,
-  },
+  // {
+  //   label: "Register Person",
+  //   path: "/admin/register-person",
+  //   icon: <MdPersonAddAlt1 />,
+  // },
   {
     label: "Department rates",
     path: "/admin/department-rates",
@@ -53,8 +53,39 @@ export default function AdminSidebar({ onLogout }) {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 760 : false
+  );
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth <= 760);
+      if (window.innerWidth > 760) setIsMobileOpen(false);
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // close drawer on navigation
+  useEffect(() => setIsMobileOpen(false), [location.pathname]);
+
   return (
-    <div style={styles.sidebar}>
+    <>
+      {isMobile && (
+        <div style={styles.mobileTopBar}>
+          <button
+            aria-label="Open menu"
+            onClick={() => setIsMobileOpen(true)}
+            style={styles.mobileMenuButton}
+          >
+            <FiMenu />
+          </button>
+          <div style={styles.mobileTopTitle}>Multifactors Sales</div>
+        </div>
+      )}
+
+      <div style={isMobile ? (isMobileOpen ? styles.sidebarMobileOpen : { display: "none" }) : styles.sidebar}>
       {/* Logo */}
       <div style={styles.logo}>
         <img
@@ -65,11 +96,11 @@ export default function AdminSidebar({ onLogout }) {
           style={{
             ...styles.logoIcon,
             objectFit: "cover",
-            padding: 6,
+            padding: 5,
           }}
         />
-        <span style={styles.logoText}>Multifactors Sales Facial Attendances</span>
-      </div>
+<h1 style={{ marginLeft: -5, color: "#237227", fontSize: "1.2rem", width: "100%", fontWeight: 700, }}>Multifactors Sales</h1>
+      <span style={{ color: "#6b7280", marginTop: 50, width: "100%", marginLeft: -180, fontSize: "0.7rem", }}>Facial Recognition for Attendances </span>      </div>
 
       {/* Navigation */}
       <nav style={styles.nav}>
@@ -130,7 +161,11 @@ export default function AdminSidebar({ onLogout }) {
         <FiLogOut style={styles.logoutIcon} />
         <span>Logout</span>
       </button>
-    </div>
+      {isMobile && isMobileOpen && (
+        <div role="button" aria-label="Close menu" onClick={() => setIsMobileOpen(false)} style={styles.mobileBackdrop} />
+      )}
+      </div>
+    </>
   );
 }
 
@@ -164,7 +199,7 @@ const styles = {
   logoIcon: {
     width: 48,
     height: 48,
-    borderRadius: 15,
+    borderRadius: 16,
     background: "#237227",
   },
 
@@ -234,5 +269,54 @@ const styles = {
 
   logoutIcon: {
     fontSize: "1.4rem",
+  },
+  mobileTopBar: {
+    position: "fixed",
+    top: 12,
+    left: 12,
+    right: 12,
+    height: 56,
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    zIndex: 120,
+  },
+  mobileMenuButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    border: "none",
+    background: "#237227",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+    fontSize: 20,
+  },
+  mobileTopTitle: {
+    fontSize: "1rem",
+    fontWeight: 700,
+    color: "#1f2937",
+  },
+  mobileBackdrop: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.36)",
+    zIndex: 119,
+  },
+  sidebarMobileOpen: {
+    width: 260,
+    minHeight: "100vh",
+    background: "#ffffff",
+    borderRight: "1px solid #e5e7eb",
+    display: "flex",
+    flexDirection: "column",
+    paddingTop: 20,
+    position: "fixed",
+    left: 0,
+    top: 0,
+    zIndex: 120,
+    boxShadow: "0 6px 40px rgba(0,0,0,0.4)",
   },
 };

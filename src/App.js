@@ -1,13 +1,15 @@
 import PersonRegistration from "./AdminPage/PersonRegistration";
 import PayrollPage from "./AdminPage/PayrollPage";
 // App.js
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { useLoading } from "./LoadingContext";
 import { supabase } from "./supabaseClient";
 
 import CameraPlayer from "./CameraAttendance/CameraPlayer";
 import AdminLogin from "./AdminPage/AdminLogin";
+import { FiLogIn } from "react-icons/fi";
+import { FiCamera } from "react-icons/fi";
 import Dashboard from "./AdminPage/Dashboard";
 import ReleasedHistoryPayroll from "./AdminPage/ReleasedHistoryPayroll";
 import ReleasedPayrollLogs from "./AdminPage/ReleasedPayrollLogs";
@@ -44,9 +46,27 @@ function App() {
     return () => listener?.subscription.unsubscribe();
   }, []);
 
+  // detect mobile viewport to conditionally hide the header
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 600 : false
+  );
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth <= 600);
+    }
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   // show global loading on navigation
   const { setLoading } = useLoading();
   const location = useLocation();
+  const navigate = useNavigate();
+  // const isAdminPath = location.pathname.startsWith("/admin");
+  const isCameraPath = location.pathname === "/" || location.pathname === "";
+  const isAdminLoginPath = location.pathname === "/admin";
   useEffect(() => {
     // show overlay immediately on navigation
     setLoading(true);
@@ -70,8 +90,46 @@ function App() {
   return (
       <div className="App">
         <header className="App-header">
-          {!window.location.pathname.startsWith("/admin") && (
-            <h1 style={styles.headerTitle}>Employee Attendance Camera</h1>
+          {(isCameraPath || isAdminLoginPath) && !isMobile && (
+            <div style={styles.headerContainer}>
+              <div style={styles.headerBar}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: "absolute", left: 5, }}>
+                  <img
+                    src="/image/logo/multifactorssales_logo-removebg.png"
+                    alt="Multifactors Sales Logo"
+                    style={{ ...styles.logoIcon,
+            objectFit: "cover",
+            padding: 5,width: 100, height: 100 }}
+                  />
+                  <h1 style={{ ...styles.headerTitle, margin: -20, padding: "8px 0", }}>
+                    Multifactors Sales - <span style={{ ...styles.headerSubtitle, }}>Facial Recognition for Attendances</span> 
+                  </h1>
+                </div>
+                {isAdminLoginPath ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/")}
+                    style={styles.adminButton}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center" }}>
+                      <FiCamera style={{ marginRight: 8, verticalAlign: "middle" }} />
+                      Attendance Camera
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin")}
+                    style={styles.adminButton}
+                  >
+                    <span style={{ display: "inline-flex", alignItems: "center" }}>
+                      <FiLogIn style={{ marginRight: 8, verticalAlign: "middle" }} />
+                      Admin Login
+                    </span>
+                  </button>
+                )}
+              </div>
+            </div>
           )}
           <Routes>
             <Route
@@ -146,7 +204,7 @@ function App() {
                         window.location.href = "/admin";
                       }}
                     />
-                    <div style={styles.adminContent}>
+                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
                       <PersonRegistration />
                     </div>
                   </div>
@@ -167,7 +225,7 @@ function App() {
                         window.location.href = "/admin";
                       }}
                     />
-                    <div style={styles.adminContent}>
+                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
                       <Dashboard />
                     </div>
                   </div>
@@ -189,7 +247,7 @@ function App() {
                         window.location.href = "/admin";
                       }}
                     />
-                    <div style={styles.adminContent}>
+                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
                       <AdminSettings />
                     </div>
                   </div>
@@ -210,7 +268,7 @@ function App() {
                         window.location.href = "/admin";
                       }}
                     />
-                    <div style={styles.adminContent}>
+                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
                       <AttendanceTable />
                     </div>
                   </div>
@@ -231,7 +289,7 @@ function App() {
                         window.location.href = "/admin";
                       }}
                     />
-                    <div style={styles.adminContent}>
+                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
                       <DepartmentRates />
                     </div>
                   </div>
@@ -252,7 +310,7 @@ function App() {
                         window.location.href = "/admin";
                       }}
                     />
-                    <div style={styles.adminContent}>
+                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
                       <PersonsTable />
                     </div>
                   </div>
@@ -273,7 +331,7 @@ function App() {
                         window.location.href = "/admin";
                       }}
                     />
-                    <div style={styles.adminContent}>
+                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
                       <PayrollPage />
                     </div>
                   </div>
@@ -294,7 +352,7 @@ function App() {
                         window.location.href = "/admin";
                       }}
                     />
-                    <div style={styles.adminContent}>
+                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
                       <ReleasedHistoryPayroll />
                     </div>
                   </div>
@@ -315,7 +373,7 @@ function App() {
                         window.location.href = "/admin";
                       }}
                     />
-                    <div style={styles.adminContent}>
+                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
                       <ReleasedPayrollLogs />
                     </div>
                   </div>
@@ -335,9 +393,14 @@ const styles = {
   headerTitle: {
     color: "#237227",
     fontSize: "2rem",
-    fontWeight: 600,
+    fontWeight: "bold",
     textAlign: "center",
     margin: "20px 0",
+  },
+  headerSubtitle: {
+    color: "#6b7280",
+    fontSize: "1.10rem",
+    fontWeight: "bold",
   },
   modalOverlay: {
     position: "fixed",
@@ -385,6 +448,43 @@ const styles = {
     flex: 1,
     padding: "40px",
     background: "#ffffff",
+  },
+  logoIcon: {
+    marginTop: 20,
+    borderRadius: 999,
+    background: "#ffffff",
+  },
+  headerBar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    width: "100%",
+    maxWidth: 900,
+    margin: "0 auto",
+    padding: "8px 0",
+  },
+  adminButton: {
+    padding: "8px 14px",
+    borderRadius: 999,
+    border: "1px solid #237227",
+    background: "#237227",
+    color: "#ffffff",
+    cursor: "pointer",
+    fontSize: 14,
+    fontWeight: 700,
+    position: "absolute",
+    right: 16,
+    top: "50%",
+    transform: "translateY(-50%)",
+    zIndex: 10,
+  },
+  headerContainer: {
+    width: "100%",
+    background: "#f9fafc",
+    borderBottom: "1px solid #eef2f6",
+    padding: "25px 0",
+    boxShadow: "0 6px 18px rgba(0,0,0,0.03)",
+    position: "relative",
   },
 };
 

@@ -1,7 +1,5 @@
 import React from "react";
 import { useEffect, useState } from "react";
-import { FiPrinter, FiCalendar, FiClipboard, FiX, FiClock, FiTrendingDown } from "react-icons/fi";
-import Icon from "../../components/Icon";
 import { supabase } from "../../supabaseClient";
 import { generatePayslipPdf } from "./generatePayslipPdf";
 
@@ -439,7 +437,7 @@ export default function PayslipModal({
     title: {
       fontSize: "2rem",
       fontWeight: 700,
-      color: "#237227",
+      color: "#10b981",
       textAlign: "center",
       margin: "0 0 8px 0",
     },
@@ -454,7 +452,7 @@ export default function PayslipModal({
       fontWeight: 600,
       color: "#1f2937",
       margin: "32px 0 16px 0",
-      borderBottom: "2px solid #237227",
+      borderBottom: "2px solid #10b981",
       paddingBottom: "8px",
     },
     table: {
@@ -487,7 +485,7 @@ export default function PayslipModal({
       textAlign: "right",
       fontSize: "1.6rem",
       fontWeight: 700,
-      color: "#237227",
+      color: "#10b981",
       margin: "16px 0 0 0",
     },
     buttonContainer: {
@@ -509,7 +507,7 @@ export default function PayslipModal({
       alignItems: "center",
       justifyContent: "center",
     },
-    buttonPrimary: { background: "#237227", color: "#fff" },
+    buttonPrimary: { background: "#10b981", color: "#fff" },
     buttonSecondary: {
       background: "#e5e7eb",
       color: "#1f2937",
@@ -530,7 +528,7 @@ export default function PayslipModal({
             <p
               style={{
                 textAlign: "center",
-                color: "#237227",
+                color: "#10b981",
                 fontWeight: 600,
                 marginBottom: 8,
               }}
@@ -542,7 +540,7 @@ export default function PayslipModal({
             <p
               style={{
                 textAlign: "center",
-                color: "#237227",
+                color: "#10b981",
                 fontWeight: 700,
                 fontSize: "1.1rem",
                 marginBottom: 8,
@@ -555,7 +553,7 @@ export default function PayslipModal({
           {/* Holiday Table */}
           {!loadingHoliday && holidayPayDetails.length > 0 && (
             <>
-              <h3 style={styles.sectionTitle}><Icon as={FiCalendar} style={{ marginRight: 8 }} ariaLabel="Holidays" />Holidays This Month</h3>
+              <h3 style={styles.sectionTitle}>🎉 Holidays This Month</h3>
               <table style={styles.table}>
                 <thead>
                   <tr>
@@ -584,7 +582,7 @@ export default function PayslipModal({
           )}
 
           {/* Attendance Table */}
-          <h3 style={styles.sectionTitle}><Icon as={FiClipboard} style={{ marginRight: 8 }} ariaLabel="Attendance" />Attendance Details</h3>
+          <h3 style={styles.sectionTitle}>📋 Attendance Details</h3>
 
           <table style={styles.table}>
             <thead>
@@ -747,7 +745,7 @@ export default function PayslipModal({
             </tbody>
           </table>
 
-          <h3 style={styles.sectionTitle}><Icon as={FiX} style={{ marginRight: 8 }} ariaLabel="Absent days" />Absent Days in Period</h3>
+          <h3 style={styles.sectionTitle}>🚫 Absent Days in Period</h3>
           <table style={styles.table}>
             <thead>
               <tr>
@@ -772,7 +770,7 @@ export default function PayslipModal({
                     colSpan={2}
                     style={{
                       ...styles.td,
-                      color: "#237227",
+                      color: "#10b981",
                       textAlign: "center",
                     }}
                   >
@@ -783,7 +781,7 @@ export default function PayslipModal({
             </tbody>
           </table>
           {/* Late Records */}
-          <h3 style={styles.sectionTitle}><Icon as={FiClock} style={{ marginRight: 8 }} ariaLabel="Late records" />All Late Records</h3>
+          <h3 style={styles.sectionTitle}>⏰ All Late Records</h3>
           <table style={styles.table}>
             <thead>
               <tr>
@@ -835,7 +833,7 @@ export default function PayslipModal({
 
           {/* Earnings */}
 
-          <h3 style={styles.sectionTitle}><span aria-label="Peso" style={{ marginRight: 8, fontSize: 18, fontWeight: 700 }}>₱</span>Earnings</h3>
+          <h3 style={styles.sectionTitle}>💸 Earnings</h3>
           <table style={styles.table}>
             <thead>
               <tr>
@@ -884,7 +882,7 @@ export default function PayslipModal({
                         )
                       </td>
                       <td style={styles.td}>
-                        <span style={{ color: "#237227", fontWeight: 600 }}>
+                        <span style={{ color: "#10b981", fontWeight: 600 }}>
                           {" "}
                           ({h.ratePercent}%)
                         </span>
@@ -931,7 +929,7 @@ export default function PayslipModal({
           </table>
 
           {/* Deductions */}
-          <h3 style={styles.sectionTitle}><Icon as={FiTrendingDown} style={{ marginRight: 8 }} ariaLabel="Deductions" />Deductions</h3>
+          <h3 style={styles.sectionTitle}>📉 Deductions</h3>
           <table style={styles.table}>
             <tbody>
               <tr style={styles.trEven}>
@@ -1010,14 +1008,14 @@ export default function PayslipModal({
               onClick={handlePdf}
               style={{ ...styles.button, ...styles.buttonPrimary }}
             >
-              <Icon as={FiPrinter} style={{ marginRight: 8 }} ariaLabel="Print PDF" />PDF
+              🖨️ PDF
             </button>
           )}
           <button
             onClick={onClose}
             style={{ ...styles.button, ...styles.buttonSecondary }}
           >
-            <Icon as={FiX} style={{ marginRight: 8 }} ariaLabel="Close" />Close
+            ✖️ Close
           </button>
         </div>
       </div>

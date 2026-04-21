@@ -154,7 +154,8 @@ export default function AdminSettings() {
               name="morning_end"
               value={settings.morning_end}
               onChange={handleChange}
-              style={styles.input}
+              style={{ ...styles.input, backgroundColor: "#D3D3D3" }}
+              disabled
             />
           </div>
           <div style={styles.inputGroup}>

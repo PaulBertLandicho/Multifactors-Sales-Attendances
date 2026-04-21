@@ -13,6 +13,7 @@ import {
 
 export default function RegistrationCamera({ onFaceScan, disabled }) {
   const [persons, setPersons] = useState([]);
+  const isSwalOpen = () => typeof Swal?.isVisible === "function" && Swal.isVisible();
 
   // Load persons with descriptors from Supabase
   useEffect(() => {
@@ -70,6 +71,13 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
   const wsRef = useRef(null);
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const animationFrameRef = useRef();
+  const lastDetectRef = useRef(0);
+  const descBufferRef = useRef([]);
+  const BUFFER_SIZE = 5; // number of frames to stabilize descriptor
+  const STABILITY_THRESHOLD = 0.08; // max distance from avg allowed across buffer
+  // Tighter thresholds to reduce false-positive duplicate detection
+  const FACE_MATCH_THRESHOLD = 0.28; // require smaller distance to consider a match
+  const MATCH_MARGIN = 0.12; // require a clearer gap to the second-best
 
   // Load face-api.js models
   useEffect(() => {
@@ -141,7 +149,8 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
             const newDesc = normalizeDescriptor(
               toFloat32Array(detection.descriptor)
             );
-            const FACE_MATCH_THRESHOLD = 0.35;
+            const UPLOAD_FACE_MATCH = 0.30;
+            const UPLOAD_MARGIN = 0.08;
 
             const candidates = persons
               .filter((p) => p.descriptor)
@@ -155,11 +164,15 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
             const second = candidates.length > 1 ? candidates[1] : null;
             const margin = second ? second.dist - best.dist : Infinity;
 
-            const isConfidentDuplicate =
-              best &&
-              best.dist < FACE_MATCH_THRESHOLD &&
-              margin >= 0.05 &&
-              best.p.registration_photo;
+            let isConfidentDuplicate = false;
+            if (best && best.p && best.p.registration_photo) {
+              if (second) {
+                isConfidentDuplicate = best.dist < UPLOAD_FACE_MATCH && margin >= UPLOAD_MARGIN;
+              } else {
+                // no second candidate, require a very strong match
+                isConfidentDuplicate = best.dist < UPLOAD_FACE_MATCH * 0.8;
+              }
+            }
 
             if (isConfidentDuplicate) {
               const res = await Swal.fire({
@@ -184,7 +197,8 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
             }
 
             if (typeof onFaceScan === "function") {
-              onFaceScan({ descriptor: newDesc, photoDataUrl: dataUrl });
+              if (!isSwalOpen()) onFaceScan({ descriptor: newDesc, photoDataUrl: dataUrl });
+              else console.log("Swal visible — skipping onFaceScan from upload");
             }
           } catch (err) {
             console.error("Error processing uploaded image:", err);
@@ -327,8 +341,22 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
       // Draw mesh — validate detection and box before drawing to avoid face-api errors
       const canvas = canvasRef.current;
       if (canvas && source) {
-        canvas.width = isVideo ? source.videoWidth : source.naturalWidth;
-        canvas.height = isVideo ? source.videoHeight : source.naturalHeight;
+        // Match canvas pixel size to source to avoid scaling issues
+        const srcWidth = isVideo ? source.videoWidth : source.naturalWidth;
+        const srcHeight = isVideo ? source.videoHeight : source.naturalHeight;
+        if (srcWidth && srcHeight) {
+          canvas.width = srcWidth;
+          canvas.height = srcHeight;
+        }
+
+        // Throttle detection drawing to reduce jitter and CPU (100ms)
+        const now = Date.now();
+        const MIN_MS = 100;
+        if (now - lastDetectRef.current < MIN_MS) {
+          animationFrameRef.current = requestAnimationFrame(detect);
+          return;
+        }
+        lastDetectRef.current = now;
 
         const box = detection?.detection?.box;
         const boxValid =
@@ -337,100 +365,127 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
             (v) => typeof v === "number" && !isNaN(v)
           );
 
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
         if (detection && boxValid) {
           try {
-            faceapi.draw.drawFaceLandmarks(canvas, detection);
+            // Resize detection coordinates to the canvas/display size
+            const displaySize = { width: canvas.width, height: canvas.height };
+            const resized = faceapi.resizeResults(detection, displaySize);
+
+            // Draw bounding box and landmarks using resized results
+            faceapi.draw.drawDetections(canvas, resized);
+            faceapi.draw.drawFaceLandmarks(canvas, resized);
           } catch (err) {
-            // Defensive: log unexpected drawing errors and clear canvas
             console.warn("Error drawing face landmarks:", err);
-            const ctx = canvas.getContext("2d");
             ctx.clearRect(0, 0, canvas.width, canvas.height);
           }
         } else {
-          // Nothing valid to draw — clear canvas
-          const ctx = canvas.getContext("2d");
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          // Nothing valid to draw — canvas already cleared
         }
       }
-      // If face detected, check for duplicate and send payload
+      // If face detected, collect descriptors across frames and only act when stable
       if (detection && detection.descriptor) {
-        // Check for duplicate face (normalize both sides first)
-        const newDesc = normalizeDescriptor(
+        const rawDesc = normalizeDescriptor(
           toFloat32Array(detection.descriptor)
         );
-        // Use a stricter threshold to avoid false positives
-        // Lower value = stricter (fewer duplicates). Adjust if needed for your dataset.
-        const FACE_MATCH_THRESHOLD = 0.35;
-        // Compute distances to all stored descriptors and find best candidate
-        const candidates = persons
-          .filter((p) => p.descriptor)
-          .map((p) => ({ p, dist: euclideanDistance(newDesc, p.descriptor) }))
-          .sort((a, b) => a.dist - b.dist);
 
-        const best = candidates.length ? candidates[0] : null;
+        // Push to circular buffer
+        const buf = descBufferRef.current || [];
+        buf.push(rawDesc);
+        if (buf.length > BUFFER_SIZE) buf.shift();
+        descBufferRef.current = buf;
 
-        // Require a minimum margin between best and second-best to avoid ambiguous matches
-        const second = candidates.length > 1 ? candidates[1] : null;
-        const margin = second ? second.dist - best.dist : Infinity;
+        // Only proceed when buffer is filled and stable
+        if (buf.length >= BUFFER_SIZE) {
+          const avgDesc = averageDescriptors(buf);
+          const deviations = buf.map((d) => euclideanDistance(d, avgDesc));
+          const maxDev = Math.max(...deviations);
+          // If descriptors are not stable across frames, wait for more stable frames
+          if (maxDev > STABILITY_THRESHOLD) {
+            // skip this round — wait for more consistent frames
+          } else {
+            // Stable averaged descriptor — perform duplicate check with stricter thresholds
+            const candidates = persons
+              .filter((p) => p.descriptor)
+              .map((p) => ({ p, dist: euclideanDistance(avgDesc, p.descriptor) }))
+              .sort((a, b) => a.dist - b.dist);
 
-        console.log(
-          "REGISTRATION DEBUG: candidate distances=",
-          candidates.map((c) => ({ id: c.p.id, name: c.p.name, dist: c.dist }))
-        );
+            const best = candidates.length ? candidates[0] : null;
+            const second = candidates.length > 1 ? candidates[1] : null;
+            const margin = second ? second.dist - best.dist : Infinity;
 
-        // Require a larger margin to avoid ambiguous near-matches
-        const isConfidentDuplicate =
-          best &&
-          best.dist < FACE_MATCH_THRESHOLD &&
-          margin >= 0.05 &&
-          best.p.registration_photo;
+            console.log(
+              "REGISTRATION DEBUG: averaged candidate distances=",
+              candidates.map((c) => ({ id: c.p.id, name: c.p.name, dist: c.dist }))
+            );
 
-        if (isConfidentDuplicate) {
-          // Prompt user — allow override to force new registration
-          const res = await Swal.fire({
-            icon: "info",
-            title: "Possible Duplicate",
-            html: `This face is similar to <strong>${
-              best.p.name || "a person"
-            }</strong> (ID: ${
-              best.p.id
-            }) with distance <strong>${best.dist.toFixed(
-              3
-            )}</strong>.<br/>Registering a new person may create a duplicate.`,
-            showCancelButton: true,
-            confirmButtonText: "Register Anyway",
-            cancelButtonText: "Cancel",
-            focusCancel: true,
-          });
+            // More conservative duplicate decision for live capture
+            let isConfidentDuplicate = false;
+            if (best && best.p && best.p.registration_photo) {
+              if (second) {
+                isConfidentDuplicate = best.dist < FACE_MATCH_THRESHOLD && margin >= MATCH_MARGIN;
+              } else {
+                isConfidentDuplicate = best.dist < FACE_MATCH_THRESHOLD * 0.8;
+              }
+            }
 
-          if (res.isConfirmed) {
-            // Proceed with registration despite similarity
-            const frameCanvas = document.createElement("canvas");
-            frameCanvas.width = canvas.width;
-            frameCanvas.height = canvas.height;
-            const ctx = frameCanvas.getContext("2d");
-            ctx.drawImage(source, 0, 0, frameCanvas.width, frameCanvas.height);
-            const photoDataUrl = frameCanvas.toDataURL("image/jpeg", 0.85);
-            if (typeof onFaceScan === "function") {
-              onFaceScan({ descriptor: newDesc, photoDataUrl });
+            console.log('REGISTRATION duplicate-check', { best: best?.dist, second: second?.dist, margin, isConfidentDuplicate });
+
+            if (isConfidentDuplicate) {
+              const res = await Swal.fire({
+                icon: "info",
+                title: "Possible Duplicate",
+                html: `This face is similar to <strong>${
+                  best.p.name || "a person"
+                }</strong> (ID: ${best.p.id}) with distance <strong>${best.dist.toFixed(
+                  3
+                )}</strong>.<br/>Registering a new person may create a duplicate.`,
+                showCancelButton: true,
+                confirmButtonText: "Register Anyway",
+                cancelButtonText: "Cancel",
+                focusCancel: true,
+              });
+
+              if (res.isConfirmed) {
+                // Capture a frame to include with the scan payload
+                const frameCanvas = document.createElement("canvas");
+                frameCanvas.width = canvas ? canvas.width : (isVideo ? source.videoWidth : source.naturalWidth) || 640;
+                frameCanvas.height = canvas ? canvas.height : (isVideo ? source.videoHeight : source.naturalHeight) || 480;
+                const fctx = frameCanvas.getContext("2d");
+                fctx.drawImage(source, 0, 0, frameCanvas.width, frameCanvas.height);
+                const photoDataUrl = frameCanvas.toDataURL("image/jpeg", 0.85);
+                // clear buffer so next person starts fresh
+                descBufferRef.current = [];
+                if (typeof onFaceScan === "function") {
+                  if (!isSwalOpen()) onFaceScan({ descriptor: avgDesc, photoDataUrl });
+                  else console.log("Swal visible — skipping onFaceScan after duplicate confirm");
+                }
+              }
+            } else {
+              // Not a duplicate — send averaged descriptor as a single stable scan
+              const frameCanvas = document.createElement("canvas");
+              frameCanvas.width = canvas ? canvas.width : (isVideo ? source.videoWidth : source.naturalWidth) || 640;
+              frameCanvas.height = canvas ? canvas.height : (isVideo ? source.videoHeight : source.naturalHeight) || 480;
+              const fctx = frameCanvas.getContext("2d");
+              fctx.drawImage(source, 0, 0, frameCanvas.width, frameCanvas.height);
+              const photoDataUrl = frameCanvas.toDataURL("image/jpeg", 0.85);
+              descBufferRef.current = [];
+              if (typeof onFaceScan === "function") {
+                if (!isSwalOpen()) onFaceScan({ descriptor: avgDesc, photoDataUrl });
+                else console.log("Swal visible — skipping onFaceScan from live capture");
+              }
             }
           }
-        } else {
-          // Capture frame
-          const frameCanvas = document.createElement("canvas");
-          frameCanvas.width = canvas.width;
-          frameCanvas.height = canvas.height;
-          const ctx = frameCanvas.getContext("2d");
-          ctx.drawImage(source, 0, 0, frameCanvas.width, frameCanvas.height);
-          const photoDataUrl = frameCanvas.toDataURL("image/jpeg", 0.85);
-          if (typeof onFaceScan === "function") {
-            onFaceScan({ descriptor: newDesc, photoDataUrl });
-          }
         }
-        // Pause detection until modal closes (handled by disabled prop)
+        // else wait until buffer fills
       }
+      // Pause detection until modal closes (handled by disabled prop)
+      // schedule next frame
       animationFrameRef.current = requestAnimationFrame(detect);
     }
+    // start detection loop
     animationFrameRef.current = requestAnimationFrame(detect);
     return () => {
       isMounted = false;

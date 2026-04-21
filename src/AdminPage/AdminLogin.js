@@ -40,19 +40,16 @@ export default function AdminLogin() {
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <div style={styles.header}>
-          <div style={styles.icon}>
+        <div style={styles.headerCentered}>
+          <div style={styles.icon} aria-hidden>
             <img
               src="/image/logo/multifactorssales_logo-removebg.png"
               alt="Multifactors Sales Logo"
-              style={{ width: 250, height: 150 }}
+              style={styles.logoImage}
             />
           </div>
-          <h2 style={styles.title}>Admin Login</h2>
-          <div style={styles.underline}></div>
-          <div style={styles.headerSub}>
-            Sign in to access the admin dashboard
-          </div>
+          <h2 style={styles.welcomeTitle}>Welcome back</h2>
+          <div style={styles.headerSub}>Sign in to access the admin dashboard</div>
         </div>
 
         <form onSubmit={handleLogin} style={styles.form}>
@@ -111,6 +108,15 @@ export default function AdminLogin() {
               />
               Remember me
             </label>
+            <button
+              type="button"
+              onClick={() => {
+                // placeholder: implement forgot password flow
+              }}
+              style={styles.forgotLinkButton}
+            >
+              Forgot password?
+            </button>
           </div>
 
           {error && <div style={styles.error}>{error}</div>}
@@ -123,15 +129,10 @@ export default function AdminLogin() {
               ...(loading ? styles.buttonDisabled : {}),
             }}
           >
-            {loading ? (
-              "Logging in..."
-            ) : (
-              <>
-                <FaSignInAlt style={styles.signInIcon} /> Sign in
-              </>
-            )}
+            {loading ? "Logging in..." : <><FaSignInAlt style={styles.signInIcon} /> Sign in</>}
           </button>
         </form>
+
       </div>
     </div>
   );
@@ -140,12 +141,11 @@ export default function AdminLogin() {
 /* STYLES MUST BE OUTSIDE THE COMPONENT */
 const styles = {
   container: {
-    minHeight: "100vh",
+    minHeight: "auto",
     display: "flex",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "center",
-    background: "#f3f6f9",
-    padding: "20px",
+    padding: "48px 16px",
   },
   card: {
     maxWidth: "420px",
@@ -155,20 +155,35 @@ const styles = {
     padding: "32px",
     boxShadow: "0 12px 30px rgba(16,24,40,0.08)",
   },
-  header: {
+  headerCentered: {
     textAlign: "center",
-    marginBottom: "20px",
+    marginBottom: "18px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "column",
+    gap: 8,
+    paddingTop: 4,
   },
-  icon: {
+   icon: {
     fontSize: "40px",
   },
-  title: {
-    margin: "8px 0",
+  logoImage: {
+    width: 250,
+    height: 150,
+    objectFit: "contain",
   },
+  welcomeTitle: {
+    margin: 0,
+    fontSize: "20px",
+    fontWeight: 700,
+    color: "#111827",
+  },
+  /* duplicate icon removed */
   headerSub: {
     color: "#6b7280",
-    fontSize: "14px",
-    marginTop: "6px",
+    fontSize: "13px",
+    marginTop: "2px",
   },
   underline: {
     width: "56px",
@@ -186,9 +201,9 @@ const styles = {
     position: "relative",
     display: "flex",
     alignItems: "center",
-    background: "#f8fafc",
-    borderRadius: "10px",
-    padding: "8px 12px",
+    background: "#fbf6f8",
+    borderRadius: "12px",
+    padding: "10px 12px",
     border: "1px solid transparent",
   },
   leftIcon: {
@@ -215,18 +230,19 @@ const styles = {
     border: "none",
     background: "transparent",
     outline: "none",
-    fontSize: "14px",
+    fontSize: "15px",
     color: "#111827",
   },
   button: {
     padding: "12px",
-    borderRadius: "30px",
+    borderRadius: "12px",
     border: "none",
     background: "#237227",
     color: "#fff",
     cursor: "pointer",
-    fontWeight: 600,
-    fontSize: "15px",
+    fontWeight: 700,
+    fontSize: "16px",
+    width: "100%",
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -241,6 +257,19 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+  },
+  forgotLink: {
+    color: "#237227",
+    fontSize: "13px",
+    textDecoration: "none",
+  },
+  forgotLinkButton: {
+    background: "transparent",
+    border: "none",
+    color: "#237227",
+    fontSize: "13px",
+    cursor: "pointer",
+    padding: 0,
   },
   checkbox: {
     marginRight: "8px",
@@ -270,10 +299,5 @@ const styles = {
     marginRight: 8,
     verticalAlign: "middle",
   },
-  footerNote: {
-    marginTop: "12px",
-    fontSize: "13px",
-    color: "#6b7280",
-    textAlign: "center",
-  },
+  
 };

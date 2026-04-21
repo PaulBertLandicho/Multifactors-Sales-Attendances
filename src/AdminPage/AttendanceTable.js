@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 // import { supabase } from '../supabaseClient';
-import { supabase } from "../supabaseClient";
 import { useLoading } from "../LoadingContext";
+import { supabase } from "../supabaseClient";
+import { determineExpectedEvent, determineAttendanceStatus, toMinutes } from "./attendanceUtils";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import { MdFilterList } from "react-icons/md";
@@ -51,7 +52,7 @@ export default function AttendanceTable() {
 
   const Icons = {
     filter: <MdFilterList />,
-    download: <FiDownload color="#ffffff" style={{ marginRight: 8 }} />,
+    download: <FiDownload />,
     archive: <FiArchive />,
     restore: <FiRotateCcw />,
     add: <FiPlus />,
@@ -313,13 +314,115 @@ export default function AttendanceTable() {
     return () => clearInterval(interval);
   }, [setLoading]);
 
-  // Page-level loading handled by LoadingContext overlay
+  // Loading overlay handled by `LoadingContext` provider
 
   if (error) {
     return <p style={{ color: "red" }}>{error}</p>;
   }
 
   // Form handlers
+  // compute event/status for an edited attendance time
+  const computeStatusForEdit = async (rec, isoTime) => {
+    if (!settings) return { event: rec.event, status: rec.status };
+    try {
+      const deviceDate = new Date(isoTime);
+      const year = deviceDate.getFullYear();
+      const month = String(deviceDate.getMonth() + 1).padStart(2, "0");
+      const day = String(deviceDate.getDate()).padStart(2, "0");
+      const dayStartIso = `${year}-${month}-${day}T00:00:00.000Z`;
+      const dayEndIso = `${year}-${month}-${day}T23:59:59.999Z`;
+
+      const { data: attData, error: attErr } = await supabase
+        .from("attendance")
+        .select("id,event,device_time")
+        .eq("person_id", rec.person_id)
+        .gte("device_time", dayStartIso)
+        .lte("device_time", dayEndIso)
+        .order("device_time", { ascending: true });
+      if (attErr) throw attErr;
+
+      // find last event before the edited time (exclude the edited record itself)
+      let lastEvent = null;
+      let lastEventDeviceTimeIso = null;
+      if (Array.isArray(attData)) {
+        for (const r of attData) {
+          if (!r || !r.device_time) continue;
+          if (r.id === rec.id) continue;
+          if (new Date(r.device_time).getTime() < deviceDate.getTime()) {
+            lastEvent = r.event;
+            lastEventDeviceTimeIso = r.device_time;
+          }
+        }
+      }
+
+      const currentTime = deviceDate.toTimeString().slice(0, 5);
+      const event = determineExpectedEvent(currentTime, lastEvent, settings, lastEventDeviceTimeIso);
+
+      // detect whether there was a morning time-in (excluding this edited record)
+      let hadMorningTimeIn = false;
+      if (Array.isArray(attData) && attData.length > 0) {
+        const morningStartMinutes = toMinutes(settings.morning_start);
+        const morningEndMinutes = toMinutes(settings.morning_end);
+        for (const row of attData) {
+          if (!row || row.id === rec.id) continue;
+          if (row.event !== "time-in" || !row.device_time) continue;
+          const dt = new Date(row.device_time);
+          const hhmm = dt.toTimeString().slice(0, 5);
+          const minutes = toMinutes(hhmm);
+          if (minutes >= morningStartMinutes && minutes <= morningEndMinutes) {
+            hadMorningTimeIn = true;
+            break;
+          }
+        }
+      }
+
+      const status = determineAttendanceStatus(currentTime, event, settings, hadMorningTimeIn);
+      return { event, status };
+    } catch (e) {
+      console.error("computeStatusForEdit failed", e);
+      return { event: rec.event, status: rec.status };
+    }
+  };
+
+  // open an edit modal and persist edited attendance time, event and status
+  const handleEdit = async (rec) => {
+    try {
+      // format a Date as local `datetime-local` value (YYYY-MM-DDTHH:MM)
+      const formatForDatetimeLocal = (d) => {
+        const dt = d instanceof Date ? d : new Date(d);
+        const pad = (n) => String(n).padStart(2, "0");
+        const y = dt.getFullYear();
+        const m = pad(dt.getMonth() + 1);
+        const day = pad(dt.getDate());
+        const hh = pad(dt.getHours());
+        const mm = pad(dt.getMinutes());
+        return `${y}-${m}-${day}T${hh}:${mm}`;
+      };
+
+      const currentLocal = rec.device_time ? formatForDatetimeLocal(new Date(rec.device_time)) : formatForDatetimeLocal(new Date());
+      const { value } = await Swal.fire({
+        title: `Edit Attendance Time for ${rec.name || rec.person_id}`,
+        input: 'datetime-local',
+        inputValue: currentLocal,
+        showCancelButton: true,
+        confirmButtonText: 'Save',
+      });
+      if (!value) return;
+      const iso = new Date(value).toISOString();
+      const { event, status } = await computeStatusForEdit(rec, iso);
+      const { error } = await supabase.from('attendance').update({ device_time: iso, event, status }).eq('id', rec.id);
+      if (error) {
+        Swal.fire('Error', error.message, 'error');
+        return;
+      }
+      setRecords((prev) => prev.map((r) => (r.id === rec.id ? { ...r, device_time: iso, event, status } : r)));
+      Swal.fire('Saved', 'Attendance updated.', 'success');
+    } catch (e) {
+      console.error('handleEdit failed', e);
+      Swal.fire('Error', e.message || String(e), 'error');
+    }
+  };
+
   // const handleFormChange = (e) => {
   //   const { name, value } = e.target;
   //   setForm((prev) => ({ ...prev, [name]: value }));
@@ -367,7 +470,7 @@ export default function AttendanceTable() {
         Swal.fire("Error", archErr.message, "error");
       } else {
         setRecords((prev) =>
-          prev.map((r) => (r.id === rec.id ? { ...r, archived: true } : r)),
+          prev.map((r) => (r.id === rec.id ? { ...r, archived: true } : r))
         );
         Swal.fire("Archived!", "", "success");
       }
@@ -384,7 +487,7 @@ export default function AttendanceTable() {
       Swal.fire("Error", resErr.message, "error");
     } else {
       setRecords((prev) =>
-        prev.map((r) => (r.id === rec.id ? { ...r, archived: false } : r)),
+        prev.map((r) => (r.id === rec.id ? { ...r, archived: false } : r))
       );
       Swal.fire("Restored!", "", "success");
     }
@@ -481,9 +584,7 @@ export default function AttendanceTable() {
     .filter((r) => r.archived)
     .filter((r) => {
       if (!selectedDate) return true;
-      const rd = r.device_time
-        ? new Date(r.device_time).toISOString().slice(0, 10)
-        : null;
+      const rd = r.device_time ? new Date(r.device_time).toISOString().slice(0, 10) : null;
       return rd === selectedDate;
     })
     .sort((a, b) => new Date(b.device_time) - new Date(a.device_time));
@@ -558,7 +659,7 @@ export default function AttendanceTable() {
           >
             <option value="">All Departments</option>
             {Array.from(
-              new Set(persons.map((p) => p.department).filter(Boolean)),
+              new Set(persons.map((p) => p.department).filter(Boolean))
             ).map((dept) => (
               <option key={dept} value={dept}>
                 {dept}
@@ -590,8 +691,7 @@ export default function AttendanceTable() {
 
         <div style={styles.actionButtons}>
           <div style={styles.countBadge}>
-            {(showArchived ? archivedRecords.length : sortedRecords.length) +
-              " records"}
+            {(showArchived ? archivedRecords.length : sortedRecords.length) + " records"}
           </div>
           <button
             onClick={() => setShowArchived((a) => !a)}
@@ -656,7 +756,7 @@ export default function AttendanceTable() {
                                     <span style={styles.photoTime}>
                                       {row.device_time
                                         ? new Date(
-                                            row.device_time,
+                                            row.device_time
                                           ).toLocaleString(undefined, {
                                             hour: "2-digit",
                                             minute: "2-digit",
@@ -744,8 +844,7 @@ export default function AttendanceTable() {
                                     .map(Number);
                                   const morningEndMin =
                                     morningEnd[0] * 60 + morningEnd[1];
-                                  const morningGrace =
-                                    Number(settings.morning_grace_minutes) || 0;
+                                  const morningGrace = Number(settings.morning_grace_minutes) || 0;
                                   // Treat times within the morning end + grace as still morning
                                   if (minutes > morningEndMin + morningGrace) {
                                     label = "Afternoon In";
@@ -768,8 +867,7 @@ export default function AttendanceTable() {
                                     .map(Number);
                                   const morningEndMin =
                                     morningEnd[0] * 60 + morningEnd[1];
-                                  const morningGrace =
-                                    Number(settings.morning_grace_minutes) || 0;
+                                  const morningGrace = Number(settings.morning_grace_minutes) || 0;
                                   // Treat times within the morning end + grace as still morning
                                   if (minutes > morningEndMin + morningGrace) {
                                     label = "Afternoon Out";
@@ -805,12 +903,20 @@ export default function AttendanceTable() {
                         <td style={styles.td}>
                           <div style={styles.actionCell}>
                             {!row.archived ? (
-                              <button
-                                onClick={() => handleArchive(row)}
-                                style={styles.smallButton}
-                              >
-                                {Icons.archive} Archive
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => handleEdit(row)}
+                                  style={styles.smallButton}
+                                >
+                                  Edit Time
+                                </button>
+                                <button
+                                  onClick={() => handleArchive(row)}
+                                  style={styles.smallButton}
+                                >
+                                  {Icons.archive} Archive
+                                </button>
+                              </>
                             ) : (
                               <button
                                 onClick={() => handleRestore(row)}
@@ -823,7 +929,7 @@ export default function AttendanceTable() {
                         </td>
                       </tr>
                     );
-                  },
+                  }
                 )
               )}
             </tbody>

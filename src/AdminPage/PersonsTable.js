@@ -10,7 +10,9 @@ import {
   FiBriefcase,
   FiPhone,
   FiMail,
+  FiUserPlus,
 } from "react-icons/fi";
+import PersonRegistration from "./PersonRegistration";
 
 export default function PersonsTable() {
   // Camera state/hooks for Edit Person modal
@@ -87,6 +89,9 @@ export default function PersonsTable() {
   const [payrollGrossMap, setPayrollGrossMap] = useState({});
   const [presenceMap, setPresenceMap] = useState({});
   const { setLoading } = useLoading();
+  const [departments, setDepartments] = useState([]);
+  const [showRegModal, setShowRegModal] = useState(false);
+  const [regModalImage, setRegModalImage] = useState(null);
   const initialLoadRef = useRef(true);
   const [error, setError] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -102,6 +107,7 @@ export default function PersonsTable() {
     download: <FiDownload color="#ffffff" style={{ marginRight: 8 }} />,
     archive: <FiArchive />,
     edit: <FiEdit color="#ffffff" style={{ marginRight: 8 }} />,
+    add: <FiUserPlus color="#ffffff" style={{ marginRight: 8 }} />,
   };
 
   useEffect(() => {
@@ -177,6 +183,20 @@ export default function PersonsTable() {
                   pmap[k].present = !!(pmap[k].morning || pmap[k].afternoon);
                 });
                 setPresenceMap(pmap);
+                // fetch department rates list (for edit dropdown)
+                try {
+                  const { data: deptData, error: deptErr } = await supabase
+                    .from("department_rates")
+                    .select("department");
+                  if (!deptErr && Array.isArray(deptData)) {
+                    const uniq = Array.from(
+                      new Set(deptData.map((d) => d.department).filter(Boolean)),
+                    );
+                    setDepartments(uniq);
+                  }
+                } catch (e) {
+                  // ignore department fetch errors
+                }
               }
             } catch (e) {
               // ignore attendance fetch errors
@@ -611,6 +631,32 @@ export default function PersonsTable() {
               <>{Icons.archive} Show Archived</>
             )}
           </button>
+          <input
+            id="reg-image-input"
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files && e.target.files[0];
+              if (!f) return;
+              const reader = new FileReader();
+              reader.onload = () => {
+                const url = reader.result;
+                setRegModalImage(url);
+                setShowRegModal(true);
+              };
+              reader.readAsDataURL(f);
+            }}
+          />
+          <button
+            onClick={() => {
+              setRegModalImage(null);
+              setShowRegModal(true);
+            }}
+            style={{ ...styles.button, ...styles.buttonPrimary, marginLeft: 8 }}
+          >
+            {Icons.add} Open Register Camera
+          </button>
         </div>
 
         <button
@@ -620,6 +666,45 @@ export default function PersonsTable() {
           {Icons.download} Export Excel
         </button>
       </div>
+
+      {/* Registration modal */}
+      {showRegModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0,0,0,0.5)",
+            zIndex: 2000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 20,
+              width: 800,
+              maxWidth: "95vw",
+              maxHeight: "90vh",
+              overflow: "auto",
+              position: "relative",
+            }}
+          >
+            <button
+              onClick={() => setShowRegModal(false)}
+              style={{ position: "absolute", right: 12, top: 12, border: "none", background: "transparent", fontSize: 20, cursor: "pointer" }}
+            >
+              &times;
+            </button>
+            <PersonRegistration initialImageUrl={regModalImage} />
+          </div>
+        </div>
+      )}
 
       {/* Card Grid */}
       <div style={styles.tableContainer}>
@@ -884,13 +969,27 @@ export default function PersonsTable() {
               </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Department</label>
-                <input
+                <select
                   value={editPerson.department || ""}
                   onChange={(e) =>
                     setEditPerson({ ...editPerson, department: e.target.value })
                   }
-                  style={styles.modalInput}
-                />
+                  style={styles.modalSelect}
+                >
+                  <option value="">(Select department)</option>
+                  {departments && departments.length
+                    ? departments.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))
+                    : // fallback to departments seen on persons list
+                      Array.from(new Set(persons.map((p) => p.department).filter(Boolean))).map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                </select>
               </div>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Phone</label>

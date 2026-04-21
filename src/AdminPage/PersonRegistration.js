@@ -46,7 +46,7 @@ const playVoice = (type = "info") => {
   }
 };
 
-export default function PersonRegistration() {
+export default function PersonRegistration({ initialImageUrl = null }) {
   const [countdown, setCountdown] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [pendingScan, setPendingScan] = useState(null);
@@ -111,6 +111,35 @@ export default function PersonRegistration() {
     }
   };
 
+  // If an initial static image URL is provided, open the registration modal
+  useEffect(() => {
+    if (initialImageUrl) {
+      // create a minimal scanPayload with photo only
+      const payload = { photoDataUrl: initialImageUrl, descriptor: null };
+      setPendingScan(payload);
+      setShowModal(true);
+    }
+    // only run on mount/when initialImageUrl changes
+  }, [initialImageUrl]);
+
+  // Ensure SweetAlert2 is displayed above this modal by increasing its z-index
+  useEffect(() => {
+    const styleId = "swal2-zindex-fix";
+    if (document.getElementById(styleId)) return;
+    const s = document.createElement("style");
+    s.id = styleId;
+    s.textContent = `
+      .swal2-container, .swal2-backdrop, .swal2-popup {
+        z-index: 100000 !important;
+      }
+    `;
+    document.head.appendChild(s);
+    return () => {
+      const el = document.getElementById(styleId);
+      if (el) el.remove();
+    };
+  }, []);
+
   // Prevent background page from scrolling while the Person Details modal is open
   useEffect(() => {
     if (!showModal) return;
@@ -126,7 +155,8 @@ export default function PersonRegistration() {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h1 style={styles.title}>Person Registration</h1>
+        <h1 style={styles.title}>Register Person Camera
+</h1>
         <div style={styles.titleUnderline} />
         {/* <button
           style={{ ...styles.button, ...styles.buttonPrimary, marginTop: 16, float: 'right' }}
@@ -145,7 +175,6 @@ export default function PersonRegistration() {
           boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
         }}
       >
-        <h2>Register Person Camera</h2>
         {/* Countdown overlay */}
         {countdown > 0 && (
           <div
@@ -308,10 +337,7 @@ const styles = {
   container: {
     maxWidth: "1600px",
     margin: "40px auto",
-    padding: "40px 32px",
-    background: "#ffffff",
-    borderRadius: "32px",
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.1)",
+    padding: "10px 10px",
     color: "#1f2937",
     fontFamily:
       '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',

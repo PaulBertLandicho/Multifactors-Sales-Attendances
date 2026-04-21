@@ -8,9 +8,7 @@ export function drawPayslipOnDoc(
     totalHolidayPay = 0,
     absentCount = 0,
     totalDeductions = 0,
-    // optional: total overtime hours as decimal (e.g. 1.5)
     otHours,
-    // additional computed values (optional)
     daysWorked = payroll?.daysPresent || 0,
     standardPayAmount = null,
     otPay = null,
@@ -18,24 +16,25 @@ export function drawPayslipOnDoc(
     cashAdvanceEntries = [],
     cashAdvanceTotalInPeriod = 0,
   },
-  yOffset = 10
+  yOffset = 10,
+  scale = 1
 ) {
   if (!doc || !payroll || !person) return;
 
-  const left = 10;
-  const right = 200;
+  const left = 10 * (scale || 1);
   const pageWidth = doc.internal.pageSize.getWidth();
-  const lineHeight = 7;
+  const right = pageWidth - 10 * (scale || 1);
+  const lineHeight = 7 * (scale || 1);
   let y = yOffset;
 
   // Header
-  doc.setFontSize(10);
-  doc.text(`Date: ${new Date().toISOString().slice(0, 10)}`, right - 50, y);
+  doc.setFontSize(10 * (scale || 1));
+  doc.text(`Date: ${new Date().toISOString().slice(0, 10)}`, right - 50 * (scale || 1), y);
   y += lineHeight * 1.5;
 
-  doc.setFontSize(12);
+  doc.setFontSize(12 * (scale || 1));
   doc.text("Full Name:", left, y);
-  doc.text(person.name || "", left + 25, y);
+  doc.text(person.name || "", left + 25 * (scale || 1), y);
 
   // Person image (if available and valid data URL)
   let imageDrawn = false;
@@ -48,10 +47,10 @@ export function drawPayslipOnDoc(
       doc.addImage(
         person.registration_photo,
         "JPEG",
-        right - 50,
-        y - 8,
-        30,
-        20
+        right - 50 * (scale || 1),
+        y - 8 * (scale || 1),
+        30 * (scale || 1),
+        20 * (scale || 1)
       );
       imageDrawn = true;
     } catch (e) {
@@ -59,10 +58,10 @@ export function drawPayslipOnDoc(
         doc.addImage(
           person.registration_photo,
           "PNG",
-          right - 50,
-          y - 8,
-          30,
-          20
+          right - 50 * (scale || 1),
+          y - 8 * (scale || 1),
+          30 * (scale || 1),
+          20 * (scale || 1)
         );
         imageDrawn = true;
       } catch (e2) {
@@ -71,12 +70,12 @@ export function drawPayslipOnDoc(
     }
   }
   if (!imageDrawn) {
-    doc.rect(right - 50, y - 8, 30, 20, "S");
-    doc.text("image", right - 35, y - 5, { align: "center" });
+    doc.rect(right - 50 * (scale || 1), y - 8 * (scale || 1), 30 * (scale || 1), 20 * (scale || 1), "S");
+    doc.text("image", right - 35 * (scale || 1), y - 5 * (scale || 1), { align: "center" });
   }
 
   y += lineHeight;
-  doc.setFontSize(10);
+  doc.setFontSize(10 * (scale || 1));
   doc.text("Period:", left, y);
   // Format period for readability (e.g. 2026-04-07_to_2026-04-21 -> April 07, 2026 to April 21, 2026)
   function formatPeriod(p) {
@@ -110,42 +109,38 @@ export function drawPayslipOnDoc(
   doc.text(String(daysWorked || payroll.daysPresent || ""), left + 35, y);
 
   y += lineHeight * 1.5;
-  // Use Unicode peso sign (U+20B1), fallback to 'PHP' if not supported
-  let peso = "PHP";
-  try {
-    // some jsPDF builds may throw for unsupported glyphs; if so, fallback
-    doc.getStringUnitWidth(peso);
-  } catch (e) {
-    peso = "PHP";
-  }
+  // Currency helper and symbol
+  const peso = "PHP";
+  const formatCurrency = (amt) => {
+    const n = Number(amt || 0);
+    try {
+      return `${peso} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    } catch (e) {
+      return `${peso} ${n.toFixed(2)}`;
+    }
+  };
 
-  // Helper to draw left label with a line on the right and value centered above the line
-  const labelX = left + 40;
-  const lineStartX = right - 70;
-  const lineEndX = right - 10;
+  // Helper to draw left label with a line on the right and right-aligned value
+  const labelX = left + 40 * (scale || 1);
+  const lineStartX = right - 70 * (scale || 1);
+  const lineEndX = right - 10 * (scale || 1);
   const drawLinedField = (label, value, bold = false) => {
     if (bold) doc.setFont(undefined, "bold");
+    doc.setFontSize(10 * (scale || 1));
     doc.text(label, labelX, y);
     if (bold) doc.setFont(undefined, "normal");
     doc.line(lineStartX, y, lineEndX, y);
-    const text =
-      value != null && String(value).trim() !== "" ? String(value) : "";
+    const text = value != null && String(value).trim() !== "" ? String(value) : "";
     if (text) {
       const valueX = (lineStartX + lineEndX) / 2;
-      doc.text(text, valueX, y - 1.5, { align: "center" });
+      doc.text(text, valueX, y - 1.5 * (scale || 1), { align: "center" });
     }
     y += lineHeight;
   };
 
   // Earnings block fields
-  drawLinedField(
-    "Basic Salary Rate:",
-    `${peso} ${(payroll.dailyRate ?? 0).toFixed(2)}`
-  );
-  drawLinedField(
-    "Total of days worked (present):",
-    String(daysWorked || payroll.daysPresent || 0)
-  );
+  drawLinedField("Basic Salary Rate:", formatCurrency(payroll.dailyRate ?? 0));
+  drawLinedField("Total of days worked (present):", String(daysWorked || payroll.daysPresent || 0));
   // Determine overtime hours to display: prefer explicit param, fallback to payroll value
   const otHoursToShow = typeof otHours !== "undefined" ? otHours : Number(payroll.otHours || 0);
   const formatHoursDecimalToLabel = (hrs) => {
@@ -167,10 +162,11 @@ export function drawPayslipOnDoc(
       : typeof payroll.gross !== "undefined"
       ? payroll.gross
       : (standardPayAmount || 0) + (otPay || 0) + totalHolidayPay;
-  drawLinedField("Total:", `${peso} ${Number(grossToShow).toLocaleString()}`, true);
+  drawLinedField("Total:", formatCurrency(Number(grossToShow)), true);
 
   y += lineHeight;
   doc.setFont(undefined, "bold");
+  doc.setFontSize(10 * (scale || 1));
   doc.text("Late / Absent", pageWidth / 2, y, { align: "center" });
   doc.setFont(undefined, "normal");
   y += lineHeight;
@@ -182,28 +178,39 @@ export function drawPayslipOnDoc(
     (person.sss ? Number(payroll.sss) : 0) +
     (person.pag_ibig ? Number(payroll.pag_ibig) : 0) +
     (person.philhealth ? Number(payroll.philhealth) : 0);
-  drawLinedField("Monthly Share:", `${peso} ${monthlyShare.toLocaleString()}`);
+  drawLinedField("Monthly Share:", formatCurrency(monthlyShare));
   drawLinedField(
     "Cash Advance:",
-    `${peso} ${Number(cashAdvanceTotalInPeriod || payroll.cashAdvance || 0).toLocaleString()}`
+    formatCurrency(Number(cashAdvanceTotalInPeriod || payroll.cashAdvance || 0))
   );
   // If there are individual cash advance entries, render a brief breakdown above the total
   if (Array.isArray(cashAdvanceEntries) && cashAdvanceEntries.length > 0) {
     y += lineHeight * 0.2;
-    doc.setFontSize(9);
-    doc.text("Cash Advance Details:", left + 12, y);
+    doc.setFontSize(9 * (scale || 1));
+    doc.text("Cash Advance Details:", left + 12 * (scale || 1), y);
     y += lineHeight;
     cashAdvanceEntries.forEach((e) => {
       const label = e.created_at ? new Date(e.created_at).toLocaleString() : "";
-      const value = `${peso} ${Number(e.amount || 0).toLocaleString()}`;
+      const value = formatCurrency(Number(e.amount || 0));
       drawLinedField(label, value, false);
     });
     y += lineHeight * 0.2;
-    doc.setFontSize(10);
+    doc.setFontSize(10 * (scale || 1));
   }
-  drawLinedField("Total:", `${peso} ${totalDeductions.toLocaleString()}`, true);
+  drawLinedField("Total:", formatCurrency(totalDeductions), true);
 
   y += lineHeight;
+  // Net Pay = Gross - Total Deductions
+  try {
+    const grossAmount = typeof gross !== "undefined" && gross !== null ? Number(gross) : Number(grossToShow || 0);
+    const deductionsAmount = Number(totalDeductions || 0);
+    const netPay = Math.round((grossAmount - deductionsAmount) * 100) / 100;
+    drawLinedField("Net Pay:", formatCurrency(netPay), true);
+  } catch (e) {
+    // ignore net pay rendering errors
+  }
+  // Single-line approval/received footer left-aligned (match sample)
+  doc.setFontSize(10 * (scale || 1));
   doc.text("Approved by:  Received from MULTIFACTORS SALES", left, y);
 }
 
@@ -212,7 +219,24 @@ export async function generatePayslipPdf(params) {
   if (!params || !params.payroll || !params.person) return;
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  drawPayslipOnDoc(doc, params);
+  // Draw two identical payslips on one page (top and bottom) so there is a duplicate copy
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const marginY = 10;
+  const pageW = doc.internal.pageSize.getWidth();
+  // compute a scale so two copies fit comfortably in half-pages
+  // increase baseCopyHeight to slightly shrink copies for safe fit
+  const baseCopyHeight = 160; // approximate original design height in mm
+  const availableHalf = pageHeight / 2 - marginY * 2;
+  const scale = Math.min(1, availableHalf / baseCopyHeight);
+  // Top copy
+  drawPayslipOnDoc(doc, params, marginY, scale);
+  // Divider line between copies
+  doc.setDrawColor(200);
+  doc.setLineWidth(0.3);
+  doc.line(5, pageHeight / 2, pageW - 5, pageHeight / 2);
+  // Bottom copy
+  drawPayslipOnDoc(doc, params, pageHeight / 2 + marginY, scale);
+
   doc.save(`${params.person.name}_payslip.pdf`);
 }
 
@@ -232,16 +256,21 @@ export async function generateAllPayslipsPdf(list = []) {
     const isTop = i % 2 === 0;
     const yOffset = isTop ? marginY : pageHeight / 2 + marginY;
     // Draw payslip at yOffset
-    drawPayslipOnDoc(doc, params, yOffset);
+      // compute scale per page similar to single-person
+      const baseCopyHeight = 160;
+    const availableHalf = pageHeight / 2 - marginY * 2;
+    const scale = Math.min(1, availableHalf / baseCopyHeight);
+    drawPayslipOnDoc(doc, params, yOffset, scale);
     // If next payslip is top (i.e., every 2 payslips), add a new page
     if (!isTop && i < list.length - 1) {
       doc.addPage();
     }
     // Draw a line between the two payslips on the same page
     if (isTop) {
-      doc.setDrawColor(0);
+      const pageW = doc.internal.pageSize.getWidth();
+      doc.setDrawColor(200);
       doc.setLineWidth(0.3);
-      doc.line(5, pageHeight / 2, pageHeight * 2, pageHeight / 2);
+      doc.line(5, pageHeight / 2, pageW - 5, pageHeight / 2);
     }
   }
 

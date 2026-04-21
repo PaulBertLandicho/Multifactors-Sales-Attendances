@@ -4,7 +4,7 @@ import Swal from "sweetalert2";
 import { FiCamera, FiLoader, FiCircle, FiUser, FiSearch, FiRefreshCw, FiAlertTriangle, FiSun, FiMoon, FiClock } from "react-icons/fi";
 import Icon from "../components/Icon";
 import { supabase } from "../supabaseClient";
-import { recordAttendanceForPerson } from "../AdminPage/attendanceUtils";
+import { recordAttendanceForPerson, autoGenerateMorningOut } from "../AdminPage/attendanceUtils";
 import {
   toFloat32Array,
   normalizeDescriptor,
@@ -91,6 +91,18 @@ export default function CameraPlayer({
   const lastScanRef = useRef({});
   const fullscreenRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" ? window.innerWidth <= 600 : false
+  );
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth <= 600);
+    }
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
   // Removed: unused popupLockRef
   const unknownFaceLockRef = useRef(false);
   const animationFrameRef = useRef();
@@ -99,6 +111,12 @@ export default function CameraPlayer({
   const verificationIdRef = useRef(null);
   const verificationStartRef = useRef(0);
   const settingsAlertShownRef = useRef(false);
+  const descriptorBufferRef = useRef([]);
+  const DESCR_BUFFER_SIZE = 3;
+  const DESCR_STABILITY = 0.07;
+  const lastLandmarksRef = useRef(null);
+  const lastBoxRef = useRef(null);
+  const autoTimeoutRef = useRef(null);
 
   // Helper to show SweetAlert in the fullscreen element when active
   const showSwal = (opts) => {
@@ -201,12 +219,84 @@ export default function CameraPlayer({
     const landmarks = resized.landmarks;
     if (!landmarks) return;
 
-    ctx.save();
+    // Build landmark parts
+    const parts = {
+      jaw: landmarks.getJawOutline(),
+      leftBrow: landmarks.getLeftEyeBrow(),
+      rightBrow: landmarks.getRightEyeBrow(),
+      nose: landmarks.getNose(),
+      leftEye: landmarks.getLeftEye(),
+      rightEye: landmarks.getRightEye(),
+      mouth: landmarks.getMouth(),
+      positions: landmarks.positions,
+    };
 
-    // 🔥 ADD IT HERE
+    // Smooth bounding box as well to reduce jitter
+    const rawBox = resized.detection?.box;
+    const prevBox = lastBoxRef.current;
+    const boxAlpha = 0.65;
+    let smoothBox = rawBox;
+    if (prevBox && rawBox) {
+      smoothBox = {
+        x: rawBox.x * boxAlpha + prevBox.x * (1 - boxAlpha),
+        y: rawBox.y * boxAlpha + prevBox.y * (1 - boxAlpha),
+        width:
+          rawBox.width * boxAlpha + (prevBox.width || rawBox.width) * (1 - boxAlpha),
+        height:
+          rawBox.height * boxAlpha + (prevBox.height || rawBox.height) * (1 - boxAlpha),
+      };
+    }
+    lastBoxRef.current = smoothBox;
+
+    // Draw confidence label background (blue) and box
+    try {
+      const score = (resized.detection && typeof resized.detection.score === 'number') ? resized.detection.score : null;
+      // box stroke
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#0b63ff"; // deep blue
+      ctx.strokeRect(smoothBox.x, smoothBox.y, smoothBox.width, smoothBox.height);
+
+      if (score !== null) {
+        const label = score.toFixed(2);
+        const padX = 6;
+        ctx.font = "14px Arial";
+        const textW = ctx.measureText(label).width;
+        const boxW = textW + padX * 2;
+        const boxH = 18;
+        const labelX = smoothBox.x;
+        const labelY = Math.max(0, smoothBox.y - boxH - 4);
+        ctx.fillStyle = "#0b63ff";
+        ctx.fillRect(labelX - 1, labelY - 1, boxW + 2, boxH + 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(label, labelX + padX, labelY + boxH - 5);
+      }
+      // reset styling for landmarks drawing
+      ctx.lineWidth = 2;
+    } catch (err) {
+      // non-fatal
+    }
+
+    // Smooth landmark positions with previous frame to reduce jitter
+    const prev = lastLandmarksRef.current || {};
+    const alpha = 0.6; // current weight
+    const smoothPoints = (curArr, prevArr) => {
+      if (!prevArr || prevArr.length !== curArr.length) return curArr;
+      return curArr.map((p, i) => ({
+        x: p.x * alpha + prevArr[i].x * (1 - alpha),
+        y: p.y * alpha + prevArr[i].y * (1 - alpha),
+      }));
+    };
+
+    const smoothParts = {};
+    Object.keys(parts).forEach((k) => {
+      smoothParts[k] = smoothPoints(parts[k], prev[k]);
+    });
+    lastLandmarksRef.current = smoothParts;
+
+    ctx.save();
+    // cyan lines
     ctx.shadowColor = "#00eaff";
     ctx.shadowBlur = 12;
-
     ctx.strokeStyle = "#00eaff";
     ctx.lineWidth = 2;
 
@@ -220,22 +310,20 @@ export default function CameraPlayer({
       ctx.stroke();
     };
 
-    drawPath(landmarks.getJawOutline());
-    drawPath(landmarks.getLeftEyeBrow());
-    drawPath(landmarks.getRightEyeBrow());
-    drawPath(landmarks.getNose());
-    drawPath(landmarks.getNose().slice(4, 9), true);
-    drawPath(landmarks.getLeftEye(), true);
-    drawPath(landmarks.getRightEye(), true);
-    drawPath(landmarks.getMouth(), true);
+    drawPath(smoothParts.jaw);
+    drawPath(smoothParts.leftBrow);
+    drawPath(smoothParts.rightBrow);
+    drawPath(smoothParts.nose);
+    drawPath(smoothParts.nose.slice(4, 9), true);
+    drawPath(smoothParts.leftEye, true);
+    drawPath(smoothParts.rightEye, true);
+    drawPath(smoothParts.mouth, true);
 
-    // Points (optional glow off for cleaner look)
-    ctx.shadowBlur = 0; // 🔥 prevent glowing dots
-    ctx.fillStyle = "#ffffff";
-
-    landmarks.positions.forEach((pt) => {
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "#ff4da6"; // magenta points
+    smoothParts.positions.forEach((pt) => {
       ctx.beginPath();
-      ctx.arc(pt.x, pt.y, 2, 0, 2 * Math.PI);
+      ctx.arc(pt.x, pt.y, 2.4, 0, 2 * Math.PI);
       ctx.fill();
     });
 
@@ -399,6 +487,58 @@ export default function CameraPlayer({
       if (subscription) subscription.unsubscribe();
     };
   }, []);
+
+  // ------------------- Auto Morning-Out scheduler -------------------
+  useEffect(() => {
+    if (!validSettings || !settings || !supabase) return;
+    let cancelled = false;
+
+    const runAuto = async () => {
+      try {
+        console.log('AutoMorningOut: running autoGenerateMorningOut', new Date().toISOString());
+        const res = await autoGenerateMorningOut({ supabase, settings });
+        console.log('AutoMorningOut result', res);
+        const inserted = Array.isArray(res) ? res.filter(r => r.inserted).length : 0;
+        try {
+          showSwal({ icon: 'info', title: 'Auto Morning Out', text: `Auto-generated morning-outs: ${inserted}` });
+        } catch (e) {}
+      } catch (e) {
+        console.error('AutoMorningOut failed', e);
+      }
+    };
+
+    const schedule = () => {
+      const now = new Date();
+      const [hStr, mStr] = (settings?.morning_end || '11:59').split(':');
+      const h = Number(hStr || 11);
+      const m = Number(mStr || 59);
+      let target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+      if (now.getTime() > target.getTime()) {
+        // schedule for next day
+        target = new Date(target.getTime() + 24 * 60 * 60 * 1000);
+      }
+      const ms = target.getTime() - now.getTime();
+      if (autoTimeoutRef.current) clearTimeout(autoTimeoutRef.current);
+      autoTimeoutRef.current = setTimeout(async () => {
+        if (cancelled) return;
+        await runAuto();
+        if (cancelled) return;
+        // schedule next day
+        autoTimeoutRef.current = setTimeout(async function loop() {
+          if (cancelled) return;
+          await runAuto();
+          if (cancelled) return;
+          autoTimeoutRef.current = setTimeout(loop, 24 * 60 * 60 * 1000);
+        }, 24 * 60 * 60 * 1000);
+      }, ms);
+    };
+
+    schedule();
+    return () => {
+      cancelled = true;
+      if (autoTimeoutRef.current) clearTimeout(autoTimeoutRef.current);
+    };
+  }, [validSettings, settings]);
 
   // ------------------- Load models -------------------
   useEffect(() => {
@@ -599,36 +739,47 @@ export default function CameraPlayer({
         // ✅ Draw mesh
         drawDetection(fullDetection);
 
+        // Descriptor smoothing: buffer descriptors across a few frames
         const descriptor = normalizeDescriptor(
           toFloat32Array(fullDetection.descriptor)
         );
+        const dbuf = descriptorBufferRef.current || [];
+        dbuf.push(descriptor);
+        if (dbuf.length > DESCR_BUFFER_SIZE) dbuf.shift();
+        descriptorBufferRef.current = dbuf;
 
-        // ---------------- MATCHING ----------------
-        // Compute distances to all persons and pick best candidate
+        // Only attempt matching when descriptor buffer is full and stable
+        if (dbuf.length < DESCR_BUFFER_SIZE) {
+          setVerifying(true);
+          animationFrameRef.current = requestAnimationFrame(detect);
+          return;
+        }
+
+        const avgDesc = averageDescriptors(dbuf);
+        const deviations = dbuf.map((d) => euclideanDistance(d, avgDesc));
+        const maxDev = Math.max(...deviations);
+        if (maxDev > DESCR_STABILITY) {
+          // unstable descriptor across frames — wait
+          setVerifying(true);
+          animationFrameRef.current = requestAnimationFrame(detect);
+          return;
+        }
+        setVerifying(false);
+
+        // ---------------- MATCHING (use averaged descriptor) ----------------
         const candidates = persons
           .filter((p) => p.descriptor)
-          .map((p) => ({
-            p,
-            dist: euclideanDistance(descriptor, p.descriptor),
-          }))
+          .map((p) => ({ p, dist: euclideanDistance(avgDesc, p.descriptor) }))
           .sort((a, b) => a.dist - b.dist);
 
         const best = candidates.length ? candidates[0] : null;
         const second = candidates.length > 1 ? candidates[1] : null;
-
-        // Use same stricter threshold as registration to avoid mis-assignments
-        // Tighter threshold: distance must be very close to the
-        // stored descriptor (built from the registration_photo)
         const FACE_MATCH_THRESHOLD = 0.28;
         const margin = second ? second.dist - best.dist : Infinity;
-
-        // Require a clear separation between best and second-best match
         const CONFIDENCE_MARGIN = 0.07;
 
         const currentId =
-          best &&
-          best.dist < FACE_MATCH_THRESHOLD &&
-          margin >= CONFIDENCE_MARGIN
+          best && best.dist < FACE_MATCH_THRESHOLD && margin >= CONFIDENCE_MARGIN
             ? best.p.id
             : "unknown";
 
@@ -670,6 +821,8 @@ export default function CameraPlayer({
 
         // ---------------- KNOWN PERSON ----------------
         if (bestMatch && bestDist < FACE_MATCH_THRESHOLD) {
+          // clear descriptor buffer so next person starts fresh
+          descriptorBufferRef.current = [];
           lastScanRef.current[currentId] = now;
           setCooldown(true);
 
@@ -781,6 +934,8 @@ export default function CameraPlayer({
 
         // ---------------- UNKNOWN PERSON ----------------
         else {
+          // clear descriptor buffer so next person starts fresh
+          descriptorBufferRef.current = [];
           // Only trigger onFaceScan for unknown faces if NOT in registrationActive mode
           // (registrationActive disables scanning to avoid duplicate popups)
           if (!registrationActive && typeof onFaceScan === "function") {
@@ -878,11 +1033,11 @@ export default function CameraPlayer({
   return (
     <div ref={fullscreenRef} style={isFullscreen ? styles.containerFull : styles.container}>
       {/* Camera card */}
-      <div style={isFullscreen ? { ...styles.cameraCard, ...styles.cameraCardFull } : styles.cameraCard}>
+      <div style={isFullscreen ? { ...styles.cameraCard, ...styles.cameraCardFull } : (isMobile ? styles.cameraCardMobile : styles.cameraCard)}>
         <div style={styles.cameraHeader}>
           <span style={styles.cameraTitle}><Icon as={FiCamera} style={{ marginRight: 8 }} ariaLabel="Camera" />Live Feed</span>
           <span style={{ marginLeft: 12, color: '#475569', fontWeight: 600 }}>{currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-          <div style={styles.statusBadges}>
+          <div style={isMobile ? styles.statusBadgesMobile : styles.statusBadges}>
             {cameraStatus === CAMERA_STATUS.CONNECTING && (
               <span style={{ ...styles.badge, ...styles.badgeConnecting }}>
                 <Icon as={FiLoader} style={{ marginRight: 8 }} ariaLabel="Connecting" />Connecting...
@@ -946,7 +1101,7 @@ export default function CameraPlayer({
         </div>
 
         {/* Camera feed area */}
-        <div style={isFullscreen ? { ...styles.feedWrapper, ...styles.feedWrapperFull } : styles.feedWrapper}>
+        <div style={isFullscreen ? { ...styles.feedWrapper, ...styles.feedWrapperFull } : (isMobile ? styles.feedWrapperMobile : styles.feedWrapper)}>
           {useLocalCamera ? (
             <video
               ref={videoRef}
@@ -974,7 +1129,7 @@ export default function CameraPlayer({
         {/* Settings info card */}
         {/* Hide settings info card if hideSettingsCard is true */}
         {!hideSettingsCard && settings && validSettings && (
-            <div style={styles.settingsCard}>
+            <div style={isMobile ? styles.settingsCardMobile : styles.settingsCard}>
             <div style={styles.settingRow}>
               <span style={styles.settingIcon}><Icon as={FiSun} ariaLabel="Sun" /></span>
               <span style={styles.settingLabel}>Morning:</span>

@@ -131,9 +131,7 @@ export default function HolidayManagerGlobal({
       <div style={holidayStyles.sectionHeader}>
         <h2 style={holidayStyles.sectionTitle}>
           Manage Holidays{" "}
-          <span style={holidayStyles.sectionSubtitle}>
-            (applies to all departments)
-          </span>
+          <div style={holidayStyles.titleUnderline} />
         </h2>
       </div>
 
@@ -326,12 +324,6 @@ const holidayStyles = {
     color: "#1f2937",
     margin: 0,
   },
-  sectionSubtitle: {
-    fontSize: "1.1rem",
-    color: "#237227",
-    fontWeight: 500,
-    marginLeft: 8,
-  },
   monthRow: {
     display: "flex",
     justifyContent: "center",
@@ -442,6 +434,13 @@ const holidayStyles = {
     listStyle: "none",
     padding: 0,
     margin: 0,
+  },
+   titleUnderline: {
+    height: "4px",
+    width: "100px",
+    background: "#237227", // solid green
+    margin: "8px auto 0",
+    borderRadius: "2px",
   },
   cardsRow: {
     display: "flex",
