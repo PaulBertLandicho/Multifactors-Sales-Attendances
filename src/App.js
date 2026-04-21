@@ -1,7 +1,13 @@
 import PersonRegistration from "./AdminPage/PersonRegistration";
 import PayrollPage from "./AdminPage/PayrollPage";
 // App.js
-import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { useLoading } from "./LoadingContext";
 import { supabase } from "./supabaseClient";
@@ -41,14 +47,14 @@ function App() {
         if (session)
           localStorage.setItem("sb-session", JSON.stringify(session));
         else localStorage.removeItem("sb-session");
-      }
+      },
     );
     return () => listener?.subscription.unsubscribe();
   }, []);
 
   // detect mobile viewport to conditionally hide the header
   const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth <= 600 : false
+    typeof window !== "undefined" ? window.innerWidth <= 600 : false,
   );
 
   useEffect(() => {
@@ -88,303 +94,382 @@ function App() {
   // Removed unused: handleFaceScan, closeModal
 
   return (
-      <div className="App">
-        <header className="App-header">
-          {(isCameraPath || isAdminLoginPath) && !isMobile && (
-            <div style={styles.headerContainer}>
-              <div style={styles.headerBar}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, position: "absolute", left: 5, }}>
-                  <img
-                    src="/image/logo/multifactorssales_logo-removebg.png"
-                    alt="Multifactors Sales Logo"
-                    style={{ ...styles.logoIcon,
-            objectFit: "cover",
-            padding: 5,width: 100, height: 100 }}
-                  />
-                  <h1 style={{ ...styles.headerTitle, margin: -20, padding: "8px 0", }}>
-                    Multifactors Sales - <span style={{ ...styles.headerSubtitle, }}>Facial Recognition for Attendances</span> 
-                  </h1>
-                </div>
-                {isAdminLoginPath ? (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/")}
-                    style={styles.adminButton}
-                  >
-                    <span style={{ display: "inline-flex", alignItems: "center" }}>
-                      <FiCamera style={{ marginRight: 8, verticalAlign: "middle" }} />
-                      Attendance Camera
-                    </span>
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/admin")}
-                    style={styles.adminButton}
-                  >
-                    <span style={{ display: "inline-flex", alignItems: "center" }}>
-                      <FiLogIn style={{ marginRight: 8, verticalAlign: "middle" }} />
-                      Admin Login
-                    </span>
-                  </button>
-                )}
+    <div className="App">
+      <header className="App-header">
+        {(isCameraPath || isAdminLoginPath) && !isMobile && (
+          <div style={styles.headerContainer}>
+            <div style={styles.headerBar}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  position: "absolute",
+                  left: 5,
+                }}
+              >
+                <img
+                  src="/image/logo/multifactorssales_logo-removebg.png"
+                  alt="Multifactors Sales Logo"
+                  style={{
+                    ...styles.logoIcon,
+                    objectFit: "cover",
+                    padding: 5,
+                    width: 100,
+                    height: 100,
+                  }}
+                />
+                <h1
+                  style={{
+                    ...styles.headerTitle,
+                    margin: -20,
+                    padding: "8px 0",
+                  }}
+                >
+                  Multifactors Sales -{" "}
+                  <span style={{ ...styles.headerSubtitle }}>
+                    Facial Recognition for Attendances
+                  </span>
+                </h1>
               </div>
+              {isAdminLoginPath ? (
+                <button
+                  type="button"
+                  onClick={() => navigate("/")}
+                  style={styles.adminButton}
+                >
+                  <span
+                    style={{ display: "inline-flex", alignItems: "center" }}
+                  >
+                    <FiCamera
+                      style={{ marginRight: 8, verticalAlign: "middle" }}
+                    />
+                    Attendance Camera
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin")}
+                  style={styles.adminButton}
+                >
+                  <span
+                    style={{ display: "inline-flex", alignItems: "center" }}
+                  >
+                    <FiLogIn
+                      style={{ marginRight: 8, verticalAlign: "middle" }}
+                    />
+                    Admin Login
+                  </span>
+                </button>
+              )}
             </div>
-          )}
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <div style={{ maxWidth: 900, margin: "0 auto" }}>
-                  {cameraActive ? (
-                    <CameraPlayer />
-                  ) : (
-                    <div
+          </div>
+        )}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <div style={{ maxWidth: 900, margin: "0 auto" }}>
+                {cameraActive ? (
+                  <CameraPlayer />
+                ) : (
+                  <div
+                    style={{
+                      marginTop: 24,
+                      padding: "40px 24px",
+                      borderRadius: 24,
+                      background: "#0b1120",
+                      color: "#e5e7eb",
+                      textAlign: "center",
+                    }}
+                  >
+                    <p style={{ marginBottom: 12, fontSize: 15 }}>
+                      Camera is currently off. Click below to open the camera.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setCameraActive(true)}
                       style={{
-                        marginTop: 24,
-                        padding: "40px 24px",
-                        borderRadius: 24,
-                        background: "#0b1120",
-                        color: "#e5e7eb",
-                        textAlign: "center",
+                        padding: "10px 24px",
+                        borderRadius: 999,
+                        border: "1px solid #237227",
+                        background: "#237227",
+                        color: "#ffffff",
+                        cursor: "pointer",
+                        fontSize: 14,
+                        fontWeight: 600,
                       }}
                     >
-                      <p style={{ marginBottom: 12, fontSize: 15 }}>
-                        Camera is currently off. Click below to open the camera.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setCameraActive(true)}
-                        style={{
-                          padding: "10px 24px",
-                          borderRadius: 999,
-                          border: "1px solid #237227",
-                          background: "#237227",
-                          color: "#ffffff",
-                          cursor: "pointer",
-                          fontSize: 14,
-                          fontWeight: 600,
-                        }}
-                      >
-                        Open Camera
-                      </button>
-                    </div>
-                  )}
-                  {cameraActive && (
-                    <div style={{ marginTop: 12, textAlign: "right" }}>
-                      <button
-                        type="button"
-                        onClick={() => setCameraActive(false)}
-                        style={{
-                          padding: "6px 12px",
-                          borderRadius: 999,
-                          border: "1px solid #d1d5db",
-                          background: "#f9fafb",
-                          color: "#4b5563",
-                          cursor: "pointer",
-                          fontSize: 12,
-                        }}
-                      >
-                        Close Camera
-                      </button>
-                    </div>
-                  )}
+                      Open Camera
+                    </button>
+                  </div>
+                )}
+                {cameraActive && (
+                  <div style={{ marginTop: 12, textAlign: "right" }}>
+                    <button
+                      type="button"
+                      onClick={() => setCameraActive(false)}
+                      style={{
+                        padding: "6px 12px",
+                        borderRadius: 999,
+                        border: "1px solid #d1d5db",
+                        background: "#f9fafb",
+                        color: "#4b5563",
+                        cursor: "pointer",
+                        fontSize: 12,
+                      }}
+                    >
+                      Close Camera
+                    </button>
+                  </div>
+                )}
+              </div>
+            }
+          />
+          <Route
+            path="/admin/register-person"
+            element={
+              session ? (
+                <div style={styles.adminLayout}>
+                  <AdminSidebar
+                    onLogout={async () => {
+                      await supabase.auth.signOut();
+                      localStorage.removeItem("sb-session");
+                      window.location.href = "/admin";
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...styles.adminContent,
+                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
+                    }}
+                  >
+                    <PersonRegistration />
+                  </div>
                 </div>
-              }
-            />
-            <Route
-              path="/admin/register-person"
-              element={
-                session ? (
-                  <div style={styles.adminLayout}>
-                    <AdminSidebar
-                      onLogout={async () => {
-                        await supabase.auth.signOut();
-                        localStorage.removeItem("sb-session");
-                        window.location.href = "/admin";
-                      }}
-                    />
-                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
-                      <PersonRegistration />
-                    </div>
+              ) : (
+                <Navigate to="/admin" />
+              )
+            }
+          />
+          <Route
+            path="/admin/dashboard"
+            element={
+              session ? (
+                <div style={styles.adminLayout}>
+                  <AdminSidebar
+                    onLogout={async () => {
+                      await supabase.auth.signOut();
+                      localStorage.removeItem("sb-session");
+                      window.location.href = "/admin";
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...styles.adminContent,
+                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
+                    }}
+                  >
+                    <Dashboard />
                   </div>
-                ) : (
-                  <Navigate to="/admin" />
-                )
-              }
-            />
-            <Route
-              path="/admin/dashboard"
-              element={
-                session ? (
-                  <div style={styles.adminLayout}>
-                    <AdminSidebar
-                      onLogout={async () => {
-                        await supabase.auth.signOut();
-                        localStorage.removeItem("sb-session");
-                        window.location.href = "/admin";
-                      }}
-                    />
-                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
-                      <Dashboard />
-                    </div>
+                </div>
+              ) : (
+                <Navigate to="/admin" />
+              )
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              session ? <Navigate to="/admin/dashboard" /> : <AdminLogin />
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              session ? (
+                <div style={styles.adminLayout}>
+                  <AdminSidebar
+                    onLogout={async () => {
+                      await supabase.auth.signOut();
+                      localStorage.removeItem("sb-session");
+                      window.location.href = "/admin";
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...styles.adminContent,
+                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
+                    }}
+                  >
+                    <AdminSettings />
                   </div>
-                ) : (
-                  <Navigate to="/admin" />
-                )
-              }
-            />
-            <Route path="/admin" element={session ? <Navigate to="/admin/dashboard" /> : <AdminLogin />} />
-            <Route
-              path="/admin/settings"
-              element={
-                session ? (
-                  <div style={styles.adminLayout}>
-                    <AdminSidebar
-                      onLogout={async () => {
-                        await supabase.auth.signOut();
-                        localStorage.removeItem("sb-session");
-                        window.location.href = "/admin";
-                      }}
-                    />
-                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
-                      <AdminSettings />
-                    </div>
+                </div>
+              ) : (
+                <Navigate to="/admin" />
+              )
+            }
+          />
+          <Route
+            path="/admin/attendance"
+            element={
+              session ? (
+                <div style={styles.adminLayout}>
+                  <AdminSidebar
+                    onLogout={async () => {
+                      await supabase.auth.signOut();
+                      localStorage.removeItem("sb-session");
+                      window.location.href = "/admin";
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...styles.adminContent,
+                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
+                    }}
+                  >
+                    <AttendanceTable />
                   </div>
-                ) : (
-                  <Navigate to="/admin" />
-                )
-              }
-            />
-            <Route
-              path="/admin/attendance"
-              element={
-                session ? (
-                  <div style={styles.adminLayout}>
-                    <AdminSidebar
-                      onLogout={async () => {
-                        await supabase.auth.signOut();
-                        localStorage.removeItem("sb-session");
-                        window.location.href = "/admin";
-                      }}
-                    />
-                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
-                      <AttendanceTable />
-                    </div>
+                </div>
+              ) : (
+                <Navigate to="/admin" />
+              )
+            }
+          />
+          <Route
+            path="/admin/department-rates"
+            element={
+              session ? (
+                <div style={styles.adminLayout}>
+                  <AdminSidebar
+                    onLogout={async () => {
+                      await supabase.auth.signOut();
+                      localStorage.removeItem("sb-session");
+                      window.location.href = "/admin";
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...styles.adminContent,
+                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
+                    }}
+                  >
+                    <DepartmentRates />
                   </div>
-                ) : (
-                  <Navigate to="/admin" />
-                )
-              }
-            />
-            <Route
-              path="/admin/department-rates"
-              element={
-                session ? (
-                  <div style={styles.adminLayout}>
-                    <AdminSidebar
-                      onLogout={async () => {
-                        await supabase.auth.signOut();
-                        localStorage.removeItem("sb-session");
-                        window.location.href = "/admin";
-                      }}
-                    />
-                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
-                      <DepartmentRates />
-                    </div>
+                </div>
+              ) : (
+                <Navigate to="/admin" />
+              )
+            }
+          />
+          <Route
+            path="/admin/persons"
+            element={
+              session ? (
+                <div style={styles.adminLayout}>
+                  <AdminSidebar
+                    onLogout={async () => {
+                      await supabase.auth.signOut();
+                      localStorage.removeItem("sb-session");
+                      window.location.href = "/admin";
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...styles.adminContent,
+                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
+                    }}
+                  >
+                    <PersonsTable />
                   </div>
-                ) : (
-                  <Navigate to="/admin" />
-                )
-              }
-            />
-            <Route
-              path="/admin/persons"
-              element={
-                session ? (
-                  <div style={styles.adminLayout}>
-                    <AdminSidebar
-                      onLogout={async () => {
-                        await supabase.auth.signOut();
-                        localStorage.removeItem("sb-session");
-                        window.location.href = "/admin";
-                      }}
-                    />
-                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
-                      <PersonsTable />
-                    </div>
+                </div>
+              ) : (
+                <Navigate to="/admin" />
+              )
+            }
+          />
+          <Route
+            path="/admin/payroll"
+            element={
+              session ? (
+                <div style={styles.adminLayout}>
+                  <AdminSidebar
+                    onLogout={async () => {
+                      await supabase.auth.signOut();
+                      localStorage.removeItem("sb-session");
+                      window.location.href = "/admin";
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...styles.adminContent,
+                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
+                    }}
+                  >
+                    <PayrollPage />
                   </div>
-                ) : (
-                  <Navigate to="/admin" />
-                )
-              }
-            />
-            <Route
-              path="/admin/payroll"
-              element={
-                session ? (
-                  <div style={styles.adminLayout}>
-                    <AdminSidebar
-                      onLogout={async () => {
-                        await supabase.auth.signOut();
-                        localStorage.removeItem("sb-session");
-                        window.location.href = "/admin";
-                      }}
-                    />
-                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
-                      <PayrollPage />
-                    </div>
+                </div>
+              ) : (
+                <Navigate to="/admin" />
+              )
+            }
+          />
+          <Route
+            path="/admin/released-history"
+            element={
+              session ? (
+                <div style={styles.adminLayout}>
+                  <AdminSidebar
+                    onLogout={async () => {
+                      await supabase.auth.signOut();
+                      localStorage.removeItem("sb-session");
+                      window.location.href = "/admin";
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...styles.adminContent,
+                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
+                    }}
+                  >
+                    <ReleasedHistoryPayroll />
                   </div>
-                ) : (
-                  <Navigate to="/admin" />
-                )
-              }
-            />
-            <Route
-              path="/admin/released-history"
-              element={
-                session ? (
-                  <div style={styles.adminLayout}>
-                    <AdminSidebar
-                      onLogout={async () => {
-                        await supabase.auth.signOut();
-                        localStorage.removeItem("sb-session");
-                        window.location.href = "/admin";
-                      }}
-                    />
-                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
-                      <ReleasedHistoryPayroll />
-                    </div>
+                </div>
+              ) : (
+                <Navigate to="/admin" />
+              )
+            }
+          />
+          <Route
+            path="/admin/ReleasedPayrollLogs"
+            element={
+              session ? (
+                <div style={styles.adminLayout}>
+                  <AdminSidebar
+                    onLogout={async () => {
+                      await supabase.auth.signOut();
+                      localStorage.removeItem("sb-session");
+                      window.location.href = "/admin";
+                    }}
+                  />
+                  <div
+                    style={{
+                      ...styles.adminContent,
+                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
+                    }}
+                  >
+                    <ReleasedPayrollLogs />
                   </div>
-                ) : (
-                  <Navigate to="/admin" />
-                )
-              }
-            />
-            <Route
-              path="/admin/ReleasedPayrollLogs"
-              element={
-                session ? (
-                  <div style={styles.adminLayout}>
-                    <AdminSidebar
-                      onLogout={async () => {
-                        await supabase.auth.signOut();
-                        localStorage.removeItem("sb-session");
-                        window.location.href = "/admin";
-                      }}
-                    />
-                    <div style={{ ...styles.adminContent, marginLeft: isMobile ? 0 : styles.adminContent.marginLeft }}>
-                      <ReleasedPayrollLogs />
-                    </div>
-                  </div>
-                ) : (
-                  <Navigate to="/admin" />
-                )
-              }
-            />
-          </Routes>
-        </header>
-      </div>
+                </div>
+              ) : (
+                <Navigate to="/admin" />
+              )
+            }
+          />
+        </Routes>
+      </header>
+    </div>
   );
 }
 
@@ -482,7 +567,7 @@ const styles = {
     width: "100%",
     background: "#f9fafc",
     borderBottom: "1px solid #eef2f6",
-    padding: "25px 0",
+    padding: "30px 0",
     boxShadow: "0 6px 18px rgba(0,0,0,0.03)",
     position: "relative",
   },

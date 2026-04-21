@@ -1,5 +1,14 @@
 import React from "react";
 import { useEffect, useState } from "react";
+import {
+  FiPrinter,
+  FiCalendar,
+  FiClipboard,
+  FiX,
+  FiClock,
+  FiTrendingDown,
+} from "react-icons/fi";
+import Icon from "../../components/Icon";
 import { supabase } from "../../supabaseClient";
 import { generatePayslipPdf } from "./generatePayslipPdf";
 
@@ -30,7 +39,7 @@ export default function PayslipModal({
       console.log("Department holiday rates:", deptHolidayRates);
       console.log(
         "Attendance dates:",
-        detailedAttendance.map((a) => a.date)
+        detailedAttendance.map((a) => a.date),
       );
     }
   }, [loadingHoliday, holidayDetails, deptHolidayRates, detailedAttendance]);
@@ -73,7 +82,7 @@ export default function PayslipModal({
         if (error) throw error;
         // Sort by date
         const all = (holidays || []).sort((a, b) =>
-          a.date.localeCompare(b.date)
+          a.date.localeCompare(b.date),
         );
         setHolidayDetails(all);
       } catch (err) {
@@ -94,7 +103,7 @@ export default function PayslipModal({
         if (mounted) setCashAdvanceTotalInPeriod(0);
         return;
       }
-      
+
       try {
         const [start, end] = period.split("_to_");
         const { data, error } = await supabase
@@ -138,12 +147,23 @@ export default function PayslipModal({
           const aOut = parseTimeToMinutes(rec.afternoonOut);
           const mEnd = parseTimeToMinutes(schedMorningEnd);
           const aEnd = parseTimeToMinutes(schedAfternoonEnd);
-          if (typeof mOut === "number" && typeof mEnd === "number" && mOut > mEnd) totalOtMinutesForPdf += mOut - mEnd;
-          if (typeof aOut === "number" && typeof aEnd === "number" && aOut > aEnd) totalOtMinutesForPdf += aOut - aEnd;
+          if (
+            typeof mOut === "number" &&
+            typeof mEnd === "number" &&
+            mOut > mEnd
+          )
+            totalOtMinutesForPdf += mOut - mEnd;
+          if (
+            typeof aOut === "number" &&
+            typeof aEnd === "number" &&
+            aOut > aEnd
+          )
+            totalOtMinutesForPdf += aOut - aEnd;
         } catch (e) {}
       });
     } catch (e) {}
-    const totalOtHoursForPdf = Math.round((totalOtMinutesForPdf / 60) * 100) / 100;
+    const totalOtHoursForPdf =
+      Math.round((totalOtMinutesForPdf / 60) * 100) / 100;
     // ensure payroll.otHours is available for older code paths
     try {
       payroll.otHours = totalOtHoursForPdf;
@@ -184,23 +204,43 @@ export default function PayslipModal({
     if (!period) return "";
     try {
       const s = String(period).replace(/_/g, " ");
-      const matches = Array.from(s.matchAll(/(\d{4}[-/]\d{2}[-/]\d{2})/g)).map(m => m[1]);
+      const matches = Array.from(s.matchAll(/(\d{4}[-/]\d{2}[-/]\d{2})/g)).map(
+        (m) => m[1],
+      );
       if (matches.length >= 2) {
-        const d1 = new Date(matches[0].replace(/\//g, '-'));
-        const d2 = new Date(matches[1].replace(/\//g, '-'));
+        const d1 = new Date(matches[0].replace(/\//g, "-"));
+        const d2 = new Date(matches[1].replace(/\//g, "-"));
         if (!Number.isNaN(d1.getTime()) && !Number.isNaN(d2.getTime())) {
-          const f1 = d1.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
-          const f2 = d2.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+          const f1 = d1.toLocaleDateString("en-US", {
+            month: "long",
+            day: "2-digit",
+            year: "numeric",
+          });
+          const f2 = d2.toLocaleDateString("en-US", {
+            month: "long",
+            day: "2-digit",
+            year: "numeric",
+          });
           return `${f1} to ${f2}`;
         }
       }
       const single = s.match(/(\d{4}[-/]\d{2}[-/]\d{2})/);
       if (single) {
-        const d = new Date(single[1].replace(/\//g, '-'));
-        if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+        const d = new Date(single[1].replace(/\//g, "-"));
+        if (!Number.isNaN(d.getTime()))
+          return d.toLocaleDateString("en-US", {
+            month: "long",
+            day: "2-digit",
+            year: "numeric",
+          });
       }
       const p = new Date(s);
-      if (!Number.isNaN(p.getTime())) return p.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+      if (!Number.isNaN(p.getTime()))
+        return p.toLocaleDateString("en-US", {
+          month: "long",
+          day: "2-digit",
+          year: "numeric",
+        });
     } catch (e) {}
     return String(period);
   }
@@ -210,7 +250,11 @@ export default function PayslipModal({
     try {
       const d = new Date(isoDateStr);
       if (Number.isNaN(d.getTime())) return isoDateStr;
-      const dateLabel = d.toLocaleDateString("en-US", { month: "long", day: "2-digit", year: "numeric" });
+      const dateLabel = d.toLocaleDateString("en-US", {
+        month: "long",
+        day: "2-digit",
+        year: "numeric",
+      });
       const weekday = d.toLocaleDateString("en-US", { weekday: "long" });
       return `${dateLabel} (${weekday})`;
     } catch (e) {
@@ -221,7 +265,9 @@ export default function PayslipModal({
   // Helper: parse HH:MM or HH:MM:SS with optional AM/PM into minutes since midnight
   function parseTimeToMinutes(t) {
     if (!t) return null;
-    const m = String(t).trim().match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?$/);
+    const m = String(t)
+      .trim()
+      .match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)?$/);
     if (!m) return null;
     let hh = Number(m[1]);
     const mm = Number(m[2]);
@@ -229,8 +275,8 @@ export default function PayslipModal({
     const ampm = m[4];
     if (ampm) {
       const a = ampm.toLowerCase();
-      if (a === 'pm' && hh !== 12) hh += 12;
-      if (a === 'am' && hh === 12) hh = 0;
+      if (a === "pm" && hh !== 12) hh += 12;
+      if (a === "am" && hh === 12) hh = 0;
     }
     return hh * 60 + mm + Math.round(ss / 60);
   }
@@ -262,14 +308,27 @@ export default function PayslipModal({
       (detailedAttendance || []).map((a) => {
         const dt = new Date(a.date).toISOString().slice(0, 10);
         return [dt, a];
-      })
+      }),
     );
 
     // Determine expected sessions if person has shift/work_hours metadata
-    const ps = String(person && (person.shift || person.work_hours || "")).toLowerCase();
-    const expectsMorningOnly = (ps.includes("morning") && ps.includes("half")) || ps === "morning" || ps === "morning-half";
-    const expectsAfternoonOnly = (ps.includes("afternoon") && ps.includes("half")) || ps === "afternoon" || ps === "afternoon-half";
-    const expectsSingleSession = ps === "half" || ps === "half-day" || ps === "4" || ps === "4h" || ps.includes("half");
+    const ps = String(
+      person && (person.shift || person.work_hours || ""),
+    ).toLowerCase();
+    const expectsMorningOnly =
+      (ps.includes("morning") && ps.includes("half")) ||
+      ps === "morning" ||
+      ps === "morning-half";
+    const expectsAfternoonOnly =
+      (ps.includes("afternoon") && ps.includes("half")) ||
+      ps === "afternoon" ||
+      ps === "afternoon-half";
+    const expectsSingleSession =
+      ps === "half" ||
+      ps === "half-day" ||
+      ps === "4" ||
+      ps === "4h" ||
+      ps.includes("half");
 
     // For each date in the period (weekdays only) that is before today, determine missing sessions
     absentDates = allDates
@@ -294,11 +353,13 @@ export default function PayslipModal({
         }
         if (expectsSingleSession) {
           // half-day staff: missing if neither session present
-          if (!hasMorning && !hasAfternoon) return { date: dateStr, missing: "Session" };
+          if (!hasMorning && !hasAfternoon)
+            return { date: dateStr, missing: "Session" };
           return null;
         }
         // default: if both sessions missing -> full day absent. If one session missing, mark which one
-        if (!hasMorning && !hasAfternoon) return { date: dateStr, missing: "Full Day" };
+        if (!hasMorning && !hasAfternoon)
+          return { date: dateStr, missing: "Full Day" };
         if (!hasMorning) return { date: dateStr, missing: "Morning" };
         if (!hasAfternoon) return { date: dateStr, missing: "Afternoon" };
         return null;
@@ -392,7 +453,12 @@ export default function PayslipModal({
   const lateDeduction =
     payroll.lateCount >= lateCountLimit ? payroll.lateCount * latePenalty : 0;
   const totalDeductions =
-    Math.round((lateDeduction + deductions.reduce((acc, d) => acc + d.value, 0) + Number(cashAdvanceTotalInPeriod || 0)) * 100) / 100;
+    Math.round(
+      (lateDeduction +
+        deductions.reduce((acc, d) => acc + d.value, 0) +
+        Number(cashAdvanceTotalInPeriod || 0)) *
+        100,
+    ) / 100;
 
   const totalLateOccurrences = detailedAttendance
     .map((rec) => (rec.lateDetails ? rec.lateDetails.length : 0))
@@ -402,7 +468,7 @@ export default function PayslipModal({
     .map((rec) =>
       rec.lateDetails
         ? rec.lateDetails.map((ld) => ({ date: rec.date, ...ld }))
-        : []
+        : [],
     )
     .flat();
 
@@ -437,7 +503,7 @@ export default function PayslipModal({
     title: {
       fontSize: "2rem",
       fontWeight: 700,
-      color: "#10b981",
+      color: "#237227",
       textAlign: "center",
       margin: "0 0 8px 0",
     },
@@ -452,7 +518,7 @@ export default function PayslipModal({
       fontWeight: 600,
       color: "#1f2937",
       margin: "32px 0 16px 0",
-      borderBottom: "2px solid #10b981",
+      borderBottom: "2px solid #237227",
       paddingBottom: "8px",
     },
     table: {
@@ -485,7 +551,7 @@ export default function PayslipModal({
       textAlign: "right",
       fontSize: "1.6rem",
       fontWeight: 700,
-      color: "#10b981",
+      color: "#237227",
       margin: "16px 0 0 0",
     },
     buttonContainer: {
@@ -507,7 +573,7 @@ export default function PayslipModal({
       alignItems: "center",
       justifyContent: "center",
     },
-    buttonPrimary: { background: "#10b981", color: "#fff" },
+    buttonPrimary: { background: "#237227", color: "#fff" },
     buttonSecondary: {
       background: "#e5e7eb",
       color: "#1f2937",
@@ -528,7 +594,7 @@ export default function PayslipModal({
             <p
               style={{
                 textAlign: "center",
-                color: "#10b981",
+                color: "#237227",
                 fontWeight: 600,
                 marginBottom: 8,
               }}
@@ -540,7 +606,7 @@ export default function PayslipModal({
             <p
               style={{
                 textAlign: "center",
-                color: "#10b981",
+                color: "#237227",
                 fontWeight: 700,
                 fontSize: "1.1rem",
                 marginBottom: 8,
@@ -553,7 +619,14 @@ export default function PayslipModal({
           {/* Holiday Table */}
           {!loadingHoliday && holidayPayDetails.length > 0 && (
             <>
-              <h3 style={styles.sectionTitle}>🎉 Holidays This Month</h3>
+              <h3 style={styles.sectionTitle}>
+                <Icon
+                  as={FiCalendar}
+                  style={{ marginRight: 8 }}
+                  ariaLabel="Holidays"
+                />
+                Holidays This Month
+              </h3>
               <table style={styles.table}>
                 <thead>
                   <tr>
@@ -582,7 +655,14 @@ export default function PayslipModal({
           )}
 
           {/* Attendance Table */}
-          <h3 style={styles.sectionTitle}>📋 Attendance Details</h3>
+          <h3 style={styles.sectionTitle}>
+            <Icon
+              as={FiClipboard}
+              style={{ marginRight: 8 }}
+              ariaLabel="Attendance"
+            />
+            Attendance Details
+          </h3>
 
           <table style={styles.table}>
             <thead>
@@ -665,20 +745,37 @@ export default function PayslipModal({
                   // Compute per-row overtime (minutes) by comparing out times to scheduled end times.
                   let otMinutes = 0;
                   try {
-                    const scheduledMorningEnd = (settings && settings.morning_end) || "12:00";
-                    const scheduledAfternoonEnd = (settings && settings.afternoon_end) || "17:00";
+                    const scheduledMorningEnd =
+                      (settings && settings.morning_end) || "12:00";
+                    const scheduledAfternoonEnd =
+                      (settings && settings.afternoon_end) || "17:00";
                     const morningOutMin = parseTimeToMinutes(rec.morningOut);
-                    const afternoonOutMin = parseTimeToMinutes(rec.afternoonOut);
-                    const schedMorningEndMin = parseTimeToMinutes(scheduledMorningEnd);
-                    const schedAfternoonEndMin = parseTimeToMinutes(scheduledAfternoonEnd);
-                    if (typeof afternoonOutMin === 'number' && typeof schedAfternoonEndMin === 'number' && afternoonOutMin > schedAfternoonEndMin) {
+                    const afternoonOutMin = parseTimeToMinutes(
+                      rec.afternoonOut,
+                    );
+                    const schedMorningEndMin =
+                      parseTimeToMinutes(scheduledMorningEnd);
+                    const schedAfternoonEndMin = parseTimeToMinutes(
+                      scheduledAfternoonEnd,
+                    );
+                    if (
+                      typeof afternoonOutMin === "number" &&
+                      typeof schedAfternoonEndMin === "number" &&
+                      afternoonOutMin > schedAfternoonEndMin
+                    ) {
                       otMinutes += afternoonOutMin - schedAfternoonEndMin;
                     }
                     // include morning overtime if present (rare)
-                    if (typeof morningOutMin === 'number' && typeof schedMorningEndMin === 'number' && morningOutMin > schedMorningEndMin) {
+                    if (
+                      typeof morningOutMin === "number" &&
+                      typeof schedMorningEndMin === "number" &&
+                      morningOutMin > schedMorningEndMin
+                    ) {
                       otMinutes += morningOutMin - schedMorningEndMin;
                     }
-                  } catch (e) { otMinutes = 0; }
+                  } catch (e) {
+                    otMinutes = 0;
+                  }
 
                   const recOtHours = Math.round((otMinutes / 60) * 100) / 100;
 
@@ -709,8 +806,10 @@ export default function PayslipModal({
                         {afternoonInDisplay}
                       </td>
                       <td style={styles.td}>{afternoonOutDisplay}</td>
-                      <td style={styles.td}>{getHourMinute(recOtHours)} ({recOtHours.toFixed(2)})</td>
-                        <td style={styles.td}>{rec.lateCount || 0}</td>
+                      <td style={styles.td}>
+                        {getHourMinute(recOtHours)} ({recOtHours.toFixed(2)})
+                      </td>
+                      <td style={styles.td}>{rec.lateCount || 0}</td>
                       <td style={styles.td}>
                         {rec.lateDetails && rec.lateDetails.length ? (
                           <ul style={{ margin: 0, paddingLeft: 16 }}>
@@ -745,7 +844,10 @@ export default function PayslipModal({
             </tbody>
           </table>
 
-          <h3 style={styles.sectionTitle}>🚫 Absent Days in Period</h3>
+          <h3 style={styles.sectionTitle}>
+            <Icon as={FiX} style={{ marginRight: 8 }} ariaLabel="Absent days" />
+            Absent Days in Period
+          </h3>
           <table style={styles.table}>
             <thead>
               <tr>
@@ -760,7 +862,9 @@ export default function PayslipModal({
                     key={item.date}
                     style={idx % 2 === 0 ? styles.trEven : styles.trOdd}
                   >
-                    <td style={styles.td}>{formatDateWithWeekday(item.date)}</td>
+                    <td style={styles.td}>
+                      {formatDateWithWeekday(item.date)}
+                    </td>
                     <td style={styles.td}>{item.missing}</td>
                   </tr>
                 ))
@@ -770,7 +874,7 @@ export default function PayslipModal({
                     colSpan={2}
                     style={{
                       ...styles.td,
-                      color: "#10b981",
+                      color: "#237227",
                       textAlign: "center",
                     }}
                   >
@@ -781,7 +885,14 @@ export default function PayslipModal({
             </tbody>
           </table>
           {/* Late Records */}
-          <h3 style={styles.sectionTitle}>⏰ All Late Records</h3>
+          <h3 style={styles.sectionTitle}>
+            <Icon
+              as={FiClock}
+              style={{ marginRight: 8 }}
+              ariaLabel="Late records"
+            />
+            All Late Records
+          </h3>
           <table style={styles.table}>
             <thead>
               <tr>
@@ -833,7 +944,15 @@ export default function PayslipModal({
 
           {/* Earnings */}
 
-          <h3 style={styles.sectionTitle}>💸 Earnings</h3>
+          <h3 style={styles.sectionTitle}>
+            <span
+              aria-label="Peso"
+              style={{ marginRight: 8, fontSize: 18, fontWeight: 700 }}
+            >
+              ₱
+            </span>
+            Earnings
+          </h3>
           <table style={styles.table}>
             <thead>
               <tr>
@@ -882,7 +1001,7 @@ export default function PayslipModal({
                         )
                       </td>
                       <td style={styles.td}>
-                        <span style={{ color: "#10b981", fontWeight: 600 }}>
+                        <span style={{ color: "#237227", fontWeight: 600 }}>
                           {" "}
                           ({h.ratePercent}%)
                         </span>
@@ -920,7 +1039,7 @@ export default function PayslipModal({
                   ₱
                   {(
                     Math.round(
-                      (standardPayAmount + otPay + totalHolidayPay) * 100
+                      (standardPayAmount + otPay + totalHolidayPay) * 100,
                     ) / 100
                   ).toFixed(2)}
                 </td>
@@ -929,7 +1048,14 @@ export default function PayslipModal({
           </table>
 
           {/* Deductions */}
-          <h3 style={styles.sectionTitle}>📉 Deductions</h3>
+          <h3 style={styles.sectionTitle}>
+            <Icon
+              as={FiTrendingDown}
+              style={{ marginRight: 8 }}
+              ariaLabel="Deductions"
+            />
+            Deductions
+          </h3>
           <table style={styles.table}>
             <tbody>
               <tr style={styles.trEven}>
@@ -971,14 +1097,25 @@ export default function PayslipModal({
                     </td>
                   </tr>
                   {cashAdvanceEntries.map((h, idx) => (
-                    <tr key={h.id} style={idx % 2 === 0 ? styles.trEven : styles.trOdd}>
-                      <td style={styles.td}>{h.created_at ? new Date(h.created_at).toLocaleString() : '-'}</td>
+                    <tr
+                      key={h.id}
+                      style={idx % 2 === 0 ? styles.trEven : styles.trOdd}
+                    >
+                      <td style={styles.td}>
+                        {h.created_at
+                          ? new Date(h.created_at).toLocaleString()
+                          : "-"}
+                      </td>
                       <td style={styles.td}>₱{Number(h.amount).toFixed(2)}</td>
                     </tr>
                   ))}
                   <tr style={styles.tr}>
-                    <td style={{ ...styles.td, fontWeight: 700 }}>Cash Advance Total</td>
-                    <td style={{ ...styles.td, fontWeight: 700 }}>₱{Number(cashAdvanceTotalInPeriod || 0).toFixed(2)}</td>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>
+                      Cash Advance Total
+                    </td>
+                    <td style={{ ...styles.td, fontWeight: 700 }}>
+                      ₱{Number(cashAdvanceTotalInPeriod || 0).toFixed(2)}
+                    </td>
                   </tr>
                 </>
               )}
@@ -994,8 +1131,11 @@ export default function PayslipModal({
             Net Pay: ₱
             {(
               Math.round(
-                ((standardPayAmount ?? 0) + otPay + totalHolidayPay - totalDeductions) *
-                  100
+                ((standardPayAmount ?? 0) +
+                  otPay +
+                  totalHolidayPay -
+                  totalDeductions) *
+                  100,
               ) / 100
             ).toFixed(2)}
           </h3>
@@ -1008,14 +1148,20 @@ export default function PayslipModal({
               onClick={handlePdf}
               style={{ ...styles.button, ...styles.buttonPrimary }}
             >
-              🖨️ PDF
+              <Icon
+                as={FiPrinter}
+                style={{ marginRight: 8, color: "#ffff" }}
+                ariaLabel="Print PDF"
+              />
+              PDF
             </button>
           )}
           <button
             onClick={onClose}
             style={{ ...styles.button, ...styles.buttonSecondary }}
           >
-            ✖️ Close
+            <Icon as={FiX} style={{ marginRight: 8 }} ariaLabel="Close" />
+            Close
           </button>
         </div>
       </div>

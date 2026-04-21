@@ -17,7 +17,7 @@ export function drawPayslipOnDoc(
     cashAdvanceTotalInPeriod = 0,
   },
   yOffset = 10,
-  scale = 1
+  scale = 1,
 ) {
   if (!doc || !payroll || !person) return;
 
@@ -29,7 +29,11 @@ export function drawPayslipOnDoc(
 
   // Header
   doc.setFontSize(10 * (scale || 1));
-  doc.text(`Date: ${new Date().toISOString().slice(0, 10)}`, right - 50 * (scale || 1), y);
+  doc.text(
+    `Date: ${new Date().toISOString().slice(0, 10)}`,
+    right - 50 * (scale || 1),
+    y,
+  );
   y += lineHeight * 1.5;
 
   doc.setFontSize(12 * (scale || 1));
@@ -50,7 +54,7 @@ export function drawPayslipOnDoc(
         right - 50 * (scale || 1),
         y - 8 * (scale || 1),
         30 * (scale || 1),
-        20 * (scale || 1)
+        20 * (scale || 1),
       );
       imageDrawn = true;
     } catch (e) {
@@ -61,7 +65,7 @@ export function drawPayslipOnDoc(
           right - 50 * (scale || 1),
           y - 8 * (scale || 1),
           30 * (scale || 1),
-          20 * (scale || 1)
+          20 * (scale || 1),
         );
         imageDrawn = true;
       } catch (e2) {
@@ -70,8 +74,16 @@ export function drawPayslipOnDoc(
     }
   }
   if (!imageDrawn) {
-    doc.rect(right - 50 * (scale || 1), y - 8 * (scale || 1), 30 * (scale || 1), 20 * (scale || 1), "S");
-    doc.text("image", right - 35 * (scale || 1), y - 5 * (scale || 1), { align: "center" });
+    doc.rect(
+      right - 50 * (scale || 1),
+      y - 8 * (scale || 1),
+      30 * (scale || 1),
+      20 * (scale || 1),
+      "S",
+    );
+    doc.text("image", right - 35 * (scale || 1), y - 5 * (scale || 1), {
+      align: "center",
+    });
   }
 
   y += lineHeight;
@@ -82,23 +94,43 @@ export function drawPayslipOnDoc(
     if (!p) return "";
     try {
       const s = String(p).replace(/_/g, " ");
-      const matches = Array.from(s.matchAll(/(\d{4}[-/]\d{2}[-/]\d{2})/g)).map(m => m[1]);
+      const matches = Array.from(s.matchAll(/(\d{4}[-/]\d{2}[-/]\d{2})/g)).map(
+        (m) => m[1],
+      );
       if (matches.length >= 2) {
-        const d1 = new Date(matches[0].replace(/\//g, '-'));
-        const d2 = new Date(matches[1].replace(/\//g, '-'));
+        const d1 = new Date(matches[0].replace(/\//g, "-"));
+        const d2 = new Date(matches[1].replace(/\//g, "-"));
         if (!Number.isNaN(d1.getTime()) && !Number.isNaN(d2.getTime())) {
-          const f1 = d1.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
-          const f2 = d2.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+          const f1 = d1.toLocaleDateString("en-US", {
+            month: "long",
+            day: "2-digit",
+            year: "numeric",
+          });
+          const f2 = d2.toLocaleDateString("en-US", {
+            month: "long",
+            day: "2-digit",
+            year: "numeric",
+          });
           return `${f1} to ${f2}`;
         }
       }
       const single = s.match(/(\d{4}[-/]\d{2}[-/]\d{2})/);
       if (single) {
-        const d = new Date(single[1].replace(/\//g, '-'));
-        if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+        const d = new Date(single[1].replace(/\//g, "-"));
+        if (!Number.isNaN(d.getTime()))
+          return d.toLocaleDateString("en-US", {
+            month: "long",
+            day: "2-digit",
+            year: "numeric",
+          });
       }
       const pdate = new Date(s);
-      if (!Number.isNaN(pdate.getTime())) return pdate.toLocaleDateString('en-US', { month: 'long', day: '2-digit', year: 'numeric' });
+      if (!Number.isNaN(pdate.getTime()))
+        return pdate.toLocaleDateString("en-US", {
+          month: "long",
+          day: "2-digit",
+          year: "numeric",
+        });
     } catch (e) {}
     return String(p);
   }
@@ -130,7 +162,8 @@ export function drawPayslipOnDoc(
     doc.text(label, labelX, y);
     if (bold) doc.setFont(undefined, "normal");
     doc.line(lineStartX, y, lineEndX, y);
-    const text = value != null && String(value).trim() !== "" ? String(value) : "";
+    const text =
+      value != null && String(value).trim() !== "" ? String(value) : "";
     if (text) {
       const valueX = (lineStartX + lineEndX) / 2;
       doc.text(text, valueX, y - 1.5 * (scale || 1), { align: "center" });
@@ -140,9 +173,13 @@ export function drawPayslipOnDoc(
 
   // Earnings block fields
   drawLinedField("Basic Salary Rate:", formatCurrency(payroll.dailyRate ?? 0));
-  drawLinedField("Total of days worked (present):", String(daysWorked || payroll.daysPresent || 0));
+  drawLinedField(
+    "Total of days worked (present):",
+    String(daysWorked || payroll.daysPresent || 0),
+  );
   // Determine overtime hours to display: prefer explicit param, fallback to payroll value
-  const otHoursToShow = typeof otHours !== "undefined" ? otHours : Number(payroll.otHours || 0);
+  const otHoursToShow =
+    typeof otHours !== "undefined" ? otHours : Number(payroll.otHours || 0);
   const formatHoursDecimalToLabel = (hrs) => {
     if (!hrs || Number(hrs) <= 0) return "0.00";
     const h = Math.floor(hrs);
@@ -160,8 +197,8 @@ export function drawPayslipOnDoc(
     gross != null
       ? gross
       : typeof payroll.gross !== "undefined"
-      ? payroll.gross
-      : (standardPayAmount || 0) + (otPay || 0) + totalHolidayPay;
+        ? payroll.gross
+        : (standardPayAmount || 0) + (otPay || 0) + totalHolidayPay;
   drawLinedField("Total:", formatCurrency(Number(grossToShow)), true);
 
   y += lineHeight;
@@ -181,7 +218,9 @@ export function drawPayslipOnDoc(
   drawLinedField("Monthly Share:", formatCurrency(monthlyShare));
   drawLinedField(
     "Cash Advance:",
-    formatCurrency(Number(cashAdvanceTotalInPeriod || payroll.cashAdvance || 0))
+    formatCurrency(
+      Number(cashAdvanceTotalInPeriod || payroll.cashAdvance || 0),
+    ),
   );
   // If there are individual cash advance entries, render a brief breakdown above the total
   if (Array.isArray(cashAdvanceEntries) && cashAdvanceEntries.length > 0) {
@@ -202,7 +241,10 @@ export function drawPayslipOnDoc(
   y += lineHeight;
   // Net Pay = Gross - Total Deductions
   try {
-    const grossAmount = typeof gross !== "undefined" && gross !== null ? Number(gross) : Number(grossToShow || 0);
+    const grossAmount =
+      typeof gross !== "undefined" && gross !== null
+        ? Number(gross)
+        : Number(grossToShow || 0);
     const deductionsAmount = Number(totalDeductions || 0);
     const netPay = Math.round((grossAmount - deductionsAmount) * 100) / 100;
     drawLinedField("Net Pay:", formatCurrency(netPay), true);
@@ -256,8 +298,8 @@ export async function generateAllPayslipsPdf(list = []) {
     const isTop = i % 2 === 0;
     const yOffset = isTop ? marginY : pageHeight / 2 + marginY;
     // Draw payslip at yOffset
-      // compute scale per page similar to single-person
-      const baseCopyHeight = 160;
+    // compute scale per page similar to single-person
+    const baseCopyHeight = 160;
     const availableHalf = pageHeight / 2 - marginY * 2;
     const scale = Math.min(1, availableHalf / baseCopyHeight);
     drawPayslipOnDoc(doc, params, yOffset, scale);
