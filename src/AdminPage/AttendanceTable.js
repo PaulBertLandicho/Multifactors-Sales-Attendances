@@ -235,7 +235,15 @@ export default function AttendanceTable() {
     },
     lateText: {
       color: "#ef4444",
-      fontWeight: 600,
+      fontWeight: 700,
+    },
+    onTimeText: {
+      color: "#059669",
+      fontWeight: 700,
+    },
+    overtimeText: {
+      color: "#6b7280",
+      fontWeight: 700,
     },
     actionCell: {
       display: "flex",
@@ -883,16 +891,21 @@ export default function AttendanceTable() {
                                   : "-";
                             }
                           }
-                          const isLate =
-                            col.key === "status" && value === "late";
+                          const isLate = col.key === "status" && value === "late";
+                          const isOnTime = col.key === "status" && value === "on-time";
+                          const isOvertime = col.key === "status" && value === "overtime";
                           const cellStyle = {
                             ...styles.td,
                             fontFamily:
                               col.key === "person_id" ? "monospace" : "inherit",
                             color: isLate
                               ? styles.lateText.color
+                              : isOnTime
+                              ? styles.onTimeText.color
+                              : isOvertime
+                              ? styles.overtimeText.color
                               : styles.td.color,
-                            fontWeight: isLate ? 600 : 400,
+                            fontWeight: isLate || isOnTime || isOvertime ? 600 : 400,
                           };
                           return (
                             <td key={col.key} style={cellStyle}>

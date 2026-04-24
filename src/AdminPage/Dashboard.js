@@ -847,6 +847,8 @@ export default function Dashboard() {
               status = "present";
             }
           }
+          const statusColor = status === "late" ? "#ef4444" : status === "on-time" ? "#059669" : status === "overtime" ? "#6b7280" : "#6b7280";
+
           return (
             <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 2fr 2fr 1fr 1fr 1fr", gap: 8, alignItems: "center", padding: "12px", borderBottom: "1px solid #f1f5f9" }}>
               <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
@@ -878,7 +880,7 @@ export default function Dashboard() {
                 <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 6 }}>{getWorkHoursLabel(r)}</div>
               </div>
 
-              <div style={{ color: status === "late" ? "#ef4444" : "#059669", fontWeight: 700, textTransform: "lowercase" }}>{status}</div>
+              <div style={{ color: statusColor, fontWeight: 700, textTransform: "lowercase" }}>{status}</div>
 
               <div style={{ color: "#6b7280" }}>face-scan</div>
 
