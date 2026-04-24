@@ -30,6 +30,9 @@
     "web-vitals": "^2.1.4",
     "xlsx": "^0.18.5"
   },
+  "optionalDependencies": {
+    "node-cron": "^3.0.2"
+  },
   "devDependencies": {
     "@craco/craco": "^7.1.0"
   },
@@ -38,6 +41,8 @@
     "build": "craco build",
     "test": "craco test",
     "eject": "react-scripts eject"
+    ,
+    "auto-morning-scheduler": "node scripts/autoMorningScheduler.js"
   },
   "eslintConfig": {
     "extends": [

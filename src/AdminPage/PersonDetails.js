@@ -125,8 +125,6 @@ export default function PersonDetails({
           setSelectedId(first.id);
           setForm({
             id: first.id || "",
-            name: first.name || "",
-            department: first.department || "",
             phone_number: first.phone_number || "",
             address: first.address || "",
             sex: first.sex || "",
@@ -225,7 +223,7 @@ export default function PersonDetails({
           .from("settings")
           .select("*")
           .eq("id", 1)
-          .single();
+          .maybeSingle();
         if (!error && data) setSettings(data);
       } catch (err) {
         console.error("Error fetching settings:", err);

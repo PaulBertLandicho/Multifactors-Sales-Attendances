@@ -112,6 +112,14 @@ export default function PersonsTable() {
 
   useEffect(() => {
     async function fetchPersons() {
+      if (!supabase) {
+        setError(
+          'Supabase client not configured. Check REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY in your environment.'
+        );
+        setLoading(false);
+        initialLoadRef.current = false;
+        return;
+      }
       if (initialLoadRef.current) setLoading(true);
       try {
         setError(null);

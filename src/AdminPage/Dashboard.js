@@ -160,7 +160,7 @@ export default function Dashboard() {
           // persons table has `name` (single column) rather than first_name/last_name
           supabase.from("persons").select("id,name,department,registration_photo", { count: 'exact' }),
           supabase.from("payroll_periods").select("id,person_id,period,released"),
-          supabase.from("settings").select("*").eq("id", 1).single(),
+          supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
         ]);
 
         if (!mounted) return;

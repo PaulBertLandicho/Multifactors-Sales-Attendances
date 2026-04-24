@@ -24,7 +24,7 @@ export default function AdminSettings() {
         const { data, error } = await supabase
           .from("settings")
           .select("*")
-          .single();
+          .maybeSingle();
         if (!error && data) {
           // Fallbacks for missing/invalid values
           setSettings({
@@ -82,7 +82,7 @@ export default function AdminSettings() {
       .from("settings")
       .select("id")
       .eq("id", 1)
-      .single();
+      .maybeSingle();
 
     let error = null;
     if (!fetchError && existing) {
@@ -154,8 +154,7 @@ export default function AdminSettings() {
               name="morning_end"
               value={settings.morning_end}
               onChange={handleChange}
-              style={{ ...styles.input, backgroundColor: "#D3D3D3" }}
-              disabled
+              style={styles.input}
             />
           </div>
           <div style={styles.inputGroup}>

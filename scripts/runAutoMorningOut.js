@@ -4,12 +4,21 @@ const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
+const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY; // optional, required for writes when RLS is enabled
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing REACT_APP_SUPABASE_URL or REACT_APP_SUPABASE_ANON_KEY in environment.');
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Prefer service role key for server-side scripts if provided (service role bypasses RLS).
+const clientKey = supabaseServiceRole || supabaseAnonKey;
+if (supabaseServiceRole) {
+  console.log('Using SUPABASE_SERVICE_ROLE_KEY for Supabase client (server write operations will be allowed).');
+} else {
+  console.warn('SUPABASE_SERVICE_ROLE_KEY not provided; using anon key. Writes may fail if Row Level Security (RLS) is enabled.');
+}
+
+const supabase = createClient(supabaseUrl, clientKey);
 
 function toMinutes(currentTime) {
   const [hours, minutes] = currentTime.split(':').map(Number);
@@ -22,9 +31,30 @@ async function run() {
       .from('settings')
       .select('*')
       .eq('id', 1)
-      .single();
+      .maybeSingle();
     if (settingsErr) throw settingsErr;
-    if (!settings) throw new Error('No settings found');
+    if (!settings) {
+      console.warn('No settings row found (settings is null). Attempting to create default settings.');
+      const defaultSettings = {
+        id: 1,
+        morning_start: '08:00',
+        morning_end: '11:59',
+        afternoon_start: '12:00',
+        afternoon_end: '17:00',
+        late_count_limit: 5
+      };
+      const { data: inserted, error: insertErr } = await supabase.from('settings').insert(defaultSettings).select().maybeSingle();
+      if (insertErr) {
+        console.error('Failed to insert default settings:', insertErr);
+        process.exit(2);
+      }
+      if (!inserted) {
+        console.error('Default settings insert returned no row. Aborting.');
+        process.exit(3);
+      }
+      console.log('Inserted default settings:', inserted);
+      settings = inserted;
+    }
 
     const now = new Date();
     const year = now.getFullYear();
@@ -44,9 +74,17 @@ async function run() {
     const { data: persons, error: personsErr } = await supabase.from('persons').select('id, name, department');
     if (personsErr) throw personsErr;
 
+    if (!Array.isArray(persons) || persons.length === 0) {
+      console.log('No persons found in the database. Exiting.');
+      console.log('Auto morning-out results: []');
+      process.exit(0);
+    }
+
+    console.log('Persons found:', persons.length);
     const results = [];
 
     for (const p of persons || []) {
+      console.log('\nChecking person:', p.id, p.name || '(no name)');
       try {
         const { data: att, error: attErr } = await supabase
           .from('attendance')
@@ -59,6 +97,7 @@ async function run() {
           console.warn('read attendance failed for', p.id, attErr.message || attErr);
           continue;
         }
+        console.log('  attendance rows fetched:', Array.isArray(att) ? att.length : 0);
 
         const morningStartMin = toMinutes(settings.morning_start);
         const morningEndMin = toMinutes(settings.morning_end);
@@ -83,6 +122,7 @@ async function run() {
         }
 
         if (morningInRow && !hasMorningOut) {
+          console.log('  morning time-in found at', morningInRow.device_time, 'no morning time-out present');
           const DUPLICATE_WINDOW_MS = 30 * 1000;
           const dupWindowIso = new Date(outDate.getTime() - DUPLICATE_WINDOW_MS).toISOString();
           const { data: recentDup } = await supabase
@@ -103,7 +143,7 @@ async function run() {
           const afternoonEnd = toMinutes(settings.afternoon_end);
           const status = toMinutes(currentTime) > afternoonEnd ? 'overtime' : 'on-time';
 
-          const { error: insErr } = await supabase.from('attendance').insert({
+          const insertPayload = {
             person_id: p.id,
             name: p.name,
             department: p.department,
@@ -112,12 +152,14 @@ async function run() {
             device_time: outIso,
             status,
             photo: morningInRow.photo || null,
-          });
+          };
+          const { data: insData, error: insErr } = await supabase.from('attendance').insert(insertPayload).select().maybeSingle();
           if (insErr) {
-            console.warn('insert failed for', p.id, insErr.message || insErr);
-            results.push({ person_id: p.id, inserted: false, reason: insErr.message });
+            console.warn('  insert failed for', p.id, insErr.message || insErr);
+            results.push({ person_id: p.id, inserted: false, reason: insErr.message, error: insErr });
           } else {
-            results.push({ person_id: p.id, inserted: true });
+            console.log('  inserted attendance id:', insData && insData.id ? insData.id : '(unknown)');
+            results.push({ person_id: p.id, inserted: true, insertedRow: insData });
           }
         }
       } catch (e) {

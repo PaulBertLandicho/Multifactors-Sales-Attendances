@@ -48,7 +48,7 @@ export default function PayrollPage() {
             "id, name, department, daily_rate, late_penalty, sss, pag_ibig, philhealth, cash_advance, registration_photo",
           ),
         supabase.from("department_rates").select("*"),
-        supabase.from("settings").select("*").eq("id", 1).single(),
+        supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
         supabase.from("payroll_periods").select("*"),
         supabase.from("holidays").select("*"),
       ]);

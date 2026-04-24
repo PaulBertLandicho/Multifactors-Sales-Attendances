@@ -296,11 +296,11 @@ export default function AttendanceTable() {
         if (personsErr) throw personsErr;
         setPersons(personsData || []);
         // Fetch work hours settings from supabase
-        const { data: settingsData, error: settingsErr } = await supabase
-          .from("settings")
-          .select("*")
-          .eq("id", 1)
-          .single();
+          const { data: settingsData, error: settingsErr } = await supabase
+            .from("settings")
+            .select("*")
+            .eq("id", 1)
+            .maybeSingle();
         if (settingsErr) throw settingsErr;
         setSettings(settingsData || null);
       } catch (err) {

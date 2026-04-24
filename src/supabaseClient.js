@@ -5,6 +5,8 @@ const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 export const SUPABASE_CONFIGURED = Boolean(supabaseUrl && supabaseAnonKey);
+// Debug: show whether env vars are present in the bundled app
+console.log('Supabase env:', { supabaseUrl, supabaseAnonKey: Boolean(supabaseAnonKey), SUPABASE_CONFIGURED });
 export const supabase = SUPABASE_CONFIGURED
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
