@@ -114,7 +114,7 @@ export default function PersonsTable() {
     async function fetchPersons() {
       if (!supabase) {
         setError(
-          'Supabase client not configured. Check REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY in your environment.'
+          "Supabase client not configured. Check REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY in your environment.",
         );
         setLoading(false);
         initialLoadRef.current = false;
@@ -198,7 +198,9 @@ export default function PersonsTable() {
                     .select("department");
                   if (!deptErr && Array.isArray(deptData)) {
                     const uniq = Array.from(
-                      new Set(deptData.map((d) => d.department).filter(Boolean)),
+                      new Set(
+                        deptData.map((d) => d.department).filter(Boolean),
+                      ),
                     );
                     setDepartments(uniq);
                   }
@@ -705,7 +707,15 @@ export default function PersonsTable() {
           >
             <button
               onClick={() => setShowRegModal(false)}
-              style={{ position: "absolute", right: 12, top: 12, border: "none", background: "transparent", fontSize: 20, cursor: "pointer" }}
+              style={{
+                position: "absolute",
+                right: 12,
+                top: 12,
+                border: "none",
+                background: "transparent",
+                fontSize: 20,
+                cursor: "pointer",
+              }}
             >
               &times;
             </button>
@@ -777,13 +787,17 @@ export default function PersonsTable() {
                       <div style={styles.phoneRow}>
                         <span style={styles.iconAndText}>
                           <FiMail style={styles.emailIcon} />
-                          <span style={styles.contactText}>{p.email || ""}</span>
+                          <span style={styles.contactText}>
+                            {p.email || ""}
+                          </span>
                         </span>
                       </div>
                       <div style={styles.phoneRow}>
                         <span style={styles.iconAndText}>
                           <FiPhone style={styles.phoneIcon} />
-                          <span style={styles.contactText}>{p.phone_number || ""}</span>
+                          <span style={styles.contactText}>
+                            {p.phone_number || ""}
+                          </span>
                         </span>
                       </div>
                       <div style={styles.netPayRow}>
@@ -836,7 +850,9 @@ export default function PersonsTable() {
             <button onClick={handleEditModalClose} style={styles.modalClose}>
               &times;
             </button>
-            <h2 style={styles.modalTitle}>Edit Person</h2>
+            <h2 style={styles.modalTitle}>
+              <FiEdit style={styles.modalTitleIcon} /> Edit Person
+            </h2>
             <form onSubmit={handleEditModalSave}>
               <div style={styles.modalField}>
                 <label style={styles.modalLabel}>Registration Photo</label>
@@ -965,169 +981,178 @@ export default function PersonsTable() {
                   </div>
                 )}
               </div>
-              <div style={styles.modalField}>
-                <label style={styles.modalLabel}>Name</label>
-                <input
-                  value={editPerson.name || ""}
-                  onChange={(e) =>
-                    setEditPerson({ ...editPerson, name: e.target.value })
-                  }
-                  style={styles.modalInput}
-                />
-              </div>
-              <div style={styles.modalField}>
-                <label style={styles.modalLabel}>Department</label>
-                <select
-                  value={editPerson.department || ""}
-                  onChange={(e) =>
-                    setEditPerson({ ...editPerson, department: e.target.value })
-                  }
-                  style={styles.modalSelect}
-                >
-                  <option value="">(Select department)</option>
-                  {departments && departments.length
-                    ? departments.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))
-                    : // fallback to departments seen on persons list
-                      Array.from(new Set(persons.map((p) => p.department).filter(Boolean))).map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                </select>
-              </div>
-              <div style={styles.modalField}>
-                <label style={styles.modalLabel}>Phone</label>
-                <input
-                  value={editPerson.phone_number || ""}
-                  onChange={(e) =>
-                    setEditPerson({
-                      ...editPerson,
-                      phone_number: e.target.value,
-                    })
-                  }
-                  style={styles.modalInput}
-                />
-              </div>
-              <div style={styles.modalField}>
-                <label style={styles.modalLabel}>Email</label>
-                <input
-                  value={editPerson.email || ""}
-                  onChange={(e) =>
-                    setEditPerson({ ...editPerson, email: e.target.value })
-                  }
-                  style={styles.modalInput}
-                />
-              </div>
-              <div style={styles.modalField}>
-                <label style={styles.modalLabel}>Address</label>
-                <input
-                  value={editPerson.address || ""}
-                  onChange={(e) =>
-                    setEditPerson({ ...editPerson, address: e.target.value })
-                  }
-                  style={styles.modalInput}
-                />
-              </div>
-              <div style={styles.modalField}>
-                <label style={styles.modalLabel}>Sex</label>
-                <select
-                  value={editPerson.sex || ""}
-                  onChange={(e) =>
-                    setEditPerson({ ...editPerson, sex: e.target.value })
-                  }
-                  style={styles.modalSelect}
-                >
-                  <option value="">Select sex</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div style={styles.modalField}>
-                <div style={styles.modalCheckboxGroup}>
-                  <label style={styles.modalCheckbox}>
-                    <input
-                      type="checkbox"
-                      checked={!!Number(editPerson.sss)}
-                      onChange={(e) =>
-                        setEditPerson({
-                          ...editPerson,
-                          sss: e.target.checked ? 1 : 0,
-                        })
-                      }
-                    />
-                    SSS
-                  </label>
-                  <label style={styles.modalCheckbox}>
-                    <input
-                      type="checkbox"
-                      checked={!!Number(editPerson.pag_ibig)}
-                      onChange={(e) =>
-                        setEditPerson({
-                          ...editPerson,
-                          pag_ibig: e.target.checked ? 1 : 0,
-                        })
-                      }
-                    />
-                    Pag-ibig
-                  </label>
-                  <label style={styles.modalCheckbox}>
-                    <input
-                      type="checkbox"
-                      checked={!!Number(editPerson.philhealth)}
-                      onChange={(e) =>
-                        setEditPerson({
-                          ...editPerson,
-                          philhealth: e.target.checked ? 1 : 0,
-                        })
-                      }
-                    />
-                    PhilHealth
-                  </label>
+              <div className="persons-modal-grid" style={styles.modalGrid}>
+                <div style={styles.modalField}>
+                  <label style={styles.modalLabel}>Name</label>
+                  <input
+                    value={editPerson.name || ""}
+                    onChange={(e) =>
+                      setEditPerson({ ...editPerson, name: e.target.value })
+                    }
+                    style={styles.modalInput}
+                  />
                 </div>
-              </div>
-              <div style={styles.modalField}>
-                <label style={styles.modalLabel}>Add Cash Advance</label>
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 8,
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <input
-                    type="number"
-                    placeholder="Amount"
-                    value={newCashAmount}
-                    onChange={(e) => setNewCashAmount(e.target.value)}
-                    style={{ ...styles.modalInput, maxWidth: 160 }}
-                  />
-                  <input
-                    placeholder="Note (optional)"
-                    value={newCashNote}
-                    onChange={(e) => setNewCashNote(e.target.value)}
-                    style={{ ...styles.modalInput, flex: 1 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={addCashAdvance}
-                    disabled={actionLoading}
-                    style={{
-                      ...styles.button,
-                      ...styles.buttonPrimary,
-                      padding: "8px 12px",
-                    }}
+                <div style={styles.modalField}>
+                  <label style={styles.modalLabel}>Department</label>
+                  <select
+                    value={editPerson.department || ""}
+                    onChange={(e) =>
+                      setEditPerson({ ...editPerson, department: e.target.value })
+                    }
+                    style={styles.modalSelect}
                   >
-                    {actionLoading ? "Working..." : "Add"}
-                  </button>
+                    <option value="">(Select department)</option>
+                    {departments && departments.length
+                      ? departments.map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))
+                      : Array.from(
+                          new Set(
+                            persons.map((p) => p.department).filter(Boolean),
+                          ),
+                        ).map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                  </select>
                 </div>
 
-                <div style={{ marginTop: 10 }}>
+                <div style={styles.modalField}>
+                  <label style={styles.modalLabel}>Phone</label>
+                  <input
+                    value={editPerson.phone_number || ""}
+                    onChange={(e) =>
+                      setEditPerson({
+                        ...editPerson,
+                        phone_number: e.target.value,
+                      })
+                    }
+                    style={styles.modalInput}
+                  />
+                </div>
+                <div style={styles.modalField}>
+                  <label style={styles.modalLabel}>Email</label>
+                  <input
+                    value={editPerson.email || ""}
+                    onChange={(e) =>
+                      setEditPerson({ ...editPerson, email: e.target.value })
+                    }
+                    style={styles.modalInput}
+                  />
+                </div>
+
+                <div style={styles.modalField}>
+                  <label style={styles.modalLabel}>Address</label>
+                  <input
+                    value={editPerson.address || ""}
+                    onChange={(e) =>
+                      setEditPerson({ ...editPerson, address: e.target.value })
+                    }
+                    style={styles.modalInput}
+                  />
+                </div>
+                <div style={styles.modalField}>
+                  <label style={styles.modalLabel}>Sex</label>
+                  <select
+                    value={editPerson.sex || ""}
+                    onChange={(e) =>
+                      setEditPerson({ ...editPerson, sex: e.target.value })
+                    }
+                    style={styles.modalSelect}
+                  >
+                    <option value="">Select sex</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <div style={styles.modalCheckboxGroup}>
+                    <label style={styles.modalCheckbox}>
+                      <input
+                        type="checkbox"
+                        checked={!!Number(editPerson.sss)}
+                        onChange={(e) =>
+                          setEditPerson({
+                            ...editPerson,
+                            sss: e.target.checked ? 1 : 0,
+                          })
+                        }
+                      />
+                      SSS
+                    </label>
+                    <label style={styles.modalCheckbox}>
+                      <input
+                        type="checkbox"
+                        checked={!!Number(editPerson.pag_ibig)}
+                        onChange={(e) =>
+                          setEditPerson({
+                            ...editPerson,
+                            pag_ibig: e.target.checked ? 1 : 0,
+                          })
+                        }
+                      />
+                      Pag-ibig
+                    </label>
+                    <label style={styles.modalCheckbox}>
+                      <input
+                        type="checkbox"
+                        checked={!!Number(editPerson.philhealth)}
+                        onChange={(e) =>
+                          setEditPerson({
+                            ...editPerson,
+                            philhealth: e.target.checked ? 1 : 0,
+                          })
+                        }
+                      />
+                      PhilHealth
+                    </label>
+                  </div>
+                </div>
+
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <label style={styles.modalLabel}>Add Cash Advance</label>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <input
+                      type="number"
+                      placeholder="Amount"
+                      value={newCashAmount}
+                      onChange={(e) => setNewCashAmount(e.target.value)}
+                      style={{ ...styles.modalInput, maxWidth: 160 }}
+                    />
+                    <input
+                      placeholder="Note (optional)"
+                      value={newCashNote}
+                      onChange={(e) => setNewCashNote(e.target.value)}
+                      style={{ ...styles.modalInput, flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={addCashAdvance}
+                      disabled={actionLoading}
+                      style={{
+                        ...styles.button,
+                        ...styles.buttonPrimary,
+                        padding: "8px 12px",
+                      }}
+                    >
+                      {actionLoading ? "Working..." : "Add"}
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ gridColumn: "1 / -1", marginTop: 6 }}>
                   <label style={styles.modalLabel}>Cash Advance History</label>
                   {loadingCashAdvances ? (
                     <div style={{ color: "#6b7280" }}>Loading...</div>
@@ -1303,23 +1328,25 @@ const styles = {
     display: "inline-flex",
     alignItems: "center",
     gap: "8px",
-    padding: "12px 28px",
-    borderRadius: "40px",
+    padding: "10px 18px",
+    borderRadius: "9999px",
     fontSize: "1rem",
-    fontWeight: 500,
+    fontWeight: 600,
     border: "none",
     cursor: "pointer",
-    transition: "all 0.2s",
-    boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
+    transition: "transform 0.12s ease, box-shadow 0.12s ease",
+    boxShadow: "0 6px 18px rgba(16, 185, 129, 0.06)",
   },
   buttonPrimary: {
-    background: "#237227",
+    background: "linear-gradient(180deg,#1f8a2a,#237227)",
     color: "#ffffff",
+    boxShadow: "0 6px 18px rgba(35,114,39,0.18)",
   },
   buttonSecondary: {
-    background: "#e5e7eb",
-    color: "#1f2937",
-    border: "1px solid #d1d5db",
+    background: "#ffffff",
+    color: "#374151",
+    border: "1px solid #e6eef6",
+    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
   },
   buttonSuccess: {
     background: "#237227",
@@ -1385,11 +1412,12 @@ const styles = {
     border: "2px solid #e5e7eb",
   },
   photoPreview: {
-    width: "56px",
-    height: "56px",
+    width: "88px",
+    height: "88px",
     objectFit: "cover",
-    borderRadius: "14px",
-    border: "2px solid #e5e7eb",
+    borderRadius: "9999px",
+    border: "2px solid rgba(34,197,94,0.12)",
+    boxShadow: "0 6px 18px rgba(16,185,129,0.08)",
   },
   actionCell: {
     display: "flex",
@@ -1593,75 +1621,92 @@ const styles = {
     position: "fixed",
     top: 0,
     left: 0,
-    width: "100vw",
-    height: "100vh",
+    width: "100%",
+    height: "100%",
     background: "rgba(0, 0, 0, 0.5)",
     display: "flex",
-    alignItems: "center",
     justifyContent: "center",
-    zIndex: 1001,
+    alignItems: "center",
+    zIndex: 1000,
     backdropFilter: "blur(4px)",
   },
   modalContent: {
-    background: "#ffffff",
-    padding: "40px",
-    borderRadius: "28px",
-    minWidth: "400px",
-    maxWidth: "500px",
-    width: "90%",
-    boxShadow: "0 20px 40px rgba(0, 0, 0, 0.2)",
-    border: "1px solid #e5e7eb",
-    position: "relative",
+    background: "#fff",
     color: "#1f2937",
+    padding: "28px",
+    borderRadius: "28px",
+    maxWidth: "900px",
+    width: "95%",
+    overflowY: "auto",
+    maxHeight: "90%",
+    boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+    border: "1px solid #e5e7eb",
+    fontFamily:
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
   modalClose: {
     position: "absolute",
-    top: "16px",
-    right: "16px",
-    background: "transparent",
+    top: "14px",
+    right: "14px",
+    background: "#fff",
     border: "none",
     color: "#6b7280",
-    fontSize: "1.8rem",
+    fontSize: "1.1rem",
     cursor: "pointer",
     lineHeight: 1,
+    width: 40,
+    height: 40,
+    borderRadius: "50%",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    boxShadow: "0 6px 18px rgba(15,23,42,0.06)",
   },
   modalTitle: {
-    fontSize: "1.8rem",
-    fontWeight: 600,
-    marginBottom: "24px",
-    color: "#1f2937",
+    fontSize: "2rem",
+    fontWeight: 700,
+    marginBottom: "16px",
+    color: "#0f3d16",
     textAlign: "center",
   },
+  modalTitleIcon: {
+    color: "#237227",
+    marginRight: 8,
+    verticalAlign: "middle",
+    fontSize: "1.25rem",
+  },
   modalField: {
-    marginBottom: "16px",
+    marginBottom: "18px",
+    display: "block",
   },
   modalLabel: {
     display: "block",
-    fontSize: "0.9rem",
-    fontWeight: 500,
-    color: "#4b5563",
-    marginBottom: "6px",
+    fontSize: "0.85rem",
+    fontWeight: 600,
+    color: "#374151",
+    marginBottom: "8px",
   },
   modalInput: {
     width: "100%",
-    padding: "10px 12px",
+    padding: "12px 14px",
     fontSize: "1rem",
     borderRadius: "12px",
-    border: "1px solid #d1d5db",
+    border: "1px solid #e6eef6",
     background: "#ffffff",
-    color: "#1f2937",
+    color: "#0f172a",
     outline: "none",
-    transition: "border-color 0.2s, box-shadow 0.2s",
+    transition: "border-color 0.12s, box-shadow 0.12s",
     boxSizing: "border-box",
+    boxShadow: "inset 0 1px 2px rgba(15,23,42,0.03)",
   },
   modalSelect: {
     width: "100%",
-    padding: "10px 12px",
+    padding: "12px 14px",
     fontSize: "1rem",
     borderRadius: "12px",
-    border: "1px solid #d1d5db",
+    border: "1px solid #e6eef6",
     background: "#ffffff",
-    color: "#1f2937",
+    color: "#0f172a",
     outline: "none",
   },
   modalCheckboxGroup: {
@@ -1672,14 +1717,20 @@ const styles = {
   modalCheckbox: {
     display: "flex",
     alignItems: "center",
-    gap: "6px",
-    color: "#1f2937",
+    gap: "8px",
+    color: "#374151",
   },
   modalActions: {
     display: "flex",
     justifyContent: "flex-end",
     gap: "12px",
-    marginTop: "24px",
+    marginTop: "20px",
+  },
+  modalGrid: {
+    display: "grid",
+    gridTemplateColumns: "1fr 1fr",
+    gap: 12,
+    alignItems: "start",
   },
 };
 
@@ -1727,3 +1778,12 @@ styleSheet.textContent = `
   }
 `;
 document.head.appendChild(styleSheet);
+// Responsive grid for the modal form
+const extraStyles = document.createElement("style");
+extraStyles.textContent = `
+.persons-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+@media (max-width: 640px) {
+  .persons-modal-grid { grid-template-columns: 1fr !important; }
+}
+`;
+document.head.appendChild(extraStyles);
