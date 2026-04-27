@@ -672,7 +672,7 @@ export default function PersonDetails({
                       textAlign: "left",
                     }}
                   >
-                    Sex
+                    Gender
                   </th>
                 </tr>
               </thead>

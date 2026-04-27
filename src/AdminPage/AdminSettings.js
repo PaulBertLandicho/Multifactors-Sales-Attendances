@@ -155,6 +155,7 @@ export default function AdminSettings() {
               value={settings.morning_end}
               onChange={handleChange}
               style={styles.input}
+              disabled
             />
           </div>
           <div style={styles.inputGroup}>
@@ -490,6 +491,12 @@ styleSheet.textContent = `
   input:focus {
     border-color: #237227 !important;
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
+  }
+  input:disabled {
+    background: #f3f4f6 !important;
+    color: #555555 !important;
+    cursor: not-allowed !important;
+    opacity: 1 !important;
   }
   button:hover:not(:disabled) {
     transform: translateY(-2px);
