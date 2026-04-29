@@ -149,6 +149,7 @@ export default function Dashboard() {
   const presentCardRef = useRef(null);
   const absentCardRef = useRef(null);
   const tooltipHideTimerRef = useRef(null);
+  const [photoModal, setPhotoModal] = useState({ visible: false, src: "", title: "" });
 
   useEffect(() => {
     let mounted = true;
@@ -394,6 +395,24 @@ export default function Dashboard() {
       hideTooltip();
     }, delay);
   }
+
+  function openPhotoModal(src, title) {
+    if (!src) return;
+    setPhotoModal({ visible: true, src, title: title || "" });
+  }
+
+  function closePhotoModal() {
+    setPhotoModal({ visible: false, src: "", title: "" });
+  }
+
+  useEffect(() => {
+    if (!photoModal.visible) return;
+    function onKey(e) {
+      if (e.key === "Escape") closePhotoModal();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [photoModal.visible]);
 
   function getWorkHoursLabel(row) {
     if (!settings) return "-";
@@ -854,9 +873,9 @@ export default function Dashboard() {
               <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: "#eef2f6", display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a", fontWeight: 700 }}>
                   {r.photo ? (
-                    <img src={r.photo} alt={name || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={r.photo} alt={name || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} onClick={() => openPhotoModal(r.photo, name)} />
                   ) : person && person.registration_photo ? (
-                    <img src={person.registration_photo} alt={(person && person.name) || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={person.registration_photo} alt={(person && person.name) || ''} style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} onClick={() => openPhotoModal(person.registration_photo, (person && person.name) || '')} />
                   ) : (
                     ((person && (person.name)) ? ((person.name).slice(0,2)) : String(r.person_id).slice(0,2))
                   )}
@@ -889,6 +908,25 @@ export default function Dashboard() {
         })}
       </div>
     </div>
+
+      {/* Tooltip for present/absent */}
+      {/* Photo modal */}
+      {photoModal.visible && (
+        <div
+          onClick={() => closePhotoModal()}
+          style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: 8, overflow: 'hidden', background: '#fff', padding: 12, boxShadow: '0 12px 40px rgba(2,6,23,0.4)' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => closePhotoModal()} aria-label="Close photo" style={{ background: 'transparent', border: 'none', color: '#0f172a', fontSize: 22, cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <img src={photoModal.src} alt={photoModal.title} style={{ maxWidth: '100%', maxHeight: '80vh', display: 'block', margin: '0 auto' }} />
+              {photoModal.title && <div style={{ marginTop: 8, color: '#0f172a' }}>{photoModal.title}</div>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tooltip for present/absent */}
       {tooltip.visible && (

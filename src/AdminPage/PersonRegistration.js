@@ -179,7 +179,7 @@ export default function PersonRegistration({ initialImageUrl = null }) {
         {countdown > 0 && (
           <div
             style={{
-              position: "absolute",
+              position: "fixed",
               top: 0,
               left: 0,
               width: "100vw",
@@ -188,7 +188,7 @@ export default function PersonRegistration({ initialImageUrl = null }) {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              zIndex: 2000,
+              zIndex: 110000,
             }}
           >
             <div

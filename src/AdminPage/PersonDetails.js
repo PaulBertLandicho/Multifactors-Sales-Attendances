@@ -60,6 +60,7 @@ export default function PersonDetails({
     name: "",
     department: "",
     phone_number: "",
+    email: "",
     address: "",
     sex: "",
   });
@@ -120,14 +121,16 @@ export default function PersonDetails({
         setPersons(mapped);
 
         // Auto-select first person if appropriate (only when NOT in registration mode)
-        if (!selectedId && mapped.length && !descriptor) {
+          if (!selectedId && mapped.length && !descriptor) {
           const first = mapped[0];
           setSelectedId(first.id);
           setForm({
-            id: first.id || "",
-            phone_number: first.phone_number || "",
-            address: first.address || "",
-            sex: first.sex || "",
+              id: first.id || "",
+              name: first.name || "",
+              phone_number: first.phone_number || "",
+              email: first.email || "",
+              address: first.address || "",
+              sex: first.sex || "",
           });
           if (
             first.department &&
@@ -241,6 +244,7 @@ export default function PersonDetails({
       name: person.name || "",
       department: person.department || "",
       phone_number: person.phone_number || "",
+      email: person.email || "",
       address: person.address || "",
       sex: person.sex || "",
     });
@@ -420,6 +424,7 @@ export default function PersonDetails({
         name: form.name || null,
         department: finalDepartment,
         phone_number: form.phone_number || null,
+        email: form.email || null,
         address: form.address || null,
         sex: form.sex || null,
         descriptor: descriptor ? Array.from(descriptor) : null,
@@ -448,6 +453,7 @@ export default function PersonDetails({
         name: form.name,
         department: finalDepartment,
         phone_number: form.phone_number,
+        email: form.email,
         address: form.address,
         sex: form.sex,
       });
@@ -818,6 +824,20 @@ export default function PersonDetails({
               <input
                 name="phone_number"
                 value={form.phone_number}
+                onChange={onChange}
+                style={{ width: "100%", padding: "6px", marginTop: "4px" }}
+              />
+            </label>
+          </div>
+
+          {/* Email field */}
+          <div style={{ marginBottom: "8px", textAlign: "left" }}>
+            <label>
+              Email
+              <input
+                name="email"
+                type="email"
+                value={form.email}
                 onChange={onChange}
                 style={{ width: "100%", padding: "6px", marginTop: "4px" }}
               />

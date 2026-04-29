@@ -78,6 +78,9 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
   // Tighter thresholds to reduce false-positive duplicate detection
   const FACE_MATCH_THRESHOLD = 0.28; // require smaller distance to consider a match
   const MATCH_MARGIN = 0.12; // require a clearer gap to the second-best
+  // Cooldown to avoid firing onFaceScan repeatedly in quick succession
+  const scanCooldownRef = useRef(0);
+  const SCAN_COOLDOWN_MS = 1500; // milliseconds
 
   // Load face-api.js models
   useEffect(() => {
@@ -197,8 +200,14 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
             }
 
             if (typeof onFaceScan === "function") {
-              if (!isSwalOpen()) onFaceScan({ descriptor: newDesc, photoDataUrl: dataUrl });
-              else console.log("Swal visible — skipping onFaceScan from upload");
+              const now = Date.now();
+              if (now - scanCooldownRef.current >= SCAN_COOLDOWN_MS) {
+                scanCooldownRef.current = now;
+                if (!isSwalOpen()) onFaceScan({ descriptor: newDesc, photoDataUrl: dataUrl });
+                else console.log("Swal visible — skipping onFaceScan from upload");
+              } else {
+                console.log("RegistrationCamera: suppressed upload scan due to cooldown");
+              }
             }
           } catch (err) {
             console.error("Error processing uploaded image:", err);
@@ -459,8 +468,14 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
                 // clear buffer so next person starts fresh
                 descBufferRef.current = [];
                 if (typeof onFaceScan === "function") {
-                  if (!isSwalOpen()) onFaceScan({ descriptor: avgDesc, photoDataUrl });
-                  else console.log("Swal visible — skipping onFaceScan after duplicate confirm");
+                  const now = Date.now();
+                  if (now - scanCooldownRef.current >= SCAN_COOLDOWN_MS) {
+                    scanCooldownRef.current = now;
+                    if (!isSwalOpen()) onFaceScan({ descriptor: avgDesc, photoDataUrl });
+                    else console.log("Swal visible — skipping onFaceScan after duplicate confirm");
+                  } else {
+                    console.log("RegistrationCamera: suppressed duplicate-confirmed scan due to cooldown");
+                  }
                 }
               }
             } else {
@@ -473,8 +488,14 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
               const photoDataUrl = frameCanvas.toDataURL("image/jpeg", 0.85);
               descBufferRef.current = [];
               if (typeof onFaceScan === "function") {
-                if (!isSwalOpen()) onFaceScan({ descriptor: avgDesc, photoDataUrl });
-                else console.log("Swal visible — skipping onFaceScan from live capture");
+                const now = Date.now();
+                if (now - scanCooldownRef.current >= SCAN_COOLDOWN_MS) {
+                  scanCooldownRef.current = now;
+                  if (!isSwalOpen()) onFaceScan({ descriptor: avgDesc, photoDataUrl });
+                  else console.log("Swal visible — skipping onFaceScan from live capture");
+                } else {
+                  console.log("RegistrationCamera: suppressed live scan due to cooldown");
+                }
               }
             }
           }

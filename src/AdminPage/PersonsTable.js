@@ -11,6 +11,7 @@ import {
   FiPhone,
   FiMail,
   FiUserPlus,
+  FiPlusCircle,
 } from "react-icons/fi";
 import PersonRegistration from "./PersonRegistration";
 
@@ -29,9 +30,7 @@ export default function PersonsTable() {
     if (showCamera) {
       (async () => {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({
-            video: true,
-          });
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
           if (initialVideoRef) {
             initialVideoRef.srcObject = stream;
             cameraStreamRef.current = stream;
@@ -85,6 +84,7 @@ export default function PersonsTable() {
   const [sortOrder] = useState("desc");
   const [showArchived, setShowArchived] = useState(false);
   const [persons, setPersons] = useState([]);
+  const [photoModal, setPhotoModal] = useState({ visible: false, src: "", title: "" });
   const [payrollMap, setPayrollMap] = useState({});
   const [payrollGrossMap, setPayrollGrossMap] = useState({});
   const [presenceMap, setPresenceMap] = useState({});
@@ -108,6 +108,7 @@ export default function PersonsTable() {
     archive: <FiArchive />,
     edit: <FiEdit color="#ffffff" style={{ marginRight: 8 }} />,
     add: <FiUserPlus color="#ffffff" style={{ marginRight: 8 }} />,
+    circle: <FiPlusCircle color="#ffffff" style={{ marginRight: 0 }} />,
   };
 
   useEffect(() => {
@@ -423,6 +424,24 @@ export default function PersonsTable() {
     setShowEditModal(false);
     setEditPerson(null);
   };
+
+  function openPhotoModal(src, title) {
+    if (!src) return;
+    setPhotoModal({ visible: true, src, title: title || "" });
+  }
+
+  function closePhotoModal() {
+    setPhotoModal({ visible: false, src: "", title: "" });
+  }
+
+  useEffect(() => {
+    if (!photoModal.visible) return;
+    function onKey(e) {
+      if (e.key === "Escape") closePhotoModal();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [photoModal.visible]);
 
   const handleEditPhotoChange = (e) => {
     const file = e.target.files && e.target.files[0];
@@ -755,7 +774,8 @@ export default function PersonsTable() {
                           <img
                             src={getPersonPhoto(p)}
                             alt={p.name || "person"}
-                            style={styles.cardAvatar}
+                            style={{ ...styles.cardAvatar, cursor: 'pointer' }}
+                            onClick={() => openPhotoModal(getPersonPhoto(p), p.name || p.id)}
                           />
                         ) : (
                           <div style={styles.cardAvatarPlaceholder}>
@@ -847,9 +867,6 @@ export default function PersonsTable() {
       {showEditModal && editPerson && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
-            <button onClick={handleEditModalClose} style={styles.modalClose}>
-              &times;
-            </button>
             <h2 style={styles.modalTitle}>
               <FiEdit style={styles.modalTitleIcon} /> Edit Person
             </h2>
@@ -868,7 +885,8 @@ export default function PersonsTable() {
                     <img
                       src={editPerson.registration_photo}
                       alt="person"
-                      style={styles.photoPreview}
+                      style={{ ...styles.photoPreview, cursor: 'pointer' }}
+                      onClick={() => openPhotoModal(editPerson.registration_photo, editPerson.name || editPerson.id)}
                     />
                   ) : (
                     <span style={{ color: "#9ca3af", fontSize: "0.9rem" }}>
@@ -1071,6 +1089,7 @@ export default function PersonsTable() {
                 </div>
 
                 <div style={{ gridColumn: "1 / -1" }}>
+                <label style={styles.modalLabel}>Mandatory Contributions</label>
                   <div style={styles.modalCheckboxGroup}>
                     <label style={styles.modalCheckbox}>
                       <input
@@ -1147,7 +1166,7 @@ export default function PersonsTable() {
                         padding: "8px 12px",
                       }}
                     >
-                      {actionLoading ? "Working..." : "Add"}
+                     {Icons.circle}{actionLoading ? "Working..." : "Add"}
                     </button>
                   </div>
                 </div>
@@ -1238,6 +1257,23 @@ export default function PersonsTable() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Photo modal for Registered Persons */}
+      {photoModal.visible && (
+        <div
+          onClick={() => closePhotoModal()}
+          style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: 8, overflow: 'hidden', background: '#fff', padding: 12, boxShadow: '0 12px 40px rgba(2,6,23,0.4)' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => closePhotoModal()} aria-label="Close photo" style={{ background: 'transparent', border: 'none', color: '#0f172a', fontSize: 22, cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <img src={photoModal.src} alt={photoModal.title} style={{ maxWidth: '100%', maxHeight: '80vh', display: 'block', margin: '0 auto' }} />
+              {photoModal.title && <div style={{ marginTop: 8, color: '#0f172a' }}>{photoModal.title}</div>}
+            </div>
           </div>
         </div>
       )}

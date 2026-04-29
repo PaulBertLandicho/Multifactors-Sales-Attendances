@@ -25,6 +25,7 @@ export default function AttendanceTable() {
   const [showArchived, setShowArchived] = useState(false);
   const [records, setRecords] = useState([]);
   const [persons, setPersons] = useState([]);
+  const [photoModal, setPhotoModal] = useState({ visible: false, src: "", title: "" });
   const { setLoading } = useLoading();
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState(null);
@@ -321,6 +322,24 @@ export default function AttendanceTable() {
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [setLoading]);
+
+  function openPhotoModal(src, title) {
+    if (!src) return;
+    setPhotoModal({ visible: true, src, title: title || "" });
+  }
+
+  function closePhotoModal() {
+    setPhotoModal({ visible: false, src: "", title: "" });
+  }
+
+  useEffect(() => {
+    if (!photoModal.visible) return;
+    function onKey(e) {
+      if (e.key === "Escape") closePhotoModal();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [photoModal.visible]);
 
   // Loading overlay handled by `LoadingContext` provider
 
@@ -759,7 +778,8 @@ export default function AttendanceTable() {
                                     <img
                                       src={row.photo}
                                       alt="scan"
-                                      style={styles.photo}
+                                          style={{ ...styles.photo, cursor: 'pointer' }}
+                                          onClick={() => openPhotoModal(row.photo, person.name || row.person_id)}
                                     />
                                     <span style={styles.photoTime}>
                                       {row.device_time
@@ -949,6 +969,23 @@ export default function AttendanceTable() {
           </table>
         </div>
       </div>
+      {/* Photo modal for AttendanceTable */}
+      {photoModal.visible && (
+        <div
+          onClick={() => closePhotoModal()}
+          style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+        >
+          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: 8, overflow: 'hidden', background: '#fff', padding: 12, boxShadow: '0 12px 40px rgba(2,6,23,0.4)' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button onClick={() => closePhotoModal()} aria-label="Close photo" style={{ background: 'transparent', border: 'none', color: '#0f172a', fontSize: 22, cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <img src={photoModal.src} alt={photoModal.title} style={{ maxWidth: '100%', maxHeight: '80vh', display: 'block', margin: '0 auto' }} />
+              {photoModal.title && <div style={{ marginTop: 8, color: '#0f172a' }}>{photoModal.title}</div>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
