@@ -109,7 +109,7 @@ function App() {
                 }}
               >
                 <img
-                  src="/image/logo/multifactorssales_logo-removebg.png"
+                  src="/image/logo512.png"
                   alt="Multifactors Sales Logo"
                   style={{
                     ...styles.logoIcon,

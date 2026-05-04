@@ -90,7 +90,7 @@ export default function AdminSidebar({ onLogout }) {
       <div style={styles.logo}>
         <img
           src={
-            process.env.PUBLIC_URL + "/image/logo/multifactorssales_logo.png"
+            process.env.PUBLIC_URL + "/image/logo/multifactors-sales_logo.png"
           }
           alt="Multifactors Sales Logo"
           style={{

@@ -43,7 +43,7 @@ export default function AdminLogin() {
         <div style={styles.headerCentered}>
           <div style={styles.icon} aria-hidden>
             <img
-              src="/image/logo/multifactorssales_logo-removebg.png"
+              src="/image/logo512.png"
               alt="Multifactors Sales Logo"
               style={styles.logoImage}
             />

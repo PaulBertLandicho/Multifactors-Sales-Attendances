@@ -190,7 +190,33 @@ export function drawPayslipOnDoc(
     return `${Number(hrs).toFixed(2)} (${parts.join(" and ") || "0min"})`;
   };
   drawLinedField("Overtime hrs:", formatHoursDecimalToLabel(otHoursToShow));
-  drawLinedField("Holiday Day(s):", String(holidayPayDetails.length || 0));
+  // Compute holiday percent sums by type (use ratePercent when available,
+  // fallback: Regular=100%, Special=0%)
+  let regularCount = 0;
+  let specialCount = 0;
+  let regularPercentSum = 0;
+  let specialPercentSum = 0;
+  if (Array.isArray(holidayPayDetails)) {
+    holidayPayDetails.forEach((h) => {
+      const type = (h && h.type) || "regular";
+      const rate = Number(h && h.ratePercent) || (type === "regular" ? 100 : 0);
+      if (type === "regular") {
+        regularCount += 1;
+        regularPercentSum += rate;
+      } else {
+        specialCount += 1;
+        specialPercentSum += rate;
+      }
+    });
+  }
+  let holidayLabel = "0";
+  if (regularCount || specialCount) {
+    const parts = [];
+    if (regularCount) parts.push(`Regular: ${regularPercentSum}% (${regularCount} day${regularCount>1?"s":""})`);
+    if (specialCount) parts.push(`Special: ${specialPercentSum}% (${specialCount} day${specialCount>1?"s":""})`);
+    holidayLabel = parts.join("; ");
+  }
+  drawLinedField("Holiday Day(s):", holidayLabel);
   // Allowance line with no preset value
   // Use explicit gross if provided, otherwise fallback to payroll.gross
   const grossToShow =

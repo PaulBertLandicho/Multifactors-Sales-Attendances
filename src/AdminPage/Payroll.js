@@ -20,7 +20,7 @@ export function calculatePayroll(
           (person.department || "").toLowerCase().trim()
       ) || {};
 
-    // Apply deductions based on checkbox
+    // Apply deductions: use department rates when the person has an ID number present
     const sss = person.sss ? Number(deptRate.sss || 0) : 0;
     const pag_ibig = person.pag_ibig ? Number(deptRate.pag_ibig || 0) : 0;
     const philhealth = person.philhealth ? Number(deptRate.philhealth || 0) : 0;

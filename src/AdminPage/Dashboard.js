@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from "react";
 import { supabase } from "../supabaseClient";
 import Swal from "sweetalert2";
 import { FiTrendingUp, FiUsers, FiClock, FiDownload } from "react-icons/fi";
+import { determineAttendanceStatus } from "./attendanceUtils";
 
 function compactNumber(n) {
   if (n >= 1e9) return (n / 1e9).toFixed(1) + "B";
@@ -157,7 +158,7 @@ export default function Dashboard() {
       setLoading(true);
       try {
         const [attRes, personsRes, payrollRes, settingsRes] = await Promise.all([
-          supabase.from("attendance").select("device_time,person_id,photo,name,department,event,status"),
+          supabase.from("attendance").select("device_time,person_id,photo,name,department,event,status,method"),
           // persons table has `name` (single column) rather than first_name/last_name
           supabase.from("persons").select("id,name,department,registration_photo", { count: 'exact' }),
           supabase.from("payroll_periods").select("id,person_id,period,released"),
@@ -250,7 +251,7 @@ export default function Dashboard() {
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     return (attendance || [])
-      .map((a) => ({ person_id: a.person_id, device_time: a.device_time, photo: a.photo || null, name: a.name || null, department: a.department || null, event: a.event || null, status: a.status || null, person: personMap[a.person_id] || null }))
+      .map((a) => ({ person_id: a.person_id, device_time: a.device_time, photo: a.photo || null, name: a.name || null, department: a.department || null, event: a.event || null, status: a.status || null, method: a.method || null, person: personMap[a.person_id] || null }))
       .filter((a) => {
         try {
           const d = new Date(a.device_time);
@@ -844,21 +845,15 @@ export default function Dashboard() {
           let timeLabel = "";
           try { timeLabel = new Date(r.device_time).toLocaleString("en-US", { month: "long", day: "numeric", year: "numeric" }) + " - " + new Date(r.device_time).toLocaleTimeString("en-US"); } catch (e) {}
           // Attendance status: prefer server-provided `r.status` (Attendance Records page uses DB status).
-          // Fallback: compute late vs on-time by comparing device_time to `settings.morning_start` (if available),
-          // otherwise use the existing 08:44 cutoff.
+          // Fallback: compute accurate on-time/late/overtime using `determineAttendanceStatus`.
           let status = (r && r.status) || "";
           if (!status) {
             try {
               const d = new Date(r.device_time);
               if (!Number.isNaN(d.getTime())) {
-                if (settings && settings.morning_start) {
-                  const parts = settings.morning_start.split(":").map(Number);
-                  const cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate(), parts[0] || 0, parts[1] || 0, parts[2] || 0);
-                  status = d > cutoff ? "late" : "on-time";
-                } else {
-                  const cutoff = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 8, 44, 0);
-                  status = d > cutoff ? "late" : "on-time";
-                }
+                const hhmm = d.toTimeString().slice(0, 5);
+                const event = (r && r.event) || "time-in";
+                status = determineAttendanceStatus(hhmm, event, settings || {}, false);
               } else {
                 status = "present";
               }
@@ -901,7 +896,7 @@ export default function Dashboard() {
 
               <div style={{ color: statusColor, fontWeight: 700, textTransform: "lowercase" }}>{status}</div>
 
-              <div style={{ color: "#6b7280" }}>face-scan</div>
+              <div style={{ color: "#6b7280" }}>{r.method || 'face-scan'}</div>
 
             </div>
           );

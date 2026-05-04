@@ -176,8 +176,13 @@ export async function recordAttendanceForPerson({
   scanPayload,
   method = "face-scan",
 }) {
-  if (!supabase) {
-    throw new Error("Supabase client is not available.");
+  // Lazy import of offline queue to avoid errors in environments without window
+  let offlineQueue = null;
+  try {
+    // eslint-disable-next-line global-require
+    offlineQueue = require("../utils/offlineQueue").default;
+  } catch (e) {
+    offlineQueue = null;
   }
 
   if (!person?.id) {
@@ -203,16 +208,24 @@ export async function recordAttendanceForPerson({
   // Debug output: show current time and settings values
   console.log("DEBUG: Current time for attendance:", currentTime);
   console.log("DEBUG: Settings used:", settings);
-  const { data: attData, error: lastAttendanceError } = await supabase
-    .from("attendance")
-    .select("event, device_time")
-    .eq("person_id", person.id)
-    .gte("device_time", dayStartIso)
-    .lte("device_time", dayEndIso)
-    .order("device_time", { ascending: false });
-
-  if (lastAttendanceError) {
-    throw lastAttendanceError;
+  let attData = [];
+  try {
+    const res = await supabase
+      .from("attendance")
+      .select("event, device_time")
+      .eq("person_id", person.id)
+      .gte("device_time", dayStartIso)
+      .lte("device_time", dayEndIso)
+      .order("device_time", { ascending: false });
+    if (res.error) {
+      console.warn("recordAttendanceForPerson: reading recent attendance failed, falling back to offline mode", res.error);
+      attData = [];
+    } else {
+      attData = res.data || [];
+    }
+  } catch (e) {
+    console.warn("recordAttendanceForPerson: exception reading recent attendance, using empty data", e);
+    attData = [];
   }
 
   const lastEvent = attData?.[0]?.event || null;
@@ -287,6 +300,60 @@ export async function recordAttendanceForPerson({
     }
   }
 
+  // Additional protection: block duplicate same-window events (morning/afternoon)
+  try {
+    const nowMinutes = toMinutes(currentTime);
+    const morningStartMinutes = toMinutes(settings.morning_start);
+    const morningEndMinutes = toMinutes(settings.morning_end);
+    const afternoonStartMinutes = toMinutes(settings.afternoon_start);
+    const afternoonEndMinutes = toMinutes(settings.afternoon_end);
+
+    // Helper to check if attendance rows contain an event in a given window
+    const hasEventInWindow = (eventName, startMin, endMin) => {
+      if (!Array.isArray(attData)) return false;
+      return attData.some((row) => {
+        if (!row || row.event !== eventName || !row.device_time) return false;
+        const dt = new Date(row.device_time);
+        if (isNaN(dt.getTime())) return false;
+        const hhmm = dt.toTimeString().slice(0, 5);
+        const minutes = toMinutes(hhmm);
+        return minutes >= startMin && minutes <= endMin;
+      });
+    };
+
+    if (event === "time-in") {
+      // Morning time-in duplicate
+      if (nowMinutes >= morningStartMinutes && nowMinutes <= morningEndMinutes) {
+        if (hasEventInWindow("time-in", morningStartMinutes, morningEndMinutes)) {
+          return { inserted: false, blocked: true, event, message: "Morning time-in already recorded for this person." };
+        }
+      }
+      // Afternoon time-in duplicate
+      if (nowMinutes >= afternoonStartMinutes && nowMinutes <= afternoonEndMinutes) {
+        if (hasEventInWindow("time-in", afternoonStartMinutes, afternoonEndMinutes)) {
+          return { inserted: false, blocked: true, event, message: "Afternoon time-in already recorded for this person." };
+        }
+      }
+    }
+
+    if (event === "time-out") {
+      // Morning time-out duplicate
+      if (nowMinutes > morningEndMinutes && nowMinutes < afternoonStartMinutes) {
+        if (hasEventInWindow("time-out", morningStartMinutes, morningEndMinutes)) {
+          return { inserted: false, blocked: true, event, message: "Morning time-out already recorded for this person." };
+        }
+      }
+      // Afternoon time-out duplicate
+      if (nowMinutes > afternoonEndMinutes || (nowMinutes >= afternoonStartMinutes && nowMinutes <= afternoonEndMinutes)) {
+        if (hasEventInWindow("time-out", afternoonStartMinutes, afternoonEndMinutes)) {
+          return { inserted: false, blocked: true, event, message: "Afternoon time-out already recorded for this person." };
+        }
+      }
+    }
+  } catch (e) {
+    // ignore and continue
+  }
+
   const status = determineAttendanceStatus(
     currentTime,
     event,
@@ -303,17 +370,30 @@ export async function recordAttendanceForPerson({
   ).toISOString();
 
   try {
-    const { data: recentDup, error: dupErr } = await supabase
-      .from("attendance")
-      .select("id, device_time")
-      .eq("person_id", person.id)
-      .eq("event", event)
-      .gte("device_time", duplicateWindowStartIso)
-      .order("device_time", { ascending: false })
-      .limit(1);
-
-    if (dupErr) {
-      throw dupErr;
+    let recentDup = [];
+    try {
+      const res = await supabase
+        .from("attendance")
+        .select("id, device_time")
+        .eq("person_id", person.id)
+        .eq("event", event)
+        .gte("device_time", duplicateWindowStartIso)
+        .order("device_time", { ascending: false })
+        .limit(1);
+      if (res.error) throw res.error;
+      recentDup = res.data || [];
+    } catch (e) {
+      // If duplicate check fails (likely offline), try to detect duplicates from local queue when possible
+      try {
+        if (offlineQueue) {
+          const queued = await offlineQueue.getAllQueue();
+          const found = queued.find((q) => q.person_id === person.id && q.event === event && new Date(q.device_time).getTime() >= new Date(duplicateWindowStartIso).getTime());
+          if (found) {
+            return { inserted: false, blocked: true, event, message: "Duplicate attendance detected in offline queue — skipping duplicate record." };
+          }
+        }
+      } catch (ee) {}
+      recentDup = [];
     }
 
     if (Array.isArray(recentDup) && recentDup.length > 0) {
@@ -330,27 +410,54 @@ export async function recordAttendanceForPerson({
     console.warn("Duplicate check failed, proceeding to insert:", err);
   }
 
-  const { error } = await supabase.from("attendance").insert({
-    person_id: person.id,
-    name: person.name,
-    department: person.department,
-    event,
-    method,
-    device_time: deviceTime,
-    status,
-    photo: scanPayload?.photoDataUrl || null,
-  });
-
-  if (error) {
-    throw error;
+  try {
+    const { error } = await supabase.from("attendance").insert({
+      person_id: person.id,
+      name: person.name,
+      department: person.department,
+      event,
+      method,
+      device_time: deviceTime,
+      status,
+      photo: scanPayload?.photoDataUrl || null,
+    });
+    if (error) throw error;
+    return { inserted: true, blocked: false, event, status };
+  } catch (e) {
+    // If insert failed (likely network), enqueue to offline queue if available
+    console.warn("recordAttendanceForPerson: insert failed, enqueueing offline", e);
+    try {
+      if (offlineQueue) {
+        const qres = await offlineQueue.enqueueAttendance({
+          person_id: person.id,
+          name: person.name,
+          department: person.department,
+          event,
+          method: method || "face-scan",
+          device_time: deviceTime,
+          status,
+          photo: scanPayload?.photoDataUrl || null,
+        });
+        // enqueueAttendance may return an object like { queued: false, reason }
+        if (qres && typeof qres === 'object' && qres.queued === false) {
+          // Did not queue due to duplicate window or recent duplicate
+          const reason = qres.reason || 'enqueue_blocked';
+          let msg = 'Attendance not queued.';
+          if (reason === 'recent duplicate') msg = 'Duplicate scan detected recently; not queued.';
+          else if (reason === 'duplicate_morning_time_in') msg = 'Morning time-in already recorded or queued.';
+          else if (reason === 'duplicate_afternoon_time_in') msg = 'Afternoon time-in already recorded or queued.';
+          else if (reason === 'duplicate_morning_time_out') msg = 'Morning time-out already recorded or queued.';
+          else if (reason === 'duplicate_afternoon_time_out') msg = 'Afternoon time-out already recorded or queued.';
+          return { inserted: false, blocked: true, event, message: msg };
+        }
+        return { inserted: true, queued: true, event, status };
+      }
+    } catch (ee) {
+      console.warn("Failed to enqueue offline attendance", ee);
+    }
+    // Nothing else we can do — rethrow for upstream handling
+    throw e;
   }
-
-  return {
-    inserted: true,
-    blocked: false,
-    event,
-    status,
-  };
 }
 
 // Automatically generate `time-out` (Morning Out) entries at the configured

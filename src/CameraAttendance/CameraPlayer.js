@@ -11,6 +11,8 @@ import {
   euclideanDistance,
   averageDescriptors,
 } from "../utils/faceUtils";
+import offlineQueue from "../utils/offlineQueue";
+import OfflineQueuePanel from "./OfflineQueuePanel";
 
 // --- Voice sound assets (speech synthesis) ---
 const playVoice = (type = "info") => {
@@ -94,6 +96,10 @@ export default function CameraPlayer({
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth <= 600 : false
   );
+  const [queueCount, setQueueCount] = useState(0);
+  const [syncingOffline, setSyncingOffline] = useState(false);
+  const [showQueuePanel, setShowQueuePanel] = useState(false);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   useEffect(() => {
     function handleResize() {
@@ -102,6 +108,97 @@ export default function CameraPlayer({
     handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  // Save settings to offline cache when updated
+  useEffect(() => {
+    (async () => {
+      try {
+        if (settings && offlineQueue) await offlineQueue.saveSettings(settings);
+      } catch (e) {}
+    })();
+  }, [settings]);
+
+  // Sync offline queue when browser regains network connectivity
+  useEffect(() => {
+    const trySync = async () => {
+      try {
+        if (navigator.onLine && offlineQueue && supabase) {
+          setSyncingOffline(true);
+          const res = await offlineQueue.syncQueue(supabase);
+          if (res && res.length) console.log("Offline queue sync results", res);
+          // refresh queue count after sync
+          try {
+            const q = await offlineQueue.getAllQueue();
+            setQueueCount(Array.isArray(q) ? q.length : 0);
+          } catch (e) {}
+          if (res && res.length) {
+            showSwal({ icon: "info", title: "Sync Results", text: `${res.length} queued items processed.` });
+          }
+          // after processing, request background sync for any remaining items
+          try { await offlineQueue.requestBackgroundSync(); } catch (e) {}
+        }
+      } catch (e) {
+        console.warn("Offline sync failed", e);
+        try { showSwal({ icon: 'error', title: 'Sync Failed', text: String(e) }); } catch (ee) {}
+      } finally {
+        setSyncingOffline(false);
+      }
+    };
+    window.addEventListener("online", trySync);
+    // attempt sync on mount if online
+    trySync();
+    return () => window.removeEventListener("online", trySync);
+  // `supabase` is a stable singleton client and does not trigger re-renders;
+  // intentionally omit it from dependencies to avoid unnecessary effect re-runs.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Track online/offline status to toggle UI controls
+  useEffect(() => {
+    const onOnline = () => setIsOnline(true);
+    const onOffline = () => setIsOnline(false);
+    try {
+      window.addEventListener('online', onOnline);
+      window.addEventListener('offline', onOffline);
+    } catch (e) {}
+    // initialize
+    try { setIsOnline(navigator.onLine); } catch (e) {}
+    return () => {
+      try {
+        window.removeEventListener('online', onOnline);
+        window.removeEventListener('offline', onOffline);
+      } catch (e) {}
+    };
+  }, []);
+
+  // Listen for service-worker triggered sync requests and run retry
+  useEffect(() => {
+    const handler = async (ev) => {
+      try {
+        const detail = ev.detail || {};
+        if (detail && detail.type === 'SYNC_OFFLINE_QUEUE_REQUEST') {
+          // attempt to sync when SW asks
+          if (navigator.onLine && offlineQueue && supabase) {
+            setSyncingOffline(true);
+            try {
+              const res = await offlineQueue.syncQueue(supabase);
+              console.log('Sw-triggered sync results', res);
+            } catch (e) {
+              console.warn('Sw-triggered sync failed', e);
+            } finally {
+              setSyncingOffline(false);
+              try { const q = await offlineQueue.getAllQueue(); setQueueCount(Array.isArray(q) ? q.length : 0); } catch (e) {}
+            }
+          }
+        }
+      } catch (e) {}
+    };
+    try { window.addEventListener('sw:sync-offline-queue', handler); } catch (e) {}
+    return () => { try { window.removeEventListener('sw:sync-offline-queue', handler); } catch (e) {} };
+  // `supabase` is a stable singleton client and does not trigger re-renders;
+  // intentionally omit it from dependencies to avoid unnecessary effect re-runs.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   // Removed: unused popupLockRef
   const unknownFaceLockRef = useRef(false);
@@ -418,10 +515,24 @@ export default function CameraPlayer({
   useEffect(() => {
     async function loadPersons() {
       if (!supabase) return;
-      const { data, error } = await supabase
-        .from("persons")
-        .select("id, name, department, descriptor");
-      if (!error && data) {
+      let data = null;
+      try {
+        const res = await supabase.from("persons").select("id, name, department, descriptor");
+        if (!res.error && res.data) data = res.data;
+      } catch (e) {
+        console.warn('loadPersons: supabase read failed, will try offline cache', e);
+      }
+
+      if (!data && offlineQueue) {
+        try {
+          const cached = await offlineQueue.getPersons();
+          data = Array.isArray(cached) ? cached : null;
+        } catch (e) {
+          data = null;
+        }
+      }
+
+      if (data) {
         setPersons(
           data.map((p) => ({
             ...p,
@@ -432,8 +543,22 @@ export default function CameraPlayer({
               : null,
           }))
         );
+        try {
+          // cache persons locally for offline matching
+          offlineQueue && offlineQueue.savePersons(data);
+        } catch (e) {}
       }
     }
+
+    // refresh offline queue count
+    (async () => {
+      try {
+        if (offlineQueue) {
+          const q = await offlineQueue.getAllQueue();
+          setQueueCount(Array.isArray(q) ? q.length : 0);
+        }
+      } catch (e) {}
+    })();
 
     loadPersons();
     const subscription = supabase
@@ -456,32 +581,63 @@ export default function CameraPlayer({
   useEffect(() => {
     let subscription;
     async function loadSettings() {
-      if (!supabase) return;
-      const { data, error } = await supabase
-        .from("settings")
-        .select("*")
-        .eq("id", 1)
-        .single();
-      if (!error && data) setSettings(data);
+      // If Supabase is not available, try to load cached settings
+      if (!supabase) {
+        try {
+          const cached = offlineQueue && (await offlineQueue.getSettings());
+          if (cached) setSettings(cached);
+        } catch (e) {
+          console.warn("loadSettings: no supabase and failed to read cached settings", e);
+        }
+        return;
+      }
+
+      try {
+        const res = await supabase.from("settings").select("*").eq("id", 1).single();
+        if (!res.error && res.data) {
+          setSettings(res.data);
+          try {
+            offlineQueue && offlineQueue.saveSettings(res.data);
+          } catch (e) {}
+        } else {
+          // fallback to cached settings when server read returns no data or error
+          try {
+            const cached = offlineQueue && (await offlineQueue.getSettings());
+            if (cached) setSettings(cached);
+          } catch (e) {}
+        }
+      } catch (e) {
+        console.warn("loadSettings: supabase read failed, will try offline cache", e);
+        try {
+          const cached = offlineQueue && (await offlineQueue.getSettings());
+          if (cached) setSettings(cached);
+        } catch (err) {}
+      }
     }
+
     loadSettings();
 
-    // Subscribe to real-time updates for settings
-    subscription = supabase
-      .channel("settings-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "settings",
-          filter: "id=eq.1",
-        },
-        (payload) => {
-          if (payload.new) setSettings(payload.new);
-        }
-      )
-      .subscribe();
+    // Subscribe to real-time updates for settings (if supabase available)
+    if (supabase && supabase.channel) {
+      subscription = supabase
+        .channel("settings-changes")
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "settings",
+            filter: "id=eq.1",
+          },
+          (payload) => {
+            if (payload.new) {
+              setSettings(payload.new);
+              try { offlineQueue && offlineQueue.saveSettings(payload.new); } catch (e) {}
+            }
+          }
+        )
+        .subscribe();
+    }
 
     return () => {
       if (subscription) subscription.unsubscribe();
@@ -490,18 +646,48 @@ export default function CameraPlayer({
 
   // ------------------- Auto Morning-Out scheduler -------------------
   useEffect(() => {
-    if (!validSettings || !settings || !supabase) return;
+    if (!validSettings || !settings) return;
     let cancelled = false;
 
     const runAuto = async () => {
       try {
-        console.log('AutoMorningOut: running autoGenerateMorningOut', new Date().toISOString());
-        const res = await autoGenerateMorningOut({ supabase, settings });
-        console.log('AutoMorningOut result', res);
-        const inserted = Array.isArray(res) ? res.filter(r => r.inserted).length : 0;
-        try {
-          showSwal({ icon: 'info', title: 'Auto Morning Out', text: `Auto-generated morning-outs: ${inserted}` });
-        } catch (e) {}
+        console.log('AutoMorningOut: running autoGenerateMorningOut (client scheduler)', new Date().toISOString());
+        // If online and supabase client is available, prefer server-side generation
+        if (navigator.onLine && supabase) {
+          try {
+            const res = await autoGenerateMorningOut({ supabase, settings });
+            console.log('AutoMorningOut (server) result', res);
+            const inserted = Array.isArray(res) ? res.filter((r) => r.inserted).length : 0;
+            try { showSwal({ icon: 'info', title: 'Auto Morning Out', text: `Auto-generated morning-outs: ${inserted}` }); } catch (e) {}
+          } catch (e) {
+            console.error('AutoMorningOut (server) failed', e);
+          }
+        } else {
+          // Offline: enqueue time-outs using cached persons/settings
+            try {
+              if (offlineQueue && typeof offlineQueue.enqueueAutoMorningOuts === 'function') {
+                const res = await offlineQueue.enqueueAutoMorningOuts();
+                console.log('AutoMorningOut (offline enqueue) result', res);
+                const queued = Array.isArray(res) ? res.filter((r) => r.queued).length : 0;
+                const blocked = Array.isArray(res) ? res.filter((r) => r.queued === false).length : 0;
+                try {
+                  const text = `Queued ${queued} auto morning-outs for later sync.` + (blocked ? ` ${blocked} items blocked.` : '');
+                  showSwal({ icon: 'info', title: 'Offline Auto Morning Out', text });
+                } catch (e) {}
+                if (queued > 0) {
+                  try {
+                    const q = await offlineQueue.getAllQueue();
+                    setQueueCount(Array.isArray(q) ? q.length : 0);
+                  } catch (e) {}
+                  setShowQueuePanel(true);
+                }
+              } else {
+                console.warn('Offline auto morning-out not available (offlineQueue missing or function absent)');
+              }
+            } catch (e) {
+              console.error('AutoMorningOut (offline enqueue) failed', e);
+            }
+        }
       } catch (e) {
         console.error('AutoMorningOut failed', e);
       }
@@ -1140,6 +1326,7 @@ export default function CameraPlayer({
                 <Icon as={FiClock} style={{ marginRight: 6 }} ariaLabel="Morning grace" />{settings.morning_grace_minutes} min grace
               </span>
             </div>
+
             <div style={styles.settingRow}>
               <span style={styles.settingIcon}><Icon as={FiMoon} ariaLabel="Moon small" /></span>
               <span style={styles.settingLabel}>Afternoon:</span>
@@ -1149,6 +1336,71 @@ export default function CameraPlayer({
               <span style={styles.graceBadge}>
                 <FiClock style={{ marginRight: 6 }} />{settings.afternoon_grace_minutes} min grace
               </span>
+            </div>
+            <div style={styles.settingsActions}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {queueCount > 0 && (
+                  <span style={{ ...styles.badge, backgroundColor: "#fff4e6", color: "#92400e" }}>
+                    <Icon as={FiAlertTriangle} style={{ marginRight: 8 }} ariaLabel="Offline queued" />Offline: {queueCount}
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                {!isOnline && (
+                  <>
+                    <button
+                  onClick={async () => {
+                    if (!offlineQueue || !supabase) {
+                      try {
+                        showSwal({ icon: "info", title: "Sync Unavailable", text: "Offline sync not configured." });
+                      } catch (e) {}
+                      return;
+                    }
+
+                    // Disabled guard
+                    if (!queueCount) return;
+
+                    // If queue is large, confirm with the user before syncing
+                    if (queueCount >= 5) {
+                      try {
+                        const confirm = await showSwal({
+                          title: `Sync ${queueCount} queued items?`,
+                          text: "This will attempt to send all queued attendance records to the server.",
+                          icon: "question",
+                          showCancelButton: true,
+                          confirmButtonText: "Yes, sync now",
+                        });
+                        if (!confirm || !confirm.isConfirmed) return;
+                      } catch (e) {}
+                    }
+
+                    try {
+                      setSyncingOffline(true);
+                      const res = await offlineQueue.syncQueue(supabase);
+                      try { showSwal({ icon: "success", title: "Sync Complete", text: `Processed ${res.length} item(s).` }); } catch (e) {}
+                    } catch (e) {
+                      try { showSwal({ icon: "error", title: "Sync Failed", text: String(e) }); } catch (ee) {}
+                    } finally {
+                      setSyncingOffline(false);
+                      try {
+                        const q = await offlineQueue.getAllQueue();
+                        setQueueCount(Array.isArray(q) ? q.length : 0);
+                      } catch (e) {}
+                    }
+                  }}
+                  style={{ ...styles.syncBtn, opacity: !queueCount || syncingOffline ? 0.6 : 1 }}
+                  disabled={!queueCount || syncingOffline}
+                  title={!queueCount ? "No queued items to sync" : "Synchronize queued attendance"}
+                >
+                  {syncingOffline ? "Syncing..." : "Sync"}
+                    </button>
+                    <button onClick={() => setShowQueuePanel((s) => !s)} style={styles.queueBtn}>
+                      {showQueuePanel ? "Hide Queue" : "Show Queue"}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1192,6 +1444,13 @@ export default function CameraPlayer({
               (waiting...)
             </pre>
           </div>
+        )}
+
+        {showQueuePanel && (
+          <OfflineQueuePanel
+            onClose={() => setShowQueuePanel(false)}
+            onQueueChange={(n) => setQueueCount(n)}
+          />
         )}
 
         {/* Error or missing settings messages */}
@@ -1412,6 +1671,32 @@ const styles = {
     fontSize: "0.8rem",
     fontWeight: 500,
     marginLeft: "auto",
+  },
+  settingsActions: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  syncBtn: {
+    padding: "6px 10px",
+    borderRadius: 8,
+    border: "none",
+    cursor: "pointer",
+    background: "#10b981",
+    color: "#ffffff",
+    fontWeight: 700,
+  },
+  queueBtn: {
+    padding: "6px 10px",
+    borderRadius: 8,
+    border: "none",
+    cursor: "pointer",
+    background: "#eef2ff",
+    color: "#2563eb",
+    fontWeight: 700,
   },
   errorMessage: {
     margin: "16px 24px 24px",

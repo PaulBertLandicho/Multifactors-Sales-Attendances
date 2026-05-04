@@ -291,7 +291,22 @@ export default function PayslipModal({
     const startDate = new Date(start);
     const endDate = new Date(end);
     const todayStr = new Date().toISOString().slice(0, 10);
-    // Build all dates in the period
+    // Build a set of holiday ISO dates for this period (if any)
+    const holidaySet = new Set(
+      (holidayDetails || [])
+        .map((h) => {
+          const raw = h && (h.date || h.holiday_date || h.holiday);
+          if (!raw) return null;
+          try {
+            return new Date(raw).toISOString().slice(0, 10);
+          } catch (e) {
+            return null;
+          }
+        })
+        .filter(Boolean),
+    );
+
+    // Build all non-weekend, non-holiday dates in the period
     let allDates = [];
     for (
       let d = new Date(startDate);
@@ -299,9 +314,11 @@ export default function PayslipModal({
       d.setDate(d.getDate() + 1)
     ) {
       // Exclude Saturday (6) and Sunday (0)
-      if (d.getDay() !== 0 && d.getDay() !== 6) {
-        allDates.push(new Date(d));
-      }
+      if (d.getDay() === 0 || d.getDay() === 6) continue;
+      const dateStr = new Date(d).toISOString().slice(0, 10);
+      // Skip if this date is a holiday in the fetched holidayDetails
+      if (holidaySet.has(dateStr)) continue;
+      allDates.push(new Date(d));
     }
     // Build a lookup by date for detailed attendance
     const attendanceByDate = Object.fromEntries(
@@ -1036,12 +1053,11 @@ export default function PayslipModal({
                   Gross Pay
                 </td>
                 <td style={styles.td}>
-                  ₱
-                  {(
+                  ₱{(
                     Math.round(
                       (standardPayAmount + otPay + totalHolidayPay) * 100,
                     ) / 100
-                  ).toFixed(2)}
+                  ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
             </tbody>
@@ -1128,8 +1144,7 @@ export default function PayslipModal({
 
           {/* Net Pay: use rounded OT pay in gross calculation */}
           <h3 style={styles.netPay}>
-            Net Pay: ₱
-            {(
+            Net Pay: ₱{(
               Math.round(
                 ((standardPayAmount ?? 0) +
                   otPay +
@@ -1137,7 +1152,7 @@ export default function PayslipModal({
                   totalDeductions) *
                   100,
               ) / 100
-            ).toFixed(2)}
+            ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h3>
         </div>
 

@@ -14,6 +14,7 @@ import {
   FiPlusCircle,
 } from "react-icons/fi";
 import PersonRegistration from "./PersonRegistration";
+import { determineAttendanceStatus } from "./attendanceUtils";
 
 export default function PersonsTable() {
   // Camera state/hooks for Edit Person modal
@@ -102,6 +103,7 @@ export default function PersonsTable() {
   const [newCashNote, setNewCashNote] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const editPhotoInputRef = useRef(null);
+  const [adminModal, setAdminModal] = useState({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "" });
 
   const Icons = {
     download: <FiDownload color="#ffffff" style={{ marginRight: 8 }} />,
@@ -411,6 +413,15 @@ export default function PersonsTable() {
     });
   };
 
+  // Admin: record attendance on behalf of a person (customize attendance)
+  const handleAdminAttendance = async (person) => {
+    if (!person || !person.id) return;
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, "0");
+    const localIsoForInput = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    setAdminModal({ visible: true, person, event: "time-in", datetime: localIsoForInput, photo: person.registration_photo || null, note: "" });
+  };
+
   // Helper to get photo for a person (latest attendance photo or registration photo)
   const getPersonPhoto = (person) => {
     // Always use registration photo if available
@@ -423,6 +434,89 @@ export default function PersonsTable() {
   const handleEditModalClose = () => {
     setShowEditModal(false);
     setEditPerson(null);
+  };
+
+  // Admin attendance modal handlers
+  
+  const submitAdminAttendance = async () => {
+    if (!adminModal.visible || !adminModal.person) return;
+    const person = adminModal.person;
+    const dtStr = adminModal.datetime;
+    if (!dtStr) {
+      Swal.fire("Validation", "Please provide date & time.", "warning");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const { data: settingsData } = await supabase
+        .from("settings")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+
+      const iso = new Date(dtStr).toISOString();
+      const hhmm = new Date(dtStr).toTimeString().slice(0, 5);
+      let status = "on-time";
+      try {
+        status = determineAttendanceStatus(hhmm, adminModal.event, settingsData || {}, false);
+      } catch (e) {}
+
+      const payload = {
+        person_id: person.id,
+        name: person.name,
+        department: person.department,
+        event: adminModal.event,
+        method: "admin-entry",
+        device_time: iso,
+        status,
+        photo: adminModal.photo || null,
+      };
+
+      const { error: insertErr } = await supabase.from("attendance").insert([payload]);
+      if (insertErr) throw insertErr;
+
+      // refresh presenceMap for the day
+      try {
+        const dt = new Date(iso);
+        const start = new Date(dt);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(dt);
+        end.setHours(23, 59, 59, 999);
+        const { data: atts, error: attErr } = await supabase
+          .from("attendance")
+          .select("person_id, event, device_time")
+          .eq("person_id", person.id)
+          .gte("device_time", start.toISOString())
+          .lte("device_time", end.toISOString());
+        if (!attErr && Array.isArray(atts)) {
+          const pmap = {};
+          pmap[person.id] = { morning: false, afternoon: false, firstScan: null };
+          atts.forEach((r) => {
+            try {
+              const dt2 = new Date(r.device_time);
+              const hour = dt2.getHours();
+              if ((r.event || "").toLowerCase() === "time-in") {
+                if (hour < 12) pmap[person.id].morning = true;
+                else pmap[person.id].afternoon = true;
+              }
+              if (!pmap[person.id].firstScan) pmap[person.id].firstScan = dt2.toISOString();
+              else if (new Date(pmap[person.id].firstScan).getTime() > dt2.getTime())
+                pmap[person.id].firstScan = dt2.toISOString();
+            } catch (e) {}
+          });
+          pmap[person.id].present = !!(pmap[person.id].morning || pmap[person.id].afternoon);
+          setPresenceMap((prev) => ({ ...prev, ...pmap }));
+        }
+      } catch (e) {}
+
+      Swal.fire("Recorded", "Attendance recorded.", "success");
+      setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "" });
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error", err.message || String(err), "error");
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   function openPhotoModal(src, title) {
@@ -473,9 +567,9 @@ export default function PersonsTable() {
       registration_photo,
     } = editPerson;
     // Ensure checkboxes are stored as 1/0
-    const sssVal = !!Number(editPerson.sss) ? 1 : 0;
-    const pagIbigVal = !!Number(editPerson.pag_ibig) ? 1 : 0;
-    const philhealthVal = !!Number(editPerson.philhealth) ? 1 : 0;
+    const sssVal = editPerson.sss ? String(editPerson.sss).trim() : null;
+    const pagIbigVal = editPerson.pag_ibig ? String(editPerson.pag_ibig).trim() : null;
+    const philhealthVal = editPerson.philhealth ? String(editPerson.philhealth).trim() : null;
     const { error } = await supabase
       .from("persons")
       .update({
@@ -854,6 +948,19 @@ export default function PersonsTable() {
                           {Icons.archive} Archive
                         </button>
                       )}
+                      {!p.archived && (
+                        <button
+                          onClick={() => handleAdminAttendance(p)}
+                          style={{
+                            ...styles.smallButton,
+                            background: '#868279',
+                            color: '#fff',
+                            border: 'none',
+                          }}
+                        >
+                          Customize Attendance
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -1090,46 +1197,45 @@ export default function PersonsTable() {
 
                 <div style={{ gridColumn: "1 / -1" }}>
                 <label style={styles.modalLabel}>Mandatory Contributions</label>
-                  <div style={styles.modalCheckboxGroup}>
-                    <label style={styles.modalCheckbox}>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ minWidth: 200 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 6 }}>SSS Number</label>
                       <input
-                        type="checkbox"
-                        checked={!!Number(editPerson.sss)}
+                        type="text"
+                        placeholder="e.g. 12-3456789-0"
+                        value={editPerson.sss ?? ''}
                         onChange={(e) =>
-                          setEditPerson({
-                            ...editPerson,
-                            sss: e.target.checked ? 1 : 0,
-                          })
+                          setEditPerson({ ...editPerson, sss: e.target.value })
                         }
+                        style={styles.modalInput}
                       />
-                      SSS
-                    </label>
-                    <label style={styles.modalCheckbox}>
+                    </div>
+
+                    <div style={{ minWidth: 200 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 6 }}>Pag-ibig Number</label>
                       <input
-                        type="checkbox"
-                        checked={!!Number(editPerson.pag_ibig)}
+                        type="text"
+                        placeholder="e.g. 0000-0000-0000"
+                        value={editPerson.pag_ibig ?? ''}
                         onChange={(e) =>
-                          setEditPerson({
-                            ...editPerson,
-                            pag_ibig: e.target.checked ? 1 : 0,
-                          })
+                          setEditPerson({ ...editPerson, pag_ibig: e.target.value })
                         }
+                        style={styles.modalInput}
                       />
-                      Pag-ibig
-                    </label>
-                    <label style={styles.modalCheckbox}>
+                    </div>
+
+                    <div style={{ minWidth: 200 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 6 }}>PhilHealth Number</label>
                       <input
-                        type="checkbox"
-                        checked={!!Number(editPerson.philhealth)}
+                        type="text"
+                        placeholder="e.g. 123456789012"
+                        value={editPerson.philhealth ?? ''}
                         onChange={(e) =>
-                          setEditPerson({
-                            ...editPerson,
-                            philhealth: e.target.checked ? 1 : 0,
-                          })
+                          setEditPerson({ ...editPerson, philhealth: e.target.value })
                         }
+                        style={styles.modalInput}
                       />
-                      PhilHealth
-                    </label>
+                    </div>
                   </div>
                 </div>
 
@@ -1257,6 +1363,42 @@ export default function PersonsTable() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Attendance Modal */}
+      {adminModal.visible && adminModal.person && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <h2 style={styles.modalTitle}>Record Attendance</h2>
+            <div style={{ display: "grid", gap: 12 }}>
+              <div>
+                <label style={styles.modalLabel}>Person</label>
+                <div style={{ padding: 8, background: "#f9fafb", borderRadius: 8 }}>{adminModal.person.name} • ID: {adminModal.person.id}</div>
+              </div>
+              <div>
+                <label style={styles.modalLabel}>Event</label>
+                <select value={adminModal.event} onChange={(e) => setAdminModal((s) => ({ ...s, event: e.target.value }))} style={styles.modalSelect}>
+                  <option value="time-in">Time In</option>
+                  <option value="time-out">Time Out</option>
+                </select>
+              </div>
+              <div>
+                <label style={styles.modalLabel}>Date & time</label>
+                <input type="datetime-local" value={adminModal.datetime} onChange={(e) => setAdminModal((s) => ({ ...s, datetime: e.target.value }))} style={styles.modalInput} />
+              </div>
+              {/* <div>
+                <label style={styles.modalLabel}>Registered Photo</label>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {adminModal.photo && <img src={adminModal.photo} alt="preview" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8 }} />}
+                </div>
+              </div> */}
+              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <button onClick={() => setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "" })} style={{ ...styles.button, ...styles.buttonSecondary }}>Cancel</button>
+                <button onClick={submitAdminAttendance} style={{ ...styles.button, ...styles.buttonPrimary }}>{actionLoading ? "Recording..." : "Record"}</button>
+              </div>
+            </div>
           </div>
         </div>
       )}
