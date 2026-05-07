@@ -4,7 +4,7 @@ import { supabase } from "../supabaseClient";
 import PayslipModal from "./PayslipModals/PayslipModal";
 import { getDetailedAttendance } from "./attendanceDetails";
 import { calculatePayroll } from "./Payroll";
-import { FiDownload } from "react-icons/fi";
+import { FiDownload, FiEye } from "react-icons/fi";
 
 export default function ReleasedHistoryPayroll() {
   const [releasedPayrolls, setReleasedPayrolls] = useState([]);
@@ -337,7 +337,7 @@ export default function ReleasedHistoryPayroll() {
                 <th style={styles.th}>LATE DEDUCTION</th>
                 <th style={styles.th}>NET PAY</th>
                 <th style={styles.th}>PAYSLIP</th>
-                <th style={styles.th}>RELEASE</th>
+                <th style={styles.th}>ACTION</th>
               </tr>
             </thead>
             <tbody>
@@ -440,12 +440,12 @@ export default function ReleasedHistoryPayroll() {
                           borderRadius: "30px",
                         }}
                       >
-                        View
+                       <FiEye color="#ffffff"/>View
                       </button>
                     </td>
                     <td style={styles.td}>
                       <span style={{ color: "#237227", fontWeight: 600 }}>
-                        &#10003; Released
+                        Released
                       </span>
                     </td>
                   </tr>

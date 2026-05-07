@@ -309,7 +309,7 @@ export default function Dashboard() {
             person_id: personId,
             person_name: personName,
             released_by: releasedBy,
-            action: "release",
+            action: "released",
             timestamp: new Date().toISOString(),
           },
         ]);
@@ -939,11 +939,11 @@ export default function Dashboard() {
                     <button onClick={() => releasePayroll(p.id)} disabled={!ready} style={{ padding: "6px 12px", borderRadius: 8, background: ready ? "#237227" : "#e6eef6", color: ready ? "#fff" : "#9ca3af", border: "none", cursor: ready ? "pointer" : "not-allowed" }}>{ready ? 'Release' : 'Release (disabled)'}</button>
                     {payrollShowAll && (
                       <button onClick={async () => {
-                        const res = await Swal.fire({ title: 'Force release payroll?', text: `This will mark payroll for ${name} as released immediately (admin override). Continue?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Force Release' });
+                        const res = await Swal.fire({ title: 'Emergency Release payroll?', text: `This will mark payroll for ${name} as released immediately (admin override). Continue?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Emergency Release' });
                         if (res && res.isConfirmed) {
                           try { await releasePayroll(p.id); } catch (e) {}
                         }
-                      }} style={{ padding: "6px 10px", borderRadius: 8, background: "#fff", color: "#374151", border: "1px solid #e6eef6", cursor: "pointer" }}>Force Release</button>
+                      }} style={{ padding: "6px 10px", borderRadius: 8, background: "#fff", color: "#374151", border: "1px solid #e6eef6", cursor: "pointer" }}>Emergency Release</button>
                     )}
                   </div>
                 </div>

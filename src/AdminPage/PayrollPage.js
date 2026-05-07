@@ -368,33 +368,123 @@ export default function PayrollPage() {
     if (idx === -1) return;
     const period = payrollPeriods[idx];
     if (!period || !period.dbId) return;
-    // Update released in Supabase
-    await supabase
-      .from("payroll_periods")
-      .update({ released: true })
-      .eq("id", period.dbId);
-    setPayrollPeriods((prev) =>
-      prev.map((p) => (p.dbId === dbId ? { ...p, released: true } : p)),
-    );
-    // Log activity with better user info and error handling
-    let releasedBy = "admin";
     try {
-      const sessionStr = localStorage.getItem("sb-session");
-      if (sessionStr) {
-        const session = JSON.parse(sessionStr);
-        if (session && session.user && session.user.email) {
-          releasedBy = session.user.email;
+      // Update released flag in Supabase
+      const { error: updateErr } = await supabase
+        .from("payroll_periods")
+        .update({ released: true })
+        .eq("id", period.dbId);
+      if (updateErr) throw updateErr;
+
+      setPayrollPeriods((prev) =>
+        prev.map((p) => (p.dbId === dbId ? { ...p, released: true } : p)),
+      );
+
+      // Determine who released this payroll
+      let releasedBy = "admin";
+      try {
+        const sessionStr = localStorage.getItem("sb-session");
+        if (sessionStr) {
+          const session = JSON.parse(sessionStr);
+          if (session && session.user && session.user.email) {
+            releasedBy = session.user.email;
+          }
         }
+      } catch (e) {}
+
+      // Log activity
+      try {
+        await logPayrollRelease({
+          payrollPeriodId: period.dbId,
+          personName: period.person?.name || null,
+          releasedBy,
+        });
+      } catch (err) {
+        Swal.fire("Failed to log payroll release", err.message || err, "error");
       }
-    } catch (e) {}
-    try {
-      await logPayrollRelease({
-        payrollPeriodId: period.dbId,
-        personName: period.person?.name || null,
-        releasedBy,
-      });
-    } catch (err) {
-      Swal.fire("Failed to log payroll release", err.message || err, "error");
+
+      // Optionally auto-create the next payroll period
+      try {
+        if (settings && settings.auto_create_next_period) {
+          const periodDays = Number(settings.payroll_period_days) || 15;
+          const [, endStr] = (period.period || "").split("_to_");
+          if (endStr) {
+            const endDate = new Date(endStr);
+            const nextStart = new Date(endDate);
+            nextStart.setDate(nextStart.getDate() + 1);
+            const nextEnd = new Date(nextStart);
+            nextEnd.setDate(nextEnd.getDate() + periodDays - 1);
+            const nextPeriodStr = `${nextStart.toISOString().slice(0, 10)}_to_${nextEnd
+              .toISOString()
+              .slice(0, 10)}`;
+
+            const payload = {
+              person_id: period.person.id,
+              period: nextPeriodStr,
+              days_present: 0,
+              daily_rate: Number(period.person.daily_rate || 0),
+              late_penalty: Number(period.person.late_penalty || 0),
+              late_count: 0,
+              gross: 0,
+              total_late_deduction: 0,
+              total_deductions: 0,
+              net: 0,
+              released: false,
+            };
+
+            // Upsert to avoid duplicates (onConflict person_id+period)
+            let created = null;
+            try {
+              const { data: upserted, error: upsertErr } = await supabase
+                .from("payroll_periods")
+                .upsert([payload], { onConflict: ["person_id", "period"] })
+                .select()
+                .single();
+              if (upsertErr) {
+                const { data: inserted, error: insertErr } = await supabase
+                  .from("payroll_periods")
+                  .insert([payload])
+                  .select()
+                  .single();
+                if (insertErr) throw insertErr;
+                created = inserted;
+              } else {
+                created = upserted;
+              }
+            } catch (e) {
+              console.error("Failed to create next payroll_periods row", e);
+            }
+
+            if (created && created.id) {
+              setPayrollPeriods((prev) => [
+                ...prev,
+                {
+                  personId: period.person.id,
+                  person: period.person,
+                  period: nextPeriodStr,
+                  payroll: {
+                    daysPresent: 0,
+                    dailyRate: Number(payload.daily_rate || 0),
+                    lateCount: 0,
+                    lateCountLimit: Number(settings.late_count_limit || 5),
+                    totalLateDeduction: 0,
+                    totalDeductions: 0,
+                    net: 0,
+                  },
+                  attendance: [],
+                  released: false,
+                  dbId: created.id,
+                },
+              ]);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error during auto-create next payroll period", e);
+      }
+    } catch (e) {
+      console.error("Error releasing payroll", e);
+      Swal.fire("Failed to release payroll", e.message || e, "error");
     }
   };
 
@@ -816,7 +906,7 @@ export default function PayrollPage() {
                 <th style={styles.th}>Late Count</th>
                 <th style={styles.th}>Absent</th>
                 <th style={styles.th}>Payslip</th>
-                <th style={styles.th}>Release</th>
+                <th style={styles.th}>Emergency Release</th>
               </tr>
             </thead>
             <tbody>
@@ -859,14 +949,18 @@ export default function PayrollPage() {
                       <td style={styles.td}>
                         <button
                           onClick={() => handleShowPayslip(p)}
-                          style={styles.viewButton}
+                          style={{ ...styles.td, ...styles.button,
+                          ...styles.buttonPrimary,
+                          padding: "6px 18px",
+                          fontSize: "0.95rem",
+                          borderRadius: "30px",}}
                         >
                           {Icons.eye} View
                         </button>
                       </td>
                       <td style={styles.td}>
                         {released ? (
-                          <span style={{ color: "#237227", fontWeight: 600 }}>
+                          <span style={{ color: "#556156", fontWeight: 600 }}>
                             ✔ Released
                           </span>
                         ) : (
@@ -874,12 +968,12 @@ export default function PayrollPage() {
                             onClick={() => handleReleasePayroll(p.dbId)}
                             style={{
                               ...styles.button,
-                              ...styles.buttonPrimary,
+                              ...styles.buttonSecondary,
                               padding: "4px 12px",
                               fontSize: "0.9em",
                             }}
                           >
-                            Release Payroll
+                            Emergency Release Payroll
                           </button>
                         )}
                       </td>
@@ -1026,7 +1120,10 @@ const styles = {
     background: "#237227",
     color: "#ffffff",
   },
-
+  buttonSecondary: {
+    background: "#666666",
+    color: "#ffffff",
+  },
   searchIcon: {
     position: "absolute",
     left: "12px",
