@@ -533,19 +533,50 @@ export default function CameraPlayer({
       }
 
       if (data) {
+        // Process descriptors into normalized Float32Array for runtime use,
+        // and store a plain-number-array copy for offline caching (IndexedDB).
+        const processed = data.map((p) => {
+          const raw = p.descriptor;
+          let norm = null;
+          try {
+            if (raw) {
+              if (Array.isArray(raw) && Array.isArray(raw[0])) {
+                norm = averageDescriptors(raw);
+              } else {
+                norm = normalizeDescriptor(toFloat32Array(raw));
+              }
+            }
+          } catch (e) {
+            norm = null;
+          }
+          return {
+            original: p,
+            descriptorNorm: norm,
+            descriptorForCache: norm ? Array.from(norm) : null,
+          };
+        });
+
+        // Set runtime persons array with Float32Array descriptors
         setPersons(
-          data.map((p) => ({
-            ...p,
-            descriptor: p.descriptor
-              ? Array.isArray(p.descriptor) && Array.isArray(p.descriptor[0])
-                ? averageDescriptors(p.descriptor)
-                : normalizeDescriptor(toFloat32Array(p.descriptor))
-              : null,
-          }))
+          processed.map((it) => ({ ...it.original, descriptor: it.descriptorNorm }))
         );
+
         try {
-          // cache persons locally for offline matching
-          offlineQueue && offlineQueue.savePersons(data);
+          // cache persons locally for offline matching using plain arrays
+          const cacheData = processed.map((it) => ({ ...it.original, descriptor: it.descriptorForCache }));
+          offlineQueue && offlineQueue.savePersons(cacheData);
+        } catch (e) {
+          console.warn('Failed to save persons to offline cache', e);
+        }
+
+        // Debugging: surface how many persons and descriptor availability
+        try {
+          const total = data.length;
+          const withDesc = processed.filter((it) => it.descriptorNorm).length;
+          console.info(`loadPersons: loaded ${total} persons (${withDesc} with descriptors)`);
+          if (processed.length && processed[0] && processed[0].descriptorForCache) {
+            console.debug('Example descriptor length:', processed[0].descriptorForCache.length);
+          }
         } catch (e) {}
       }
     }
@@ -772,11 +803,33 @@ export default function CameraPlayer({
         cleanupWs();
       };
     }
+    // If the browser is currently offline, immediately use the local camera
+    try {
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        setUseLocalCamera(true);
+        // allow local camera effect to mark LIVE when ready
+        return () => {
+          disposed = true;
+          cleanupWs();
+        };
+      }
+    } catch (e) {}
 
     setUseLocalCamera(false);
     setCameraStatus(CAMERA_STATUS.CONNECTING);
     const ws = new window.WebSocket(wsUrl);
     wsRef.current = ws;
+    // If WS doesn't connect within timeout, fallback to local camera
+    const connectTimeout = setTimeout(() => {
+      try {
+        if (wsRef.current && wsRef.current.readyState !== 1) {
+          setCameraError('WebSocket connection timed out. Switching to local camera...');
+          setUseLocalCamera(true);
+          setCameraStatus(CAMERA_STATUS.CONNECTING);
+          try { wsRef.current.close(); } catch (e) {}
+        }
+      } catch (e) {}
+    }, 3000);
 
     ws.onopen = () => {
       if (!disposed) setCameraStatus(CAMERA_STATUS.LIVE);
@@ -806,6 +859,7 @@ export default function CameraPlayer({
 
     return () => {
       disposed = true;
+      try { clearTimeout(connectTimeout); } catch (e) {}
       cleanupWs();
     };
   }, [wsUrl, cleanupWs]);

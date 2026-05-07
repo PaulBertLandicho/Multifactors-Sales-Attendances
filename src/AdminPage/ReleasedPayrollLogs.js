@@ -18,6 +18,19 @@ export default function ReleasedPayrollLogs() {
       setLogs(data || []);
     }
     fetchLogs();
+    // realtime subscription to new logs
+    const sub = supabase
+      .channel('public:payroll_activity_logs')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payroll_activity_logs' }, (payload) => {
+        try {
+          const newRow = payload.new;
+          setLogs((prev) => [newRow, ...(prev || [])]);
+        } catch (e) { console.error('realtime payload error', e); }
+      })
+      .subscribe();
+    return () => {
+      try { supabase.removeChannel(sub); } catch (e) { /* older clients */ }
+    };
   }, []);
 
   // Filter and sorting

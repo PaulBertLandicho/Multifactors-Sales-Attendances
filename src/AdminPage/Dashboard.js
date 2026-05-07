@@ -110,6 +110,40 @@ function isPeriodEnded(period) {
   return endOfDay <= today;
 }
 
+// Variant: consider period ended relative to work-hours settings.
+// If the period end is today, treat the period as ended only after the configured
+// afternoon end time (settings.afternoon_end). Otherwise fall back to end-of-day.
+function isPeriodEndedNow(period, settings) {
+  const end = parsePeriodEnd(period);
+  if (!end) return false;
+  const now = new Date();
+  // If the period end is today (same date), compare to afternoon end time if available
+  if (
+    end.getFullYear() === now.getFullYear() &&
+    end.getMonth() === now.getMonth() &&
+    end.getDate() === now.getDate()
+  ) {
+    // parse afternoon_end from settings (HH:MM)
+    try {
+      const hhmm = (settings && settings.afternoon_end) || null;
+      if (hhmm) {
+        const parts = String(hhmm).split(":").map(Number);
+        const h = Number.isFinite(parts[0]) ? parts[0] : 17;
+        const m = Number.isFinite(parts[1]) ? parts[1] : 0;
+        const endOfPeriod = new Date(end.getFullYear(), end.getMonth(), end.getDate(), h, m, 0, 0);
+        return now >= endOfPeriod;
+      }
+    } catch (e) {
+      // fallback to end of day
+    }
+    const endOfDay = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999);
+    return now >= endOfDay;
+  }
+  // For non-today end dates, use end-of-day comparison
+  const endOfDay = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999);
+  return endOfDay <= now;
+}
+
 // Format a period string like '2026-04-07_to_2026-04-21' into
 // 'April 07, 2026 to April 21, 2026'. Falls back to original string.
 function formatPeriod(period) {
@@ -145,6 +179,9 @@ export default function Dashboard() {
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [settings, setSettings] = useState(null);
   const [payrolls, setPayrolls] = useState([]);
+  const [payrollSearch, setPayrollSearch] = useState("");
+  const [payrollSort] = useState("name-asc");
+  const [payrollShowAll, setPayrollShowAll] = useState(false);
   const [, setLoading] = useState(true);
   const [tooltip, setTooltip] = useState({ visible: false, x: 0, y: 0, title: "", items: [] });
   const presentCardRef = useRef(null);
@@ -173,6 +210,16 @@ export default function Dashboard() {
         // Use data length as authoritative fallback for totalEmployees
         setTotalEmployees((personsRes && personsRes.data && personsRes.data.length) || 0);
         setPayrolls(payrollRes.data || []);
+        try {
+          const debugPayrolls = (payrollRes.data || []).map((p) => ({
+            id: p.id,
+            period: p.period,
+            released: !!p.released,
+            parsedEnd: parsePeriodEnd(p.period),
+            ended: isPeriodEnded(p.period),
+          }));
+          console.debug('payrolls debug', debugPayrolls);
+        } catch (e) {}
         setSettings(settingsRes && settingsRes.data ? settingsRes.data : null);
       } catch (err) {
         console.error(err);
@@ -229,13 +276,89 @@ export default function Dashboard() {
 
   const totalAttendance = attendance.length;
   const pendingPayrolls = payrolls.filter((p) => !p.released).length;
-  const notReadyPayrolls = payrolls.filter((p) => !p.released && !isPeriodEnded(p.period)).length;
+  const notReadyPayrolls = payrolls.filter((p) => !p.released && !isPeriodEndedNow(p.period, settings)).length;
+  const readyPayrolls = payrolls.filter((p) => !p.released && isPeriodEndedNow(p.period, settings)).length;
 
   async function releasePayroll(id) {
     try {
       const { error } = await supabase.from("payroll_periods").update({ released: true }).eq("id", id);
       if (error) throw error;
+
+      // update local state
       setPayrolls((prev) => prev.map((p) => (p.id === id ? { ...p, released: true } : p)));
+
+      // Log activity: find payroll and person info
+      try {
+        const payroll = (payrolls || []).find((p) => p.id === id) || null;
+        const personId = payroll ? payroll.person_id : null;
+        const person = personMap[personId] || null;
+        const personName = (person && person.name) || null;
+
+        let releasedBy = "admin";
+        try {
+          const sessionStr = localStorage.getItem("sb-session");
+          if (sessionStr) {
+            const sess = JSON.parse(sessionStr);
+            if (sess && sess.user && sess.user.email) releasedBy = sess.user.email;
+          }
+        } catch (e) {}
+
+        await supabase.from("payroll_activity_logs").insert([
+          {
+            payroll_period_id: id,
+            person_id: personId,
+            person_name: personName,
+            released_by: releasedBy,
+            action: "release",
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+
+        // Optionally create next payroll period if configured
+        try {
+          if (settings && settings.auto_create_next_period) {
+            const end = parsePeriodEnd(payroll && payroll.period);
+            const periodDays = Number(settings.payroll_period_days) || 15;
+            if (end && personId) {
+              const nextStart = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+              nextStart.setDate(nextStart.getDate() + 1);
+              const nextEnd = new Date(nextStart);
+              nextEnd.setDate(nextStart.getDate() + periodDays - 1);
+              const y = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+              const newPeriod = `${y(nextStart)}_to_${y(nextEnd)}`;
+              const { data: newRows, error: insErr } = await supabase.from("payroll_periods").insert([{ person_id: personId, period: newPeriod, released: false }]).select();
+              if (!insErr && Array.isArray(newRows) && newRows.length) {
+                setPayrolls((prev) => [...prev, ...newRows]);
+              } else {
+                // Try a more complete insert including numeric defaults (satisfy NOT NULL columns)
+                try {
+                  const { data: personFull } = await supabase.from('persons').select('daily_rate,late_penalty').eq('id', personId).maybeSingle();
+                  const dailyRate = Number(personFull && (personFull.daily_rate || personFull.daily_rate === 0) ? personFull.daily_rate : 0) || 0;
+                  const latePenalty = Number(personFull && (personFull.late_penalty || personFull.late_penalty === 0) ? personFull.late_penalty : 0) || 0;
+                  const insertObj = {
+                    person_id: personId,
+                    period: newPeriod,
+                    days_present: 0,
+                    daily_rate: dailyRate,
+                    late_penalty: latePenalty,
+                    late_count: 0,
+                    gross: 0,
+                    total_late_deduction: 0,
+                    total_deductions: 0,
+                    net: 0,
+                    released: false,
+                  };
+                  const { data: inserted, error: insertErr } = await supabase.from('payroll_periods').insert([insertObj]).select();
+                  if (!insertErr && Array.isArray(inserted) && inserted.length) setPayrolls((prev) => [...prev, ...inserted]);
+                } catch (e) {
+                  console.error('fallback insert next period failed', e);
+                }
+              }
+            }
+          }
+        } catch (e) { console.error('auto create next period failed', e); }
+      } catch (e) { console.error('logging payroll release failed', e); }
+
       Swal.fire("Released", "Payroll released successfully.", "success");
     } catch (err) {
       console.error(err);
@@ -260,6 +383,43 @@ export default function Dashboard() {
       })
       .sort((x, y) => new Date(y.device_time) - new Date(x.device_time));
   }, [attendance, personMap]);
+
+  const filteredPayrolls = useMemo(() => {
+    const q = (payrollSearch || "").trim().toLowerCase();
+    let list = (payrolls || []).filter((p) => !p.released);
+    if (q) {
+      list = list.filter((p) => {
+        const person = personMap[p.person_id] || {};
+        const name = (person.name || "").toLowerCase();
+        const id = String(p.person_id || "").toLowerCase();
+        const period = String(p.period || "").toLowerCase();
+        return name.includes(q) || id.includes(q) || period.includes(q);
+      });
+    }
+    const sortFn = (a, b) => {
+      if (payrollSort === "name-asc" || payrollSort === "name-desc") {
+        const an = (personMap[a.person_id]?.name || "").toLowerCase();
+        const bn = (personMap[b.person_id]?.name || "").toLowerCase();
+        if (an < bn) return payrollSort === "name-asc" ? -1 : 1;
+        if (an > bn) return payrollSort === "name-asc" ? 1 : -1;
+        return 0;
+      }
+      if (payrollSort === "period-asc" || payrollSort === "period-desc") {
+        const pa = String(a.period || "");
+        const pb = String(b.period || "");
+        if (pa < pb) return payrollSort === "period-asc" ? -1 : 1;
+        if (pa > pb) return payrollSort === "period-asc" ? 1 : -1;
+        return 0;
+      }
+      return 0;
+    };
+    list.sort(sortFn);
+    // If not showing all, only include payrolls that are ready now
+    if (!payrollShowAll) {
+      return list.filter((p) => isPeriodEndedNow(p.period, settings));
+    }
+    return list;
+  }, [payrolls, payrollSearch, payrollSort, personMap, payrollShowAll, settings]);
 
   // compute present/absent for today split by morning and afternoon shifts
   const {
@@ -471,7 +631,7 @@ export default function Dashboard() {
     chartCard: { background: "#fff", borderRadius: 12, padding: 24, boxShadow: "0 8px 24px rgba(2,132,199,0.04)", border: "1px solid #e6f0f7" },
     payrollCard: { background: "#fff", borderRadius: 12, padding: 18, boxShadow: "0 8px 24px rgba(2,132,199,0.02)", border: "1px solid #eef2f6" },
     chartSvg: { width: "100%", height: 280 },
-    payrollList: { marginTop: 8, display: "grid", gap: 8 }
+    payrollList: { marginTop: 8, display: "grid", gap: 8, maxHeight: 300, overflowY: 'auto', paddingRight: 8 }
   };
 
   // Add pill-style sort toggle style
@@ -721,7 +881,7 @@ export default function Dashboard() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <div>
               <div style={{ fontSize: 14, color: "#374151" }}>
-                {`Attendance (${viewMode === "day" ? "last 30 days" : viewMode === "week" ? "last 12 weeks" : "last 12 months"})`}
+                {`Attendances (${viewMode === "day" ? "last 30 days" : viewMode === "week" ? "last 12 weeks" : "12 months"})`}
               </div>
               <div style={{ fontSize: 12, color: "#6b7280" }}>{viewMode === "day" ? "Daily total of attendance scans" : viewMode === "week" ? "Weekly total of attendance scans" : "Monthly total of attendance scans"}</div>
             </div>
@@ -740,6 +900,22 @@ export default function Dashboard() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
             <h4 style={{ margin: 0, color: "#237227" }}>Payrolls Pending Release</h4>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <input
+                placeholder="Search name.."
+                value={payrollSearch}
+                onChange={(e) => setPayrollSearch(e.target.value)}
+                style={{ padding: '8px 10px', borderRadius: 999, border: '1px solid #e6eef6', outline: 'none', minWidth: 110 }}
+              />
+              <button onClick={() => setPayrollShowAll((s) => !s)} style={{ padding: '8px 10px', borderRadius: 999, border: '1px solid #e6eef6', background: payrollShowAll ? '#eef2f6' : '#fff', cursor: 'pointer' }} title="Toggle show all pending payrolls">
+                {payrollShowAll ? 'All' : 'Today'}
+              </button>
+              {/* Ready / Not-ready counts */}
+              {readyPayrolls > 0 && (
+                <div title={`${readyPayrolls} payroll(s) ready to release`} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 99, background: "#10b981" }} />
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>{readyPayrolls} ready</div>
+                </div>
+              )}
               {notReadyPayrolls > 0 && (
                 <div title={`${notReadyPayrolls} payroll(s) pending but not yet ended`} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ width: 10, height: 10, borderRadius: 99, background: "#f59e0b" }} />
@@ -749,15 +925,31 @@ export default function Dashboard() {
             </div>
           </div>
           <div style={styles.payrollList}>
-            {(payrolls.filter((p) => !p.released && isPeriodEnded(p.period)).slice(0, 6) || []).map((p) => (
-              <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 10, borderRadius: 8, background: "#f8fafc", border: "1px solid #eef2f6" }}>
-                <div style={{ color: "#0f172a" }}>{formatPeriod(p.period)}</div>
-                <div>
-                  <button onClick={() => releasePayroll(p.id)} style={{ padding: "6px 12px", borderRadius: 8, background: "#237227", color: "#fff", border: "none", cursor: "pointer" }}>Release</button>
+            {(filteredPayrolls || []).map((p) => {
+              const ready = isPeriodEndedNow(p.period, settings);
+              const person = personMap[p.person_id] || null;
+              const name = (person && (person.name || person.id)) || p.person_id || 'Unknown';
+              return (
+                <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 10, borderRadius: 8, background: "#f8fafc", border: "1px solid #eef2f6" }}>
+                  <div style={{ color: "#0f172a" }} title={name}>
+                    <div style={{ fontWeight: 700 }}>{name}</div>
+                    <div style={{ fontSize: 13, color: '#334155' }}>{formatPeriod(p.period)}{!ready && <span style={{ marginLeft: 8, color: '#9ca3af', fontSize: 12 }}>(ready after work-hours)</span>}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => releasePayroll(p.id)} disabled={!ready} style={{ padding: "6px 12px", borderRadius: 8, background: ready ? "#237227" : "#e6eef6", color: ready ? "#fff" : "#9ca3af", border: "none", cursor: ready ? "pointer" : "not-allowed" }}>{ready ? 'Release' : 'Release (disabled)'}</button>
+                    {payrollShowAll && (
+                      <button onClick={async () => {
+                        const res = await Swal.fire({ title: 'Force release payroll?', text: `This will mark payroll for ${name} as released immediately (admin override). Continue?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Force Release' });
+                        if (res && res.isConfirmed) {
+                          try { await releasePayroll(p.id); } catch (e) {}
+                        }
+                      }} style={{ padding: "6px 10px", borderRadius: 8, background: "#fff", color: "#374151", border: "1px solid #e6eef6", cursor: "pointer" }}>Force Release</button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
-              {!payrolls.filter((p) => !p.released && isPeriodEnded(p.period)).length && <div style={{ color: "#6b7280" }}>No pending payrolls ready for release</div>}
+              );
+            })}
+            {(filteredPayrolls || []).length === 0 && <div style={{ color: "#6b7280" }}>No pending payrolls ready for release</div>}
           </div>
         </div>
       </div>
