@@ -4,6 +4,10 @@ import { supabase } from "../supabaseClient";
 import { FiSearch, FiEye, FiDownload } from "react-icons/fi";
 export default function ReleasedPayrollLogs() {
   const [logs, setLogs] = useState([]);
+  const [page, setPage] = useState(0);
+  const [pageSize] = useState(100);
+  const [loadingPage, setLoadingPage] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("timestamp");
   const [sortOrder, setSortOrder] = useState("desc");
@@ -13,25 +17,53 @@ export default function ReleasedPayrollLogs() {
     eye: <FiEye />,
   };
   useEffect(() => {
-    async function fetchLogs() {
-      const { data } = await supabase.from("payroll_activity_logs").select("*");
-      setLogs(data || []);
+    let mounted = true;
+    async function fetchLogsPage(p = 0) {
+      setLoadingPage(true);
+      try {
+        const start = p * pageSize;
+        const end = start + pageSize - 1;
+        const { data, error } = await supabase
+          .from("payroll_activity_logs")
+          .select("id, payroll_period_id, person_id, person_name, released_by, action, timestamp")
+          .order("timestamp", { ascending: false })
+          .range(start, end);
+        if (error) throw error;
+        if (!mounted) return;
+        if (Array.isArray(data)) {
+          if (p === 0) setLogs(data || []);
+          else setLogs((prev) => [...(prev || []), ...(data || [])]);
+          setHasMore((data || []).length === pageSize);
+          setPage(p);
+        }
+      } catch (err) {
+        console.error('Failed to load payroll activity logs page', err);
+      } finally {
+        if (mounted) setLoadingPage(false);
+      }
     }
-    fetchLogs();
-    // realtime subscription to new logs
+    fetchLogsPage(0);
+
+    // realtime subscription to new logs — prepend to current list
     const sub = supabase
       .channel('public:payroll_activity_logs')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payroll_activity_logs' }, (payload) => {
         try {
           const newRow = payload.new;
-          setLogs((prev) => [newRow, ...(prev || [])]);
+          setLogs((prev) => {
+            // avoid duplicate if already loaded
+            if (!prev || !prev.length) return [newRow];
+            if (prev.some((r) => r.id === newRow.id)) return prev;
+            return [newRow, ...prev];
+          });
         } catch (e) { console.error('realtime payload error', e); }
       })
       .subscribe();
     return () => {
+      mounted = false;
       try { supabase.removeChannel(sub); } catch (e) { /* older clients */ }
     };
-  }, []);
+  }, [pageSize]);
 
   // Filter and sorting
   const filteredLogs = logs.filter((log) => {
@@ -132,14 +164,14 @@ export default function ReleasedPayrollLogs() {
                   Timestamp{" "}
                   {sortKey === "timestamp" && (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th
+                {/* <th
                   style={styles.th}
                   onClick={() => handleSort("payroll_period_id")}
                 >
                   Payroll Period ID{" "}
                   {sortKey === "payroll_period_id" &&
                     (sortOrder === "asc" ? "▲" : "▼")}
-                </th>
+                </th> */}
                 <th style={styles.th} onClick={() => handleSort("person_name")}>
                   Person Name{" "}
                   {sortKey === "person_name" &&
@@ -175,7 +207,7 @@ export default function ReleasedPayrollLogs() {
                     <td style={styles.td}>
                       {new Date(log.timestamp).toLocaleString()}
                     </td>
-                    <td style={styles.td}>{log.payroll_period_id}</td>
+                    {/* <td style={styles.td}>{log.payroll_period_id}</td> */}
                     <td style={styles.td}>{log.person_name}</td>
                     <td style={styles.td}>{log.released_by}</td>
                     <td style={styles.td}>{log.action}</td>
@@ -184,6 +216,39 @@ export default function ReleasedPayrollLogs() {
               )}
             </tbody>
           </table>
+        </div>
+        <div style={{ padding: 12, textAlign: 'center' }}>
+          {hasMore ? (
+            <button
+              onClick={async () => {
+                if (loadingPage) return;
+                const next = page + 1;
+                setLoadingPage(true);
+                try {
+                  const start = next * pageSize;
+                  const end = start + pageSize - 1;
+                  const { data, error } = await supabase
+                    .from("payroll_activity_logs")
+                    .select("id, payroll_period_id, person_id, person_name, released_by, action, timestamp")
+                    .order("timestamp", { ascending: false })
+                    .range(start, end);
+                  if (error) throw error;
+                  setLogs((prev) => [...(prev || []), ...(data || [])]);
+                  setPage(next);
+                  setHasMore((data || []).length === pageSize);
+                } catch (err) {
+                  console.error('Failed to load more logs', err);
+                } finally {
+                  setLoadingPage(false);
+                }
+              }}
+              style={{ marginTop: 8, padding: '8px 14px', borderRadius: 8, background: '#fff', border: '1px solid #e5e7eb', cursor: 'pointer' }}
+            >
+              {loadingPage ? 'Loading...' : 'Load more'}
+            </button>
+          ) : (
+            <div style={{ color: '#6b7280', fontSize: 13 }}>No more logs</div>
+          )}
         </div>
       </div>
     </div>

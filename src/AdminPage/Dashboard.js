@@ -229,7 +229,7 @@ export default function Dashboard() {
       }
     }
     load();
-    const int = setInterval(load, 30_000); // refresh every 30s
+    const int = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) load(); }, 300_000); // refresh every 5min when visible
     return () => {
       mounted = false;
       clearInterval(int);
@@ -279,7 +279,7 @@ export default function Dashboard() {
   const notReadyPayrolls = payrolls.filter((p) => !p.released && !isPeriodEndedNow(p.period, settings)).length;
   const readyPayrolls = payrolls.filter((p) => !p.released && isPeriodEndedNow(p.period, settings)).length;
 
-  async function releasePayroll(id) {
+  async function releasePayroll(id, isAdvanceRelease = false) {
     try {
       const { error } = await supabase.from("payroll_periods").update({ released: true }).eq("id", id);
       if (error) throw error;
@@ -309,7 +309,7 @@ export default function Dashboard() {
             person_id: personId,
             person_name: personName,
             released_by: releasedBy,
-            action: "released",
+            action: isAdvanceRelease ? "Advance Release" : "Period Released",
             timestamp: new Date().toISOString(),
           },
         ]);
@@ -936,14 +936,14 @@ export default function Dashboard() {
                     <div style={{ fontSize: 13, color: '#334155' }}>{formatPeriod(p.period)}{!ready && <span style={{ marginLeft: 8, color: '#9ca3af', fontSize: 12 }}>(ready after work-hours)</span>}</div>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
-                    <button onClick={() => releasePayroll(p.id)} disabled={!ready} style={{ padding: "6px 12px", borderRadius: 8, background: ready ? "#237227" : "#e6eef6", color: ready ? "#fff" : "#9ca3af", border: "none", cursor: ready ? "pointer" : "not-allowed" }}>{ready ? 'Release' : 'Release (disabled)'}</button>
+                    <button onClick={() => releasePayroll(p.id, false)} disabled={!ready} style={{ padding: "6px 12px", borderRadius: 8, background: ready ? "#237227" : "#e6eef6", color: ready ? "#fff" : "#9ca3af", border: "none", cursor: ready ? "pointer" : "not-allowed" }}>{ready ? 'Release' : 'Release (disabled)'}</button>
                     {payrollShowAll && (
                       <button onClick={async () => {
-                        const res = await Swal.fire({ title: 'Emergency Release payroll?', text: `This will mark payroll for ${name} as released immediately (admin override). Continue?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Emergency Release' });
+                        const res = await Swal.fire({ title: 'Advance Release payroll?', text: `This will mark payroll for ${name} as released immediately (admin override). Continue?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Advance Release' });
                         if (res && res.isConfirmed) {
-                          try { await releasePayroll(p.id); } catch (e) {}
+                          try { await releasePayroll(p.id, true); } catch (e) {}
                         }
-                      }} style={{ padding: "6px 10px", borderRadius: 8, background: "#fff", color: "#374151", border: "1px solid #e6eef6", cursor: "pointer" }}>Emergency Release</button>
+                      }} style={{ padding: "6px 10px", borderRadius: 8, background: "#fff", color: "#374151", border: "1px solid #e6eef6", cursor: "pointer" }}>Advance Release</button>
                     )}
                   </div>
                 </div>

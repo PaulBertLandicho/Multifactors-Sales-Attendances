@@ -413,11 +413,15 @@ export default function PayslipModal({
   }
 
   // Calculate Standard Pay based on attendance (full/half days)
-  // A full day: both morningIn and afternoonIn are present
-  // A half day: only one session present
+  // Prefer stored payroll values when available so modal matches table
   let daysWorked = 0;
   let daysWorkedDisplay = "";
-  if (detailedAttendance.length) {
+  const payrollDaysPresent =
+    payroll && (payroll.daysPresent ?? payroll.days_present ?? null);
+  if (payrollDaysPresent != null) {
+    daysWorked = Number(payrollDaysPresent) || 0;
+    daysWorkedDisplay = `${daysWorked} day(s)`;
+  } else if (detailedAttendance.length) {
     let fullDays = 0;
     let halfDays = 0;
     detailedAttendance.forEach((rec) => {
@@ -468,12 +472,15 @@ export default function PayslipModal({
     payroll.lateCountLimit || payroll.late_count_limit || 5;
   const latePenalty = person.late_penalty || 0;
   const lateDeduction =
-    payroll.lateCount >= lateCountLimit ? payroll.lateCount * latePenalty : 0;
+    payroll.totalLateDeduction ??
+    payroll.total_late_deduction ??
+    (payroll.lateCount >= lateCountLimit ? payroll.lateCount * latePenalty : 0);
+  const computedDeductionsSum =
+    lateDeduction + deductions.reduce((acc, d) => acc + d.value, 0) +
+    Number(cashAdvanceTotalInPeriod || 0);
   const totalDeductions =
     Math.round(
-      (lateDeduction +
-        deductions.reduce((acc, d) => acc + d.value, 0) +
-        Number(cashAdvanceTotalInPeriod || 0)) *
+      (Number(payroll.totalDeductions ?? payroll.total_deductions ?? computedDeductionsSum) || computedDeductionsSum) *
         100,
     ) / 100;
 
@@ -1054,9 +1061,10 @@ export default function PayslipModal({
                 </td>
                 <td style={styles.td}>
                   ₱{(
-                    Math.round(
-                      (standardPayAmount + otPay + totalHolidayPay) * 100,
-                    ) / 100
+                    Number(
+                      payroll.gross ??
+                        Math.round((standardPayAmount + otPay + totalHolidayPay) * 100) / 100,
+                    )
                   ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
@@ -1145,13 +1153,16 @@ export default function PayslipModal({
           {/* Net Pay: use rounded OT pay in gross calculation */}
           <h3 style={styles.netPay}>
             Net Pay: ₱{(
-              Math.round(
-                ((standardPayAmount ?? 0) +
-                  otPay +
-                  totalHolidayPay -
-                  totalDeductions) *
-                  100,
-              ) / 100
+              Number(
+                payroll.net ??
+                  (Math.round(
+                    ((standardPayAmount ?? 0) +
+                      otPay +
+                      totalHolidayPay -
+                      totalDeductions) *
+                      100,
+                  ) / 100),
+              )
             ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </h3>
         </div>

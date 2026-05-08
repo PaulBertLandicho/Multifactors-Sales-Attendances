@@ -319,7 +319,7 @@ export default function AttendanceTable() {
       }
     }
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) fetchData(); }, 60_000); // 60s
     return () => clearInterval(interval);
   }, [setLoading]);
 

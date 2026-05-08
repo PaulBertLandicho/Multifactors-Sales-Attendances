@@ -19,7 +19,15 @@ async function fetchViaRest(path) {
     err.status = res.status;
     throw err;
   }
-  return res.json();
+  // Validate content-type before parsing as JSON
+  const contentType = res.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const txt = await res.text();
+    throw new Error(`Expected JSON response but got ${contentType || 'unknown content-type'}: ${txt.substring(0, 100)}`);
+  }
+  return res.json().catch((err) => {
+    throw new Error(`Failed to parse JSON response: ${err.message}`);
+  });
 }
 
 export async function getSettings() {
@@ -43,11 +51,11 @@ export async function getPersons() {
 
 export async function getDepartmentRates() {
   if (SUPABASE_CONFIGURED && supabase) {
-    const { data, error } = await supabase.from('department_rates').select('*');
+    const { data, error } = await supabase.from('department_rates').select('id,department,daily_rate,late_penalty,sss,pag_ibig,philhealth,ot_rate,regular_holiday_rate,special_holiday_rate');
     if (error) throw error;
     return data || [];
   }
-  return fetchViaRest('department_rates?select=*');
+  return fetchViaRest('department_rates?select=id,department,daily_rate,late_penalty,sss,pag_ibig,philhealth,ot_rate,regular_holiday_rate,special_holiday_rate');
 }
 
 export async function getAttendanceForPersonOnDay(personId, dayStartIso, dayEndIso) {

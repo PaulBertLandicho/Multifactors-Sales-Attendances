@@ -13,15 +13,6 @@ import { recordAttendanceForPerson } from "../AdminPage/attendanceUtils";
 // Face recognition threshold – adjust based on your model
 const FACE_MATCH_THRESHOLD = 0.35;
 
-// Predefined department options
-const DEFAULT_DEPARTMENTS = [
-  "HR",
-  "IT",
-  "Finance",
-  "Sales",
-  "Admin",
-  "Operations",
-];
 
 export default function PersonDetails({
   scanPayload,
@@ -77,6 +68,9 @@ export default function PersonDetails({
   const selectedPersonHasFace = Boolean(
     selectedPerson?.descriptor && selectedPerson.descriptor.length
   );
+  
+  // Derive department list from deptRates
+  const departmentList = deptRates.map((d) => d.department).filter(Boolean);
 
   // Guard refs to avoid overlapping fetches
   const fetchInProgressRef = useRef(false);
@@ -134,7 +128,7 @@ export default function PersonDetails({
           });
           if (
             first.department &&
-            !DEFAULT_DEPARTMENTS.includes(first.department)
+            !departmentList.includes(first.department)
           ) {
             setCustomDepartment(true);
             setCustomDeptValue(first.department);
@@ -200,7 +194,7 @@ export default function PersonDetails({
         setLoading(false);
       }
     },
-    [descriptor, selectedId]
+    [descriptor, selectedId, departmentList]
   );
 
   useEffect(() => {
@@ -248,7 +242,7 @@ export default function PersonDetails({
       address: person.address || "",
       sex: person.sex || "",
     });
-    if (person.department && !DEFAULT_DEPARTMENTS.includes(person.department)) {
+    if (person.department && !departmentList.includes(person.department)) {
       setCustomDepartment(true);
       setCustomDeptValue(person.department);
     } else {
@@ -459,7 +453,7 @@ export default function PersonDetails({
       });
 
       // Reset custom department state
-      if (finalDepartment && !DEFAULT_DEPARTMENTS.includes(finalDepartment)) {
+      if (finalDepartment && !departmentList.includes(finalDepartment)) {
         setCustomDepartment(true);
         setCustomDeptValue(finalDepartment);
       } else {
@@ -880,12 +874,12 @@ export default function PersonDetails({
             <label>
               Department
               <select
-                value={customDepartment ? "Other" : form.department}
+                value={customDepartment ? "" : form.department}
                 onChange={handleDepartmentChange}
                 style={{ width: "100%", padding: "6px", marginTop: "4px" }}
               >
                 <option value="">Select department</option>
-                {DEFAULT_DEPARTMENTS.map((dept) => (
+                {departmentList.map((dept) => (
                   <option key={dept} value={dept}>
                     {dept}
                   </option>

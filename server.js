@@ -208,7 +208,17 @@ app.use(
     },
   })
 );
-app.use("/models", express.static(path.join(__dirname, "models")));
+app.use(
+  "/models",
+  express.static(path.join(__dirname, "models"), {
+    setHeaders: (res, filePath) => {
+      // Allow cross-origin requests for model files
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      // Cache model files aggressively (long-lived immutable assets)
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    },
+  }),
+);
 
 app.get("/health/stream", (req, res) => {
   res.json({

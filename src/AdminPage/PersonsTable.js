@@ -226,7 +226,7 @@ export default function PersonsTable() {
       }
     }
     fetchPersons();
-    const interval = setInterval(fetchPersons, 5000);
+    const interval = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) fetchPersons(); }, 60_000); // 60s
     return () => clearInterval(interval);
   }, [setLoading]);
 

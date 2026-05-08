@@ -9,7 +9,6 @@ import * as XLSX from "xlsx";
 import { FiSearch, FiEye, FiDownload, FiPrinter } from "react-icons/fi";
 
 import { supabase } from "../supabaseClient";
-import { logPayrollRelease } from "./payrollActivityLogs";
 
 export default function PayrollPage() {
   const [persons, setPersons] = useState([]);
@@ -41,7 +40,12 @@ export default function PayrollPage() {
         payrollRes,
         holidaysRes,
       ] = await Promise.all([
-        supabase.from("attendance").select("*"),
+        // Limit attendance to recent records (last 6 months) to reduce egress
+        (function() {
+          const cutoff = new Date();
+          cutoff.setMonth(cutoff.getMonth() - 6);
+          return supabase.from("attendance").select("*").gte('device_time', cutoff.toISOString());
+        })(),
         supabase
           .from("persons")
           .select(
@@ -346,6 +350,36 @@ export default function PayrollPage() {
 
   // Removed unused filtered and sortedPersons variables
 
+  // Helper: Check if period has ended based on work-hour settings
+  function isPeriodEndedNow(period, settings) {
+    if (!period) return false;
+    const s = String(period).trim();
+    const matches = Array.from(s.matchAll(/(\d{4}[-/]\d{2}[-/]\d{2})/g)).map(m => m[1]);
+    if (!matches.length) return false;
+    const endStr = matches[matches.length - 1].replace(/\//g, '-');
+    const end = new Date(endStr);
+    if (Number.isNaN(end.getTime())) return false;
+    const now = new Date();
+    // If the period end is today, compare to afternoon end time if available
+    if (end.getFullYear() === now.getFullYear() && end.getMonth() === now.getMonth() && end.getDate() === now.getDate()) {
+      try {
+        const hhmm = (settings && settings.afternoon_end) || null;
+        if (hhmm) {
+          const parts = String(hhmm).split(":").map(Number);
+          const h = Number.isFinite(parts[0]) ? parts[0] : 17;
+          const m = Number.isFinite(parts[1]) ? parts[1] : 0;
+          const endOfPeriod = new Date(end.getFullYear(), end.getMonth(), end.getDate(), h, m, 0, 0);
+          return now >= endOfPeriod;
+        }
+      } catch (e) {}
+      const endOfDay = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999);
+      return now >= endOfDay;
+    }
+    // For non-today end dates, use end-of-day comparison
+    const endOfDay = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999);
+    return endOfDay <= now;
+  }
+
   // OPEN PAYSLIP for a period
   const handleShowPayslip = (payrollPeriod) => {
     const { person, payroll, attendance, period } = payrollPeriod;
@@ -368,6 +402,11 @@ export default function PayrollPage() {
     if (idx === -1) return;
     const period = payrollPeriods[idx];
     if (!period || !period.dbId) return;
+    
+    // Determine if this is an advance release (period hasn't ended yet)
+    const periodHasEnded = isPeriodEndedNow(period.period, settings);
+    const isAdvanceRelease = !periodHasEnded;
+    
     try {
       // Update released flag in Supabase
       const { error: updateErr } = await supabase
@@ -392,13 +431,18 @@ export default function PayrollPage() {
         }
       } catch (e) {}
 
-      // Log activity
+      // Log activity with accurate action type
       try {
-        await logPayrollRelease({
-          payrollPeriodId: period.dbId,
-          personName: period.person?.name || null,
-          releasedBy,
-        });
+        await supabase.from("payroll_activity_logs").insert([
+          {
+            payroll_period_id: period.dbId,
+            person_id: period.person?.id || null,
+            person_name: period.person?.name || null,
+            released_by: releasedBy,
+            action: isAdvanceRelease ? "Advance Release" : "Period Released",
+            timestamp: new Date().toISOString(),
+          },
+        ]);
       } catch (err) {
         Swal.fire("Failed to log payroll release", err.message || err, "error");
       }
@@ -906,7 +950,7 @@ export default function PayrollPage() {
                 <th style={styles.th}>Late Count</th>
                 <th style={styles.th}>Absent</th>
                 <th style={styles.th}>Payslip</th>
-                <th style={styles.th}>Emergency Release</th>
+                <th style={styles.th}>Advance Release</th>
               </tr>
             </thead>
             <tbody>
@@ -973,7 +1017,7 @@ export default function PayrollPage() {
                               fontSize: "0.9em",
                             }}
                           >
-                            Emergency Release Payroll
+                            Advance Release Payroll
                           </button>
                         )}
                       </td>

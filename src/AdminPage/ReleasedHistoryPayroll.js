@@ -8,6 +8,7 @@ import { FiDownload, FiEye } from "react-icons/fi";
 
 export default function ReleasedHistoryPayroll() {
   const [releasedPayrolls, setReleasedPayrolls] = useState([]);
+  const [activityLogsMap, setActivityLogsMap] = useState({});
   const [selected, setSelected] = useState(null);
   const [showPayslip, setShowPayslip] = useState(false);
   const [modalData, setModalData] = useState({
@@ -23,12 +24,35 @@ export default function ReleasedHistoryPayroll() {
   // Removed unused Icons variable
   useEffect(() => {
     async function fetchReleased() {
-      // Join persons table to get name and department
+      // Select only necessary payroll fields and join limited person info to reduce data transfer
       const { data } = await supabase
         .from("payroll_periods")
-        .select("*, person:persons(id, name, department)")
-        .eq("released", true);
+        .select(
+          "id, person_id, period, released, daily_rate, late_penalty, gross, net, days_present, person:persons(id,name,department)"
+        )
+        .eq("released", true)
+        .order('period', { ascending: false })
+        .limit(2000);
       setReleasedPayrolls(data || []);
+
+      // Fetch activity logs to get action type (Released or Advance Release)
+      try {
+        const { data: logs } = await supabase
+          .from("payroll_activity_logs")
+          .select("payroll_period_id, action")
+          .order("timestamp", { ascending: false });
+        
+        // Create a map of payroll_period_id -> action (most recent action)
+        const logsMap = {};
+        (logs || []).forEach((log) => {
+          if (log.payroll_period_id && !logsMap[log.payroll_period_id]) {
+            logsMap[log.payroll_period_id] = log.action;
+          }
+        });
+        setActivityLogsMap(logsMap);
+      } catch (err) {
+        console.error("Error fetching activity logs:", err);
+      }
     }
     fetchReleased();
   }, []);
@@ -96,7 +120,9 @@ export default function ReleasedHistoryPayroll() {
     // Fetch person details
     const { data: person } = await supabase
       .from("persons")
-      .select("*")
+      .select(
+        "id, name, department, daily_rate, late_penalty, sss, pag_ibig, philhealth, cash_advance, registration_photo"
+      )
       .eq("id", payroll.person_id)
       .single();
     // Fetch settings
@@ -108,7 +134,9 @@ export default function ReleasedHistoryPayroll() {
     // Fetch department rates
     const { data: deptRates } = await supabase
       .from("department_rates")
-      .select("*");
+      .select(
+        "department, daily_rate, late_penalty, sss, pag_ibig, philhealth, ot_rate, regular_holiday_rate, special_holiday_rate"
+      );
     // Fetch attendance for this period
     let detailedAttendance = [];
     let fullPayroll = null;
@@ -117,10 +145,11 @@ export default function ReleasedHistoryPayroll() {
       const [start, end] = payroll.period.split("_to_");
       const { data: attendance } = await supabase
         .from("attendance")
-        .select("*")
+        .select("id, event, device_time, photo, status, method")
         .eq("person_id", payroll.person_id)
         .gte("device_time", start)
-        .lte("device_time", end);
+        .lte("device_time", end)
+        .order('device_time', { ascending: true });
       detailedAttendance = getDetailedAttendance(
         attendance || [],
         payroll.person_id,
@@ -174,34 +203,8 @@ export default function ReleasedHistoryPayroll() {
       Name: row.person?.name || "",
       Department: row.person?.department || "",
       Period: row.period || "",
-      "Daily Rate":
-        modalData.payroll && selected && selected.id === row.id
-          ? (modalData.payroll.dailyRate ?? 0)
-          : "",
-      "Late Penalty":
-        modalData.payroll && selected && selected.id === row.id
-          ? (modalData.payroll.latePenalty ?? 0)
-          : "",
-      "Days Present":
-        modalData.payroll && selected && selected.id === row.id
-          ? modalData.payroll.daysPresent
-          : "",
-      "Late Count":
-        modalData.payroll && selected && selected.id === row.id
-          ? modalData.payroll.lateCount
-          : "",
-      Gross:
-        modalData.payroll && selected && selected.id === row.id
-          ? (modalData.payroll.gross ?? 0)
-          : "",
-      "Late Deduction":
-        modalData.payroll && selected && selected.id === row.id
-          ? (modalData.payroll.totalLateDeduction ?? 0)
-          : (row.total_late_deduction ?? ""),
-      "Net Pay":
-        modalData.payroll && selected && selected.id === row.id
-          ? (modalData.payroll.net ?? 0)
-          : (row.net ?? ""),
+      "Daily Rate": row.daily_rate ?? "",
+      "Late Penalty": row.late_penalty ?? "",
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
@@ -331,11 +334,6 @@ export default function ReleasedHistoryPayroll() {
                 </th>
                 <th style={styles.th}>DAILY RATE (₱)</th>
                 <th style={styles.th}>LATE PENALTY (₱)</th>
-                <th style={styles.th}>DAYS PRESENT</th>
-                <th style={styles.th}>LATE COUNT</th>
-                <th style={styles.th}>GROSS</th>
-                <th style={styles.th}>LATE DEDUCTION</th>
-                <th style={styles.th}>NET PAY</th>
                 <th style={styles.th}>PAYSLIP</th>
                 <th style={styles.th}>ACTION</th>
               </tr>
@@ -343,7 +341,7 @@ export default function ReleasedHistoryPayroll() {
             <tbody>
               {sortedPayrollsFinal.length === 0 ? (
                 <tr>
-                  <td colSpan={13} style={styles.emptyState}>
+                  <td colSpan={8} style={styles.emptyState}>
                     No released payrolls found.
                   </td>
                 </tr>
@@ -375,22 +373,6 @@ export default function ReleasedHistoryPayroll() {
                           fromModal.late_penalty ??
                           p.late_penalty)
                         : p.late_penalty;
-                      const daysPresent = isSelected
-                        ? (fromModal.daysPresent ?? p.days_present)
-                        : p.days_present;
-                      const lateCount = isSelected
-                        ? (fromModal.lateCount ?? p.late_count)
-                        : p.late_count;
-                      const gross = isSelected
-                        ? (fromModal.gross ?? p.gross)
-                        : p.gross;
-                      const lateDeduction = isSelected
-                        ? (fromModal.totalLateDeduction ??
-                          p.total_late_deduction ??
-                          p.late_deduction)
-                        : (p.total_late_deduction ?? p.late_deduction);
-                      const net = isSelected ? (fromModal.net ?? p.net) : p.net;
-
                       return (
                         <>
                           <td style={styles.td}>
@@ -404,27 +386,6 @@ export default function ReleasedHistoryPayroll() {
                             {latePenalty != null
                               ? Number(latePenalty).toFixed(2)
                               : "-"}
-                          </td>
-                          <td style={styles.td}>
-                            {daysPresent != null ? daysPresent : "-"}
-                          </td>
-                          <td style={styles.td}>
-                            {lateCount != null ? lateCount : "-"}
-                          </td>
-                          <td style={styles.td}>
-                            ₱
-                            {gross != null
-                              ? Number(gross).toLocaleString()
-                              : "-"}
-                          </td>
-                          <td style={styles.td}>
-                            ₱
-                            {lateDeduction != null
-                              ? Number(lateDeduction).toLocaleString()
-                              : "-"}
-                          </td>
-                          <td style={styles.td}>
-                            ₱{net != null ? Number(net).toLocaleString() : "-"}
                           </td>
                         </>
                       );
@@ -445,7 +406,7 @@ export default function ReleasedHistoryPayroll() {
                     </td>
                     <td style={styles.td}>
                       <span style={{ color: "#237227", fontWeight: 600 }}>
-                        Released
+                        {activityLogsMap[p.id] || "Released"}
                       </span>
                     </td>
                   </tr>

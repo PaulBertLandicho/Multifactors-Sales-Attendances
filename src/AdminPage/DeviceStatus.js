@@ -14,7 +14,15 @@ export default function DeviceStatus() {
         if (!res.ok) {
           throw new Error(`Request failed with status ${res.status}`);
         }
-        const data = await res.json();
+        // Validate content-type before parsing as JSON
+        const contentType = res.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const txt = await res.text();
+          throw new Error(`Expected JSON but got ${contentType || 'unknown'}: ${txt.substring(0, 100)}`);
+        }
+        const data = await res.json().catch((err) => {
+          throw new Error(`Failed to parse JSON: ${err.message}`);
+        });
         setStatus(data);
       } catch (err) {
         setError(err.message);
@@ -24,7 +32,7 @@ export default function DeviceStatus() {
     }
 
     fetchStatus();
-    const interval = setInterval(fetchStatus, 5000);
+    const interval = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) fetchStatus(); }, 30_000); // 30s
     return () => clearInterval(interval);
   }, [setLoading]);
 
