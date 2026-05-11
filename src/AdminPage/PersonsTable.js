@@ -135,21 +135,31 @@ export default function PersonsTable() {
         try {
           const ids = list.map((p) => p.id).filter(Boolean);
           if (ids.length) {
-            const { data: payrolls, error: payErr } = await supabase
-              .from("payroll_periods")
-              .select("person_id, net, gross, period")
-              .in("person_id", ids)
-              .order("period", { ascending: false });
-            if (!payErr && Array.isArray(payrolls)) {
-              const map = {};
-              const gmap = {};
-              for (const pr of payrolls) {
-                if (!map[pr.person_id]) map[pr.person_id] = pr.net || 0;
-                if (!gmap[pr.person_id]) gmap[pr.person_id] = pr.gross || 0;
-              }
-              setPayrollMap(map);
-              setPayrollGrossMap(gmap);
+            const [activeRes, historyRes] = await Promise.all([
+              supabase
+                .from("payroll_periods")
+                .select("person_id, net, gross, period")
+                .in("person_id", ids)
+                .order("period", { ascending: false }),
+              supabase
+                .from("payroll_released_history")
+                .select("person_id, net, gross, period")
+                .in("person_id", ids)
+                .order("period", { ascending: false }),
+            ]);
+
+            const payrolls = [
+              ...(Array.isArray(activeRes.data) ? activeRes.data : []),
+              ...(Array.isArray(historyRes.data) ? historyRes.data : []),
+            ];
+            const map = {};
+            const gmap = {};
+            for (const pr of payrolls) {
+              if (!map[pr.person_id]) map[pr.person_id] = pr.net || 0;
+              if (!gmap[pr.person_id]) gmap[pr.person_id] = pr.gross || 0;
             }
+            setPayrollMap(map);
+            setPayrollGrossMap(gmap);
             // Fetch today's attendance for presence
             try {
               const start = new Date();

@@ -178,6 +178,112 @@ CREATE TABLE public.payroll_activity_logs (
 );
 
 -- ===============================================================
+-- PAYROLL RELEASED HISTORY
+-- ===============================================================
+
+CREATE TABLE public.payroll_released_history (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  payroll_period_id uuid NOT NULL UNIQUE REFERENCES public.payroll_periods(id) ON DELETE CASCADE,
+  person_id text NOT NULL REFERENCES public.persons(id) ON DELETE CASCADE,
+  person_name text,
+  department text,
+  period text NOT NULL,
+  days_present integer NOT NULL,
+  daily_rate numeric NOT NULL,
+  late_penalty numeric NOT NULL,
+  late_count integer NOT NULL,
+  gross numeric NOT NULL,
+  total_late_deduction numeric NOT NULL,
+  total_deductions numeric NOT NULL,
+  net numeric NOT NULL,
+  detailed_attendance jsonb NOT NULL DEFAULT '[]'::jsonb,
+  released boolean NOT NULL DEFAULT true,
+  action text NOT NULL DEFAULT 'Released',
+  released_by text,
+  released_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE INDEX payroll_released_history_person_id_idx
+  ON public.payroll_released_history(person_id);
+
+CREATE INDEX payroll_released_history_period_idx
+  ON public.payroll_released_history(period);
+
+CREATE INDEX payroll_released_history_released_at_idx
+  ON public.payroll_released_history(released_at DESC);
+
+INSERT INTO public.payroll_released_history (
+  payroll_period_id,
+  person_id,
+  person_name,
+  department,
+  period,
+  days_present,
+  daily_rate,
+  late_penalty,
+  late_count,
+  gross,
+  total_late_deduction,
+  total_deductions,
+  net,
+  detailed_attendance,
+  released,
+  action,
+  released_at,
+  created_at,
+  updated_at
+)
+SELECT
+  pp.id,
+  pp.person_id,
+  p.name,
+  p.department,
+  pp.period,
+  pp.days_present,
+  pp.daily_rate,
+  pp.late_penalty,
+  pp.late_count,
+  pp.gross,
+  pp.total_late_deduction,
+  pp.total_deductions,
+  pp.net,
+  '[]'::jsonb,
+  true,
+  'Released',
+  COALESCE(pp.updated_at, pp.created_at, now()),
+  COALESCE(pp.created_at, now()),
+  COALESCE(pp.updated_at, now())
+FROM public.payroll_periods pp
+LEFT JOIN public.persons p ON p.id = pp.person_id
+WHERE pp.released IS TRUE
+ON CONFLICT (payroll_period_id) DO NOTHING;
+
+CREATE OR REPLACE FUNCTION public._is_admin_for_current_user()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+AS $$
+  SELECT coalesce((raw_user_meta_data->>'role') = 'admin', false)
+  FROM auth.users
+  WHERE id = auth.uid();
+$$;
+
+ALTER TABLE public.payroll_released_history ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "read own released history"
+ON public.payroll_released_history
+FOR SELECT
+USING (auth.uid()::text = person_id);
+
+CREATE POLICY "admin released history"
+ON public.payroll_released_history
+FOR ALL
+USING (public._is_admin_for_current_user());
+
+-- ===============================================================
 -- FUNCTIONS
 -- ===============================================================
 
@@ -210,6 +316,90 @@ BEGIN
     RETURN NEW;
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION public.sync_payroll_released_history()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.released IS TRUE AND COALESCE(OLD.released, FALSE) IS DISTINCT FROM TRUE THEN
+    INSERT INTO public.payroll_released_history (
+      payroll_period_id,
+      person_id,
+      person_name,
+      department,
+      period,
+      days_present,
+      daily_rate,
+      late_penalty,
+      late_count,
+      gross,
+      total_late_deduction,
+      total_deductions,
+      net,
+      detailed_attendance,
+      released,
+      action,
+      released_at,
+      created_at,
+      updated_at
+    )
+    SELECT
+      NEW.id,
+      NEW.person_id,
+      p.name,
+      p.department,
+      NEW.period,
+      NEW.days_present,
+      NEW.daily_rate,
+      NEW.late_penalty,
+      NEW.late_count,
+      NEW.gross,
+      NEW.total_late_deduction,
+      NEW.total_deductions,
+      NEW.net,
+      '[]'::jsonb,
+      TRUE,
+      'Released',
+      now(),
+      now(),
+      now()
+    FROM public.persons p
+    WHERE p.id = NEW.person_id
+    ON CONFLICT (payroll_period_id) DO UPDATE SET
+      person_id = EXCLUDED.person_id,
+      person_name = EXCLUDED.person_name,
+      department = EXCLUDED.department,
+      period = EXCLUDED.period,
+      days_present = EXCLUDED.days_present,
+      daily_rate = EXCLUDED.daily_rate,
+      late_penalty = EXCLUDED.late_penalty,
+      late_count = EXCLUDED.late_count,
+      gross = EXCLUDED.gross,
+      total_late_deduction = EXCLUDED.total_late_deduction,
+      total_deductions = EXCLUDED.total_deductions,
+      net = EXCLUDED.net,
+      detailed_attendance = EXCLUDED.detailed_attendance,
+      released = EXCLUDED.released,
+      action = EXCLUDED.action,
+      released_at = EXCLUDED.released_at,
+      updated_at = now();
+
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trigger_sync_payroll_released_history ON public.payroll_periods;
+
+CREATE TRIGGER trigger_sync_payroll_released_history
+AFTER UPDATE OF released ON public.payroll_periods
+FOR EACH ROW
+WHEN (NEW.released IS TRUE)
+EXECUTE FUNCTION public.sync_payroll_released_history();
 
 -- ===============================================================
 -- TRIGGERS

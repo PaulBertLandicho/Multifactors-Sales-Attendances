@@ -38,6 +38,7 @@ export default function PayrollPage() {
         deptRes,
         settingsRes,
         payrollRes,
+        historyRes,
         holidaysRes,
       ] = await Promise.all([
         // Limit attendance to recent records (last 6 months) to reduce egress
@@ -54,6 +55,7 @@ export default function PayrollPage() {
         supabase.from("department_rates").select("*"),
         supabase.from("settings").select("*").eq("id", 1).maybeSingle(),
         supabase.from("payroll_periods").select("*"),
+        supabase.from("payroll_released_history").select("payroll_period_id, person_id, period, released"),
         supabase.from("holidays").select("*"),
       ]);
 
@@ -62,10 +64,12 @@ export default function PayrollPage() {
       const deptData = deptRes.data || [];
       const settingsData = settingsRes.data || {};
       const holidaysData = holidaysRes.data || [];
+      const historyData = historyRes.data || [];
       // Ensure payrollDb is always a clean array with no null/undefined entries
-      const payrollDb = Array.isArray(payrollRes.data)
-        ? payrollRes.data.filter(Boolean)
-        : [];
+      const payrollDb = [
+        ...(Array.isArray(payrollRes.data) ? payrollRes.data.filter(Boolean) : []),
+        ...historyData.filter(Boolean),
+      ];
 
       setPersons(personsData);
       setDeptRates(deptData);
@@ -238,6 +242,7 @@ export default function PayrollPage() {
               attendance,
               released: !!dbRow.released,
               dbId: dbRow.id,
+              detailedAttendance: detailed,
               // Compute absent count for the period (weekdays only, exclude holidays), up to today
               absentCount: (() => {
                 try {
@@ -445,6 +450,40 @@ export default function PayrollPage() {
         ]);
       } catch (err) {
         Swal.fire("Failed to log payroll release", err.message || err, "error");
+      }
+
+      // Also snapshot the released payroll into the dedicated history table.
+      // This makes the history page work even if a database trigger was not applied yet.
+      try {
+        const person = period.person || {};
+        await supabase.from("payroll_released_history").upsert([
+          {
+            payroll_period_id: period.dbId,
+            person_id: person.id || period.personId || null,
+            person_name: person.name || null,
+            department: person.department || null,
+            period: period.period,
+            days_present: Number(period.payroll?.daysPresent ?? 0),
+            daily_rate: Number(person.daily_rate ?? period.payroll?.dailyRate ?? 0),
+            late_penalty: Number(person.late_penalty ?? 0),
+            late_count: Number(period.payroll?.lateCount ?? 0),
+            gross: Number(period.payroll?.gross ?? 0),
+            total_late_deduction: Number(period.payroll?.totalLateDeduction ?? 0),
+            total_deductions: Number(period.payroll?.totalDeductions ?? 0),
+            net: Number(period.payroll?.net ?? 0),
+            detailed_attendance: Array.isArray(period.detailedAttendance)
+              ? period.detailedAttendance
+              : [],
+            released: true,
+            action: isAdvanceRelease ? "Advance Release" : "Period Released",
+            released_by: releasedBy,
+            released_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          },
+        ], { onConflict: "payroll_period_id" });
+      } catch (err) {
+        console.error("Failed to snapshot payroll release history", err);
       }
 
       // Optionally auto-create the next payroll period
