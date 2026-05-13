@@ -24,96 +24,34 @@ export default function ReleasedHistoryPayroll() {
   // Removed unused Icons variable
   useEffect(() => {
     async function fetchReleased() {
-      // Prefer the dedicated released-history table.
+      // Select only necessary payroll fields and join limited person info to reduce data transfer
+      const { data } = await supabase
+        .from("payroll_periods")
+        .select(
+          "id, person_id, period, released, daily_rate, late_penalty, gross, net, days_present, person:persons(id,name,department)"
+        )
+        .eq("released", true)
+        .order('period', { ascending: false })
+        .limit(2000);
+      setReleasedPayrolls(data || []);
+
+      // Fetch activity logs to get action type (Released or Advance Release)
       try {
-        const [historyRes, releasedRes] = await Promise.all([
-          supabase
-            .from("payroll_released_history")
-            .select(
-              "id, payroll_period_id, person_id, person_name, department, period, days_present, daily_rate, late_penalty, late_count, total_late_deduction, total_deductions, gross, net, detailed_attendance, released, action, released_by, released_at, person:persons(id,name,department)",
-            )
-            .order("released_at", { ascending: false })
-            .limit(2000),
-          supabase
-            .from("payroll_periods")
-            .select(
-              "id, person_id, period, released, daily_rate, late_penalty, late_count, total_late_deduction, total_deductions, gross, net, days_present, person:persons(id,name,department)",
-            )
-            .eq("released", true)
-            .order("updated_at", { ascending: false })
-            .limit(2000),
-        ]);
-
-        const historyError = historyRes.error;
-        const releasedError = releasedRes.error;
-        if (historyError) throw historyError;
-
-        const historyRows = Array.isArray(historyRes.data) ? historyRes.data : [];
-        const releasedRows = Array.isArray(releasedRes.data) ? releasedRes.data : [];
-
-        const mergedMap = new Map();
-        historyRows.forEach((row) => {
-          mergedMap.set(row.payroll_period_id || row.id, {
-            ...row,
-            person: row.person || {
-              id: row.person_id || "",
-              name: row.person_name || "-",
-              department: row.department || "",
-            },
-            detailed_attendance: Array.isArray(row.detailed_attendance)
-              ? row.detailed_attendance
-              : [],
-          });
-        });
-        releasedRows.forEach((row) => {
-          const key = row.id;
-          if (!mergedMap.has(key)) {
-            mergedMap.set(key, {
-              ...row,
-              payroll_period_id: row.id,
-              person: row.person || {
-                id: row.person_id || "",
-                name: row.person?.name || "-",
-                department: row.person?.department || "",
-              },
-              action: "Released",
-              released_at: row.updated_at || row.created_at || new Date().toISOString(),
-            });
-          }
-        });
-
-        const merged = Array.from(mergedMap.values());
-
-        // If the dedicated history query returns empty but the released rows exist,
-        // still show them so the page never looks blank.
-        if (!merged.length && releasedError) throw releasedError;
-
-        setReleasedPayrolls(merged);
-
+        const { data: logs } = await supabase
+          .from("payroll_activity_logs")
+          .select("payroll_period_id, action")
+          .order("timestamp", { ascending: false });
+        
+        // Create a map of payroll_period_id -> action (most recent action)
         const logsMap = {};
-        merged.forEach((row) => {
-          if (row.payroll_period_id && !logsMap[row.payroll_period_id]) {
-            logsMap[row.payroll_period_id] = row.action || "Released";
+        (logs || []).forEach((log) => {
+          if (log.payroll_period_id && !logsMap[log.payroll_period_id]) {
+            logsMap[log.payroll_period_id] = log.action;
           }
         });
         setActivityLogsMap(logsMap);
       } catch (err) {
-        console.error("Error fetching released payroll history:", err);
-
-        // Fallback to the payroll_periods table if the history table is unavailable.
-        try {
-          const { data: releasedRows } = await supabase
-            .from("payroll_periods")
-            .select(
-              "id, person_id, period, released, daily_rate, late_penalty, late_count, total_late_deduction, total_deductions, gross, net, days_present, person:persons(id,name,department)",
-            )
-            .eq("released", true)
-            .order("period", { ascending: false })
-            .limit(2000);
-          setReleasedPayrolls(releasedRows || []);
-        } catch (fallbackErr) {
-          console.error("Fallback released payroll query failed:", fallbackErr);
-        }
+        console.error("Error fetching activity logs:", err);
       }
     }
     fetchReleased();
@@ -199,118 +137,52 @@ export default function ReleasedHistoryPayroll() {
       .select(
         "department, daily_rate, late_penalty, sss, pag_ibig, philhealth, ot_rate, regular_holiday_rate, special_holiday_rate"
       );
-    const baseContributionPayroll = calculatePayroll(
-      [],
-      [
-        {
-          ...person,
-          department: person?.department || payroll.department || "",
-        },
-      ],
-      deptRates || [],
-      settings || {},
-    )[0] || { sss: 0, pag_ibig: 0, philhealth: 0, cashAdvance: 0 };
     // Fetch attendance for this period
     let detailedAttendance = [];
-    let fullPayroll = {
-      dailyRate: Number(payroll.daily_rate ?? payroll.dailyRate ?? 0),
-      daily_rate: Number(payroll.daily_rate ?? payroll.dailyRate ?? 0),
-      latePenalty: Number(payroll.late_penalty ?? payroll.latePenalty ?? 0),
-      late_penalty: Number(payroll.late_penalty ?? payroll.latePenalty ?? 0),
-      daysPresent: Number(payroll.days_present ?? payroll.daysPresent ?? 0),
-      days_present: Number(payroll.days_present ?? payroll.daysPresent ?? 0),
-      lateCount: Number(payroll.late_count ?? payroll.lateCount ?? 0),
-      lateCountLimit: Number(payroll.late_count_limit ?? 5),
-      totalLateDeduction: Number(
-        payroll.total_late_deduction ?? payroll.totalLateDeduction ?? 0,
-      ),
-      totalDeductions: Number(
-        payroll.total_deductions ?? payroll.totalDeductions ?? 0,
-      ),
-      gross: Number(payroll.gross ?? 0),
-      net: Number(payroll.net ?? 0),
-      otHours: Number(payroll.ot_hours ?? payroll.otHours ?? 0),
-      cashAdvance: Number(payroll.cash_advance ?? 0),
-      sss: Number(payroll.sss ?? baseContributionPayroll.sss ?? 0),
-      pag_ibig: Number(payroll.pag_ibig ?? baseContributionPayroll.pag_ibig ?? 0),
-      philhealth: Number(payroll.philhealth ?? baseContributionPayroll.philhealth ?? 0),
-      cash_advance: Number(payroll.cash_advance ?? baseContributionPayroll.cashAdvance ?? 0),
-    };
+    let fullPayroll = null;
     if (payroll.period && person) {
-      const snapshotAttendance = Array.isArray(payroll.detailed_attendance)
-        ? payroll.detailed_attendance
-        : [];
-
-      detailedAttendance = snapshotAttendance.length
-        ? snapshotAttendance
-        : [];
-
-      let basePayroll = null;
-      if (!snapshotAttendance.length) {
-        // Fetch attendance only when the snapshot does not exist yet.
-        const { data: attendance } = await supabase
-          .from("attendance")
-          .select("id, event, device_time, photo, status, method")
-          .eq("person_id", payroll.person_id)
-          .order("device_time", { ascending: true });
-        const [start, end] = payroll.period.split("_to_");
-        const startTime = new Date(start);
-        const endTime = new Date(end);
-        const periodAttendance = (attendance || []).filter((row) => {
-          const time = new Date(row.device_time);
-          return time >= startTime && time <= endTime;
-        });
-
-        detailedAttendance = getDetailedAttendance(
-          periodAttendance,
-          payroll.person_id,
-          settings || {},
-        );
-
-        basePayroll = calculatePayroll(
-          periodAttendance,
-          [person],
-          deptRates || [],
-          settings || {},
-        )[0];
-      }
-
+      // Parse period string: yyyy-mm-dd_to_yyyy-mm-dd
+      const [start, end] = payroll.period.split("_to_");
+      const { data: attendance } = await supabase
+        .from("attendance")
+        .select("id, event, device_time, photo, status, method")
+        .eq("person_id", payroll.person_id)
+        .gte("device_time", start)
+        .lte("device_time", end)
+        .order('device_time', { ascending: true });
+      detailedAttendance = getDetailedAttendance(
+        attendance || [],
+        payroll.person_id,
+        settings || {},
+      );
+      // Recalculate payroll using the same logic as PayrollPage
+      const basePayroll = calculatePayroll(
+        attendance || [],
+        [person],
+        deptRates || [],
+        settings || {},
+      )[0];
+      const lateCount = detailedAttendance
+        .map((rec) => rec.lateDetails || [])
+        .flat().length;
+      const latePenalty = Number(person.late_penalty || 0);
+      const lateCountLimit = Number(settings.late_count_limit || 5);
+      const totalLateDeduction =
+        lateCount >= lateCountLimit ? lateCount * latePenalty : 0;
+      const totalDeductions =
+        basePayroll.sss +
+        basePayroll.pag_ibig +
+        basePayroll.philhealth +
+        basePayroll.cashAdvance +
+        totalLateDeduction;
+      const net = basePayroll.gross - totalDeductions;
       fullPayroll = {
-        ...(basePayroll || {}),
-        ...fullPayroll,
-        dailyRate:
-          Number(fullPayroll.dailyRate ?? fullPayroll.daily_rate ?? basePayroll?.dailyRate ?? 0),
-        daily_rate:
-          Number(fullPayroll.daily_rate ?? fullPayroll.dailyRate ?? basePayroll?.dailyRate ?? 0),
-        latePenalty:
-          Number(fullPayroll.latePenalty ?? fullPayroll.late_penalty ?? person.late_penalty ?? 0),
-        late_penalty:
-          Number(fullPayroll.late_penalty ?? fullPayroll.latePenalty ?? person.late_penalty ?? 0),
-        daysPresent:
-          Number(fullPayroll.daysPresent ?? fullPayroll.days_present ?? basePayroll?.daysPresent ?? 0),
-        days_present:
-          Number(fullPayroll.days_present ?? fullPayroll.daysPresent ?? basePayroll?.daysPresent ?? 0),
-        lateCount:
-          Number(
-            fullPayroll.lateCount ||
-              detailedAttendance.map((rec) => rec.lateDetails || []).flat().length ||
-              0,
-          ),
-        lateCountLimit: Number(settings.late_count_limit || fullPayroll.lateCountLimit || 5),
-        totalLateDeduction:
-          Number(
-            fullPayroll.totalLateDeduction ||
-              fullPayroll.total_late_deduction ||
-              0,
-          ),
-        totalDeductions:
-          Number(fullPayroll.totalDeductions || fullPayroll.total_deductions || 0),
-        gross:
-          Number(fullPayroll.gross ?? basePayroll?.gross ?? 0),
-        net:
-          Number(fullPayroll.net ?? basePayroll?.gross ?? 0),
-        otHours:
-          Number(fullPayroll.otHours ?? fullPayroll.ot_hours ?? basePayroll?.otHours ?? 0),
+        ...basePayroll,
+        lateCount,
+        lateCountLimit,
+        totalLateDeduction,
+        totalDeductions,
+        net,
       };
     }
     setModalData({
@@ -333,7 +205,6 @@ export default function ReleasedHistoryPayroll() {
       Period: row.period || "",
       "Daily Rate": row.daily_rate ?? "",
       "Late Penalty": row.late_penalty ?? "",
-      Action: row.action || activityLogsMap[row.payroll_period_id] || "Released",
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
@@ -486,7 +357,7 @@ export default function ReleasedHistoryPayroll() {
                     <td style={styles.td}>{p.person_id}</td>
                     <td style={styles.td}>{p.person?.name || "-"}</td>
                     <td style={styles.td}>{p.person?.department || "-"}</td>
-                    <td style={styles.td}>{p.period || "-"}</td>
+                    <td style={styles.td}>{p.period}</td>
                     {(() => {
                       const isSelected =
                         modalData.payroll && selected && selected.id === p.id;
@@ -535,7 +406,7 @@ export default function ReleasedHistoryPayroll() {
                     </td>
                     <td style={styles.td}>
                       <span style={{ color: "#237227", fontWeight: 600 }}>
-                        {p.action || activityLogsMap[p.payroll_period_id] || "Released"}
+                        {activityLogsMap[p.id] || "Released"}
                       </span>
                     </td>
                   </tr>

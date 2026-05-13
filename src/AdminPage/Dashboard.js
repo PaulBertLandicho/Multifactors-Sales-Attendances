@@ -195,7 +195,7 @@ export default function Dashboard() {
       setLoading(true);
       try {
         const [attRes, personsRes, payrollRes, settingsRes] = await Promise.all([
-          supabase.from("attendance").select("device_time,person_id,photo,name,department,event,status,method,point"),
+          supabase.from("attendance").select("device_time,person_id,photo,name,department,event,status,method"),
           // persons table has `name` (single column) rather than first_name/last_name
           supabase.from("persons").select("id,name,department,registration_photo", { count: 'exact' }),
           supabase.from("payroll_periods").select("id,person_id,period,released"),
@@ -374,7 +374,7 @@ export default function Dashboard() {
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
     return (attendance || [])
-      .map((a) => ({ person_id: a.person_id, device_time: a.device_time, photo: a.photo || null, name: a.name || null, department: a.department || null, event: a.event || null, status: a.status || null, method: a.method || null, point: a.point || null, person: personMap[a.person_id] || null }))
+      .map((a) => ({ person_id: a.person_id, device_time: a.device_time, photo: a.photo || null, name: a.name || null, department: a.department || null, event: a.event || null, status: a.status || null, method: a.method || null, person: personMap[a.person_id] || null }))
       .filter((a) => {
         try {
           const d = new Date(a.device_time);
@@ -1018,12 +1018,11 @@ export default function Dashboard() {
         }} style={{ padding: '8px 12px', borderRadius: 999, border: 'none', background: '#237227', color: '#fff' }}><FiDownload color="#ffffff" style={{ marginRight: 8 }} />Export Excel</button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 2fr 1fr 1.2fr 1fr 1fr", gap: 8, alignItems: "center", padding: "10px 12px", fontSize: 13, color: "#6b7280", borderBottom: "1px solid #f8fafc" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 2fr 2fr 1fr 1fr 1fr", gap: 8, alignItems: "center", padding: "10px 12px", fontSize: 13, color: "#6b7280", borderBottom: "1px solid #f8fafc" }}>
         <div>PHOTO / ATTENDANCE TIME</div>
         <div>EMPLOYEE ID</div>
         <div>EMPLOYEE NAME</div>
         <div>DEPARTMENT / WORK HOURS</div>
-        <div>LOCATION</div>
         <div>ATTENDANCE STATUS</div>
         <div>ATTENDANCE METHOD</div>
       </div>
@@ -1057,7 +1056,7 @@ export default function Dashboard() {
           const statusColor = status === "late" ? "#ef4444" : status === "on-time" ? "#059669" : status === "overtime" ? "#6b7280" : "#6b7280";
 
           return (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 2fr 2fr 1fr 1.2fr 1fr 1fr", gap: 8, alignItems: "center", padding: "12px", borderBottom: "1px solid #f1f5f9" }}>
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 2fr 2fr 1fr 1fr 1fr", gap: 8, alignItems: "center", padding: "12px", borderBottom: "1px solid #f1f5f9" }}>
               <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                 <div style={{ width: 48, height: 48, borderRadius: 8, overflow: 'hidden', background: "#eef2f6", display: "flex", alignItems: "center", justifyContent: "center", color: "#0f172a", fontWeight: 700 }}>
                   {r.photo ? (
@@ -1085,10 +1084,6 @@ export default function Dashboard() {
               <div>
                 <div style={{ color: "#0f172a" }}>{(person && person.department) || r.department || "-"}</div>
                 <div style={{ fontSize: 12, color: "#9ca3af", marginTop: 6 }}>{getWorkHoursLabel(r)}</div>
-              </div>
-
-              <div style={{ fontSize: 12, color: "#0f172a", wordBreak: "break-word", maxWidth: "200px" }}>
-                {r.point ? r.point : <span style={{ color: "#9ca3af" }}>—</span>}
               </div>
 
               <div style={{ color: statusColor, fontWeight: 700, textTransform: "lowercase" }}>{status}</div>

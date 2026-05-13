@@ -22,164 +22,6 @@ export default function PersonsTable() {
   const cameraVideoRef = useRef(null);
 
   const cameraStreamRef = useRef(null);
-  const adminLastLocationRef = useRef({ point: "Location unavailable", ts: 0 });
-
-  const buildLocationResult = (point, status, message) => ({ point, status, message });
-
-  const requestBrowserLocation = () => new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      resolve,
-      (error) => resolve({ error }),
-      {
-        enableHighAccuracy: true,
-        timeout: 25000,
-        maximumAge: 0,
-      },
-    );
-  });
-
-  const getCurrentLocationPoint = async () => {
-    const now = Date.now();
-    if (adminLastLocationRef.current?.point && now - (adminLastLocationRef.current.ts || 0) < 60 * 1000) {
-      return buildLocationResult(adminLastLocationRef.current.point, "ok", "Using cached location.");
-    }
-
-    if (typeof window !== "undefined" && window.isSecureContext === false) {
-      return buildLocationResult(
-        "Location unavailable",
-        "insecure-context",
-        "Location requires HTTPS or localhost. Open the app over a secure connection.",
-      );
-    }
-
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      return buildLocationResult(
-        "Location unavailable",
-        "unsupported",
-        "This device or browser does not support location services.",
-      );
-    }
-
-    try {
-      if (navigator.permissions && navigator.permissions.query) {
-        const permission = await navigator.permissions.query({ name: "geolocation" });
-        if (permission.state === "denied") {
-          return buildLocationResult(
-            "Location unavailable",
-            "permission-denied",
-            "Browser location permission is denied. Allow location for this site in the browser settings and retry.",
-          );
-        }
-      }
-    } catch (e) {}
-
-    let lastError = null;
-    let locationResult = null;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const result = await requestBrowserLocation();
-      if (result && !result.error) {
-        const position = result;
-          const latNum = Number(position.coords.latitude || 0);
-          const lngNum = Number(position.coords.longitude || 0);
-          const lat = latNum.toFixed(6);
-          const lng = lngNum.toFixed(6);
-          const accuracy = Number(position.coords.accuracy || 0);
-
-          try {
-            const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`;
-            const res = await fetch(reverseUrl, {
-              headers: {
-                Accept: "application/json",
-                "Accept-Language": "en",
-              },
-            });
-            if (res.ok) {
-              const data = await res.json();
-              const addr = data?.address || {};
-              const placeParts = [
-                addr.road || addr.neighbourhood || addr.suburb || addr.village || addr.town || addr.city || addr.municipality,
-                addr.city || addr.town || addr.village || addr.municipality,
-                addr.state || addr.region || addr.province,
-                addr.country,
-              ].filter(Boolean);
-
-              const uniqueParts = [...new Set(placeParts)];
-              if (uniqueParts.length) {
-                locationResult = buildLocationResult(uniqueParts.join(", "), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
-                break;
-              }
-              if (data?.display_name) {
-                locationResult = buildLocationResult(String(data.display_name), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
-                break;
-              }
-            }
-          } catch (e) {
-            // Fallback handled below when reverse geocoding fails.
-          }
-
-          if (!locationResult) {
-            locationResult = buildLocationResult(
-              `Coordinates: ${lat}, ${lng}`,
-              "ok",
-              accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.",
-            );
-          }
-
-          if (accuracy && accuracy > 300 && attempt < 2) {
-            lastError = { code: "LOW_ACCURACY", message: `GPS accuracy is too coarse (${Math.round(accuracy)} meters). Retrying.` };
-            locationResult = null;
-            continue;
-          }
-          break;
-      }
-
-      lastError = result?.error || result || lastError;
-      if (lastError?.code === 1) {
-        locationResult = buildLocationResult(
-          "Location unavailable",
-          "permission-denied",
-          "Browser location permission is denied. Allow location for this site in the browser settings and retry.",
-        );
-        break;
-      }
-      if (attempt < 2) {
-        continue;
-      }
-    }
-
-    if (!locationResult) {
-      if (lastError?.code === 2) {
-        locationResult = buildLocationResult(
-          "Location unavailable",
-          "position-unavailable",
-          "The device could not determine a GPS or network location. Move to an open area and try again.",
-        );
-      } else if (lastError?.code === 3) {
-        locationResult = buildLocationResult(
-          "Location unavailable",
-          "timeout",
-          "Location request timed out. Try again with better signal or wait a few seconds.",
-        );
-      } else if (lastError?.code === "LOW_ACCURACY") {
-        locationResult = buildLocationResult(
-          "Location unavailable",
-          "position-unavailable",
-          lastError.message,
-        );
-      } else {
-        locationResult = buildLocationResult(
-          "Location unavailable",
-          "unavailable",
-          "Location could not be determined on this device.",
-        );
-      }
-    }
-
-    if (locationResult.status === "ok" && locationResult.point && locationResult.point !== "Location unavailable") {
-      adminLastLocationRef.current = { point: locationResult.point, ts: now };
-    }
-    return locationResult;
-  };
 
   // Start camera when modal opens
 
@@ -260,9 +102,8 @@ export default function PersonsTable() {
   const [newCashAmount, setNewCashAmount] = useState("");
   const [newCashNote, setNewCashNote] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
-  const [locLoading, setLocLoading] = useState(false);
   const editPhotoInputRef = useRef(null);
-  const [adminModal, setAdminModal] = useState({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null, locationStatus: null, locationMessage: "" });
+  const [adminModal, setAdminModal] = useState({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "" });
 
   const Icons = {
     download: <FiDownload color="#ffffff" style={{ marginRight: 8 }} />,
@@ -294,31 +135,21 @@ export default function PersonsTable() {
         try {
           const ids = list.map((p) => p.id).filter(Boolean);
           if (ids.length) {
-            const [activeRes, historyRes] = await Promise.all([
-              supabase
-                .from("payroll_periods")
-                .select("person_id, net, gross, period")
-                .in("person_id", ids)
-                .order("period", { ascending: false }),
-              supabase
-                .from("payroll_released_history")
-                .select("person_id, net, gross, period")
-                .in("person_id", ids)
-                .order("period", { ascending: false }),
-            ]);
-
-            const payrolls = [
-              ...(Array.isArray(activeRes.data) ? activeRes.data : []),
-              ...(Array.isArray(historyRes.data) ? historyRes.data : []),
-            ];
-            const map = {};
-            const gmap = {};
-            for (const pr of payrolls) {
-              if (!map[pr.person_id]) map[pr.person_id] = pr.net || 0;
-              if (!gmap[pr.person_id]) gmap[pr.person_id] = pr.gross || 0;
+            const { data: payrolls, error: payErr } = await supabase
+              .from("payroll_periods")
+              .select("person_id, net, gross, period")
+              .in("person_id", ids)
+              .order("period", { ascending: false });
+            if (!payErr && Array.isArray(payrolls)) {
+              const map = {};
+              const gmap = {};
+              for (const pr of payrolls) {
+                if (!map[pr.person_id]) map[pr.person_id] = pr.net || 0;
+                if (!gmap[pr.person_id]) gmap[pr.person_id] = pr.gross || 0;
+              }
+              setPayrollMap(map);
+              setPayrollGrossMap(gmap);
             }
-            setPayrollMap(map);
-            setPayrollGrossMap(gmap);
             // Fetch today's attendance for presence
             try {
               const start = new Date();
@@ -588,15 +419,7 @@ export default function PersonsTable() {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
     const localIsoForInput = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    setLocLoading(true);
-    try {
-      const locationResult = adminModal.point ? { point: adminModal.point, status: adminModal.locationStatus || "ok", message: adminModal.locationMessage || "" } : await getCurrentLocationPoint();
-      setAdminModal({ visible: true, person, event: "time-in", datetime: localIsoForInput, photo: person.registration_photo || null, note: "", point: locationResult.point, locationStatus: locationResult.status, locationMessage: locationResult.message });
-    } catch (e) {
-      setAdminModal({ visible: true, person, event: "time-in", datetime: localIsoForInput, photo: person.registration_photo || null, note: "", point: null, locationStatus: "unavailable", locationMessage: "Location could not be determined on this device." });
-    } finally {
-      setLocLoading(false);
-    }
+    setAdminModal({ visible: true, person, event: "time-in", datetime: localIsoForInput, photo: person.registration_photo || null, note: "" });
   };
 
   // Helper to get photo for a person (latest attendance photo or registration photo)
@@ -633,11 +456,6 @@ export default function PersonsTable() {
 
       const iso = new Date(dtStr).toISOString();
       const hhmm = new Date(dtStr).toTimeString().slice(0, 5);
-      const locationResult = adminModal.point ? { point: adminModal.point, status: adminModal.locationStatus || "ok", message: adminModal.locationMessage || "" } : await getCurrentLocationPoint();
-      if (locationResult.status !== "ok") {
-        setAdminModal((s) => ({ ...s, point: locationResult.point, locationStatus: locationResult.status, locationMessage: locationResult.message }));
-      }
-      const locationPoint = locationResult.point;
       let status = "on-time";
       try {
         status = determineAttendanceStatus(hhmm, adminModal.event, settingsData || {}, false);
@@ -651,7 +469,6 @@ export default function PersonsTable() {
         method: "admin-entry",
         device_time: iso,
         status,
-        point: locationPoint,
         photo: adminModal.photo || null,
       };
 
@@ -693,7 +510,7 @@ export default function PersonsTable() {
       } catch (e) {}
 
       Swal.fire("Recorded", "Attendance recorded.", "success");
-      setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null, locationStatus: null, locationMessage: "" });
+      setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "" });
     } catch (err) {
       console.error(err);
       Swal.fire("Error", err.message || String(err), "error");
@@ -1571,34 +1388,6 @@ export default function PersonsTable() {
                 <label style={styles.modalLabel}>Date & time</label>
                 <input type="datetime-local" value={adminModal.datetime} onChange={(e) => setAdminModal((s) => ({ ...s, datetime: e.target.value }))} style={styles.modalInput} />
               </div>
-              <div>
-                <label style={styles.modalLabel}>Location</label>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <div style={{ flex: 1, padding: 8, background: '#f9fafb', borderRadius: 8, minHeight: 40 }}>{adminModal.point ? adminModal.point : <span style={{ color: '#9ca3af' }}>—</span>}</div>
-                  <button
-                    onClick={async () => {
-                      try {
-                        setLocLoading(true);
-                        const locationResult = await getCurrentLocationPoint();
-                        setAdminModal((s) => ({ ...s, point: locationResult.point, locationStatus: locationResult.status, locationMessage: locationResult.message }));
-                      } catch (e) {
-                        setAdminModal((s) => ({ ...s, point: null, locationStatus: "unavailable", locationMessage: "Location could not be determined on this device." }));
-                      } finally {
-                        setLocLoading(false);
-                      }
-                    }}
-                    style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer' }}
-                    disabled={locLoading}
-                  >
-                    {locLoading ? 'Refreshing...' : 'Refresh'}
-                  </button>
-                </div>
-                {adminModal.locationMessage && adminModal.locationStatus && adminModal.locationStatus !== "ok" && (
-                  <div style={{ marginTop: 6, color: '#b45309', fontSize: 12, lineHeight: 1.4 }}>
-                    {adminModal.locationMessage}
-                  </div>
-                )}
-              </div>
               {/* <div>
                 <label style={styles.modalLabel}>Registered Photo</label>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1606,7 +1395,7 @@ export default function PersonsTable() {
                 </div>
               </div> */}
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button onClick={() => setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null })} style={{ ...styles.button, ...styles.buttonSecondary }}>Cancel</button>
+                <button onClick={() => setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "" })} style={{ ...styles.button, ...styles.buttonSecondary }}>Cancel</button>
                 <button onClick={submitAdminAttendance} style={{ ...styles.button, ...styles.buttonPrimary }}>{actionLoading ? "Recording..." : "Record"}</button>
               </div>
             </div>

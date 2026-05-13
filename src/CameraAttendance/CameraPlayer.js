@@ -39,35 +39,6 @@ const playVoice = (type = "info") => {
   }
 };
 
-const isDuplicateAttendanceError = (error) => {
-  const candidates = [
-    error?.message,
-    error?.details,
-    error?.hint,
-    error?.error_description,
-    error?.description,
-    error?.cause?.message,
-    typeof error === "string" ? error : "",
-  ]
-    .filter(Boolean)
-    .map((value) => String(value).toLowerCase());
-
-  try {
-    candidates.push(JSON.stringify(error).toLowerCase());
-  } catch (e) {}
-
-  return candidates.some((text) =>
-    /duplicate attendance detected recently|duplicate attendance|already recorded|duplicate|unique|constraint|p0001/.test(
-      text,
-    ),
-  );
-};
-
-const notifyDuplicateAttendance = (name) => {
-  playVoice("info");
-  console.info(`Duplicate attendance ignored for ${name}.`);
-};
-
 const DETECTION_INTERVAL_MS = 70;
 const PERSON_COOLDOWN_MS = 1200;
 // const UNKNOWN_FACE_COOLDOWN_MS = 3500; // Removed: unused constant
@@ -118,8 +89,6 @@ export default function CameraPlayer({
   const [cameraStatus, setCameraStatus] = useState(CAMERA_STATUS.CONNECTING);
   const [cameraError, setCameraError] = useState("");
   const [useLocalCamera, setUseLocalCamera] = useState(false); // Fallback flag
-  const [locationInfo, setLocationInfo] = useState({ point: "", status: "idle", message: "Tap Enable Location to capture the current device location." });
-  const [locationBusy, setLocationBusy] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const lastScanRef = useRef({});
   const fullscreenRef = useRef(null);
@@ -240,8 +209,6 @@ export default function CameraPlayer({
   const verificationStartRef = useRef(0);
   const settingsAlertShownRef = useRef(false);
   const descriptorBufferRef = useRef([]);
-  const lastLocationRef = useRef({ point: "Location unavailable", ts: 0 });
-  const lastLocationWarningRef = useRef({ key: "", ts: 0 });
   const DESCR_BUFFER_SIZE = 3;
   const DESCR_STABILITY = 0.07;
   const lastLandmarksRef = useRef(null);
@@ -270,174 +237,6 @@ export default function CameraPlayer({
       return Swal.fire(opts);
     }
   };
-
-  const buildLocationResult = (point, status, message) => ({ point, status, message });
-
-  const requestBrowserLocation = () => new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      resolve,
-      (error) => resolve({ error }),
-      {
-        enableHighAccuracy: true,
-        timeout: 25000,
-        maximumAge: 0,
-      },
-    );
-  });
-
-  const getCurrentLocationPoint = useCallback(async () => {
-    const now = Date.now();
-    if (lastLocationRef.current?.point && now - (lastLocationRef.current.ts || 0) < 60 * 1000) {
-      return buildLocationResult(lastLocationRef.current.point, "ok", "Using cached location.");
-    }
-
-    if (typeof window !== "undefined" && window.isSecureContext === false) {
-      return buildLocationResult(
-        "Location unavailable",
-        "insecure-context",
-        "Location requires HTTPS or localhost. Open the app over a secure connection.",
-      );
-    }
-
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      return buildLocationResult(
-        "Location unavailable",
-        "unsupported",
-        "This device or browser does not support location services.",
-      );
-    }
-
-    try {
-      if (navigator.permissions && navigator.permissions.query) {
-        const permission = await navigator.permissions.query({ name: "geolocation" });
-        if (permission.state === "denied") {
-          return buildLocationResult(
-            "Location unavailable",
-            "permission-denied",
-            "Browser location permission is denied. Allow location for this site in the browser settings and retry.",
-          );
-        }
-      }
-    } catch (e) {}
-
-    let lastError = null;
-    let locationResult = null;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const result = await requestBrowserLocation();
-      if (result && !result.error) {
-        const position = result;
-          const latNum = Number(position.coords.latitude || 0);
-          const lngNum = Number(position.coords.longitude || 0);
-          const lat = latNum.toFixed(6);
-          const lng = lngNum.toFixed(6);
-          const accuracy = Number(position.coords.accuracy || 0);
-
-          try {
-            const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`;
-            const res = await fetch(reverseUrl, {
-              headers: {
-                Accept: "application/json",
-                "Accept-Language": "en",
-              },
-            });
-            if (res.ok) {
-              const data = await res.json();
-              const addr = data?.address || {};
-              const placeParts = [
-                addr.road || addr.neighbourhood || addr.suburb || addr.village || addr.town || addr.city || addr.municipality,
-                addr.city || addr.town || addr.village || addr.municipality,
-                addr.state || addr.region || addr.province,
-                addr.country,
-              ].filter(Boolean);
-
-              const uniqueParts = [...new Set(placeParts)];
-              if (uniqueParts.length) {
-                locationResult = buildLocationResult(uniqueParts.join(", "), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
-                break;
-              }
-              if (data?.display_name) {
-                locationResult = buildLocationResult(String(data.display_name), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
-                break;
-              }
-            }
-          } catch (e) {
-            // Fallback handled below when reverse geocoding fails.
-          }
-
-          if (!locationResult) {
-            locationResult = buildLocationResult(
-              `Coordinates: ${lat}, ${lng}`,
-              "ok",
-              accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.",
-            );
-          }
-
-          if (accuracy && accuracy > 300 && attempt < 2) {
-            lastError = { code: "LOW_ACCURACY", message: `GPS accuracy is too coarse (${Math.round(accuracy)} meters). Retrying.` };
-            locationResult = null;
-            continue;
-          }
-          break;
-      }
-
-      lastError = result?.error || result || lastError;
-      if (lastError?.code === 1) {
-        locationResult = buildLocationResult(
-          "Location unavailable",
-          "permission-denied",
-          "Browser location permission is denied. Allow location for this site in the browser settings and retry.",
-        );
-        break;
-      }
-      if (attempt < 2) {
-        continue;
-      }
-    }
-
-    if (!locationResult) {
-      if (lastError?.code === 2) {
-        locationResult = buildLocationResult(
-          "Location unavailable",
-          "position-unavailable",
-          "The device could not determine a GPS or network location. Move to an open area and try again.",
-        );
-      } else if (lastError?.code === 3) {
-        locationResult = buildLocationResult(
-          "Location unavailable",
-          "timeout",
-          "Location request timed out. Try again with better signal or wait a few seconds.",
-        );
-      } else if (lastError?.code === "LOW_ACCURACY") {
-        locationResult = buildLocationResult(
-          "Location unavailable",
-          "position-unavailable",
-          lastError.message,
-        );
-      } else {
-        locationResult = buildLocationResult(
-          "Location unavailable",
-          "unavailable",
-          "Location could not be determined on this device.",
-        );
-      }
-    }
-
-    if (locationResult.status === "ok" && locationResult.point && locationResult.point !== "Location unavailable") {
-      lastLocationRef.current = { point: locationResult.point, ts: now };
-    }
-    return locationResult;
-  }, []);
-
-  const refreshCurrentLocation = useCallback(async () => {
-    setLocationBusy(true);
-    try {
-      const result = await getCurrentLocationPoint();
-      setLocationInfo(result);
-      return result;
-    } finally {
-      setLocationBusy(false);
-    }
-  }, [getCurrentLocationPoint]);
 
   // ------------------- Helpers -------------------
   const captureCurrentFrame = useCallback(() => {
@@ -1317,34 +1116,13 @@ export default function CameraPlayer({
 
           // Ensure recordAttendanceForPerson or any attendance logic does NOT update registration_photo
           // (Assumes recordAttendanceForPerson does not update registration_photo for existing persons)
-          (async () => {
-            const locationResult = await getCurrentLocationPoint();
-            if (locationResult.status !== "ok") {
-              const warnKey = `${locationResult.status}:${locationResult.message}`;
-              const nowMs = Date.now();
-              if (!lastLocationWarningRef.current.key || lastLocationWarningRef.current.key !== warnKey || nowMs - lastLocationWarningRef.current.ts > 10000) {
-                lastLocationWarningRef.current = { key: warnKey, ts: nowMs };
-                playVoice("warning");
-                showSwal({
-                  icon: locationResult.status === "permission-denied" ? "error" : "warning",
-                  title: "Location unavailable",
-                  text: locationResult.message,
-                  timer: 4000,
-                  showConfirmButton: false,
-                });
-              }
-            }
-            return recordAttendanceForPerson({
-              supabase,
-              person: bestMatch,
-              settings,
-              scanPayload: {
-                ...scanPayload,
-                point: locationResult.point,
-              },
-              method: "face-scan",
-            });
-          })()
+          recordAttendanceForPerson({
+            supabase,
+            person: bestMatch,
+            settings,
+            scanPayload,
+            method: "face-scan",
+          })
             .then((result) => {
               console.log("ATTENDANCE DEBUG: recordAttendance result=", result);
               if (result.inserted) {
@@ -1364,24 +1142,26 @@ export default function CameraPlayer({
                         showConfirmButton: false,
                       });
               } else if (result.blocked) {
-                // Throttle duplicate/info voice feedback to once every 5 seconds.
+                // Throttle SweetAlert for blocked/info (already timed in) to once every 5 seconds
                 const nowMs = Date.now();
                 if (
                   !lastScanRef.current.blockedInfoTs ||
                   nowMs - lastScanRef.current.blockedInfoTs > 5000
                 ) {
-                  notifyDuplicateAttendance(bestMatch.name);
+                  playVoice("info");
+                  showSwal({
+                    icon: "info",
+                    title: bestMatch.name,
+                    text: result.message,
+                    timer: 2200,
+                    showConfirmButton: false,
+                  });
                   lastScanRef.current.blockedInfoTs = nowMs;
                 }
               }
             })
             .catch((err) => {
               console.error("ATTENDANCE ERROR:", err);
-              if (isDuplicateAttendanceError(err)) {
-                notifyDuplicateAttendance(bestMatch.name);
-                return;
-              }
-
               playVoice("error");
               showSwal({
                 icon: "error",
@@ -1459,7 +1239,6 @@ export default function CameraPlayer({
     useLocalCamera,
     debugMode,
     settings,
-    getCurrentLocationPoint,
   ]);
 
   // ------------------- Update current time -------------------
@@ -1538,23 +1317,6 @@ export default function CameraPlayer({
             >
               {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
             </button>
-            <button
-              onClick={refreshCurrentLocation}
-              style={{
-                marginLeft: 8,
-                padding: "6px 10px",
-                borderRadius: 8,
-                border: "none",
-                cursor: "pointer",
-                background: "#e0f2fe",
-                color: "#0369a1",
-                fontWeight: 700,
-              }}
-              disabled={locationBusy}
-              title="Request current location from the browser"
-            >
-              {locationBusy ? "Checking..." : (locationInfo.status === "ok" ? "Refresh Location" : "Enable Location")}
-            </button>
             {cameraStatus === CAMERA_STATUS.ERROR && (
               <span style={{ ...styles.badge, ...styles.badgeError }}>
                 <Icon as={FiAlertTriangle} style={{ marginRight: 8 }} ariaLabel="Error" />Error
@@ -1627,16 +1389,6 @@ export default function CameraPlayer({
               </span>
               <span style={styles.graceBadge}>
                 <FiClock style={{ marginRight: 6 }} />{settings.afternoon_grace_minutes} min grace
-              </span>
-            </div>
-            <div style={{ ...styles.settingRow, borderBottom: "none" }}>
-              <span style={styles.settingIcon}><Icon as={FiUser} ariaLabel="Location" /></span>
-              <span style={styles.settingLabel}>Location:</span>
-              <span style={styles.settingValue}>
-                {locationInfo.point || "Not captured yet"}
-              </span>
-              <span style={{ ...styles.graceBadge, background: locationInfo.status === "ok" ? "#dcfce7" : "#fee2e2", color: locationInfo.status === "ok" ? "#166534" : "#b91c1c" }}>
-                {locationInfo.status === "ok" ? (locationInfo.message || "Ready") : (locationInfo.message || "Tap Enable Location")}
               </span>
             </div>
             <div style={styles.settingsActions}>

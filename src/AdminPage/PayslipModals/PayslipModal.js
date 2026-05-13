@@ -456,19 +456,15 @@ export default function PayslipModal({
   const otHours = Math.round((payroll.otHours ?? 0) * 100) / 100;
   // Round OT pay to 2 decimals for display and math
   const otPay = Math.round(hourlyRate * otHours * 100) / 100;
-  const safeNumber = (value) => {
-    const numberValue = Number(value ?? 0);
-    return Number.isFinite(numberValue) ? numberValue : 0;
-  };
   const deductions = [
-    { label: "SSS", value: person.sss ? safeNumber(payroll.sss) : 0 },
+    { label: "SSS", value: person.sss ? Number(payroll.sss) : 0 },
     {
       label: "Pag-ibig",
-      value: person.pag_ibig ? safeNumber(payroll.pag_ibig) : 0,
+      value: person.pag_ibig ? Number(payroll.pag_ibig) : 0,
     },
     {
       label: "PhilHealth",
-      value: person.philhealth ? safeNumber(payroll.philhealth) : 0,
+      value: person.philhealth ? Number(payroll.philhealth) : 0,
     },
   ];
 
@@ -476,18 +472,15 @@ export default function PayslipModal({
     payroll.lateCountLimit || payroll.late_count_limit || 5;
   const latePenalty = person.late_penalty || 0;
   const lateDeduction =
-    safeNumber(payroll.totalLateDeduction) ||
-    safeNumber(payroll.total_late_deduction) ||
+    payroll.totalLateDeduction ??
+    payroll.total_late_deduction ??
     (payroll.lateCount >= lateCountLimit ? payroll.lateCount * latePenalty : 0);
   const computedDeductionsSum =
-    safeNumber(lateDeduction) +
-    deductions.reduce((acc, d) => acc + safeNumber(d.value), 0) +
-    safeNumber(cashAdvanceTotalInPeriod);
+    lateDeduction + deductions.reduce((acc, d) => acc + d.value, 0) +
+    Number(cashAdvanceTotalInPeriod || 0);
   const totalDeductions =
     Math.round(
-      (safeNumber(payroll.totalDeductions) ||
-        safeNumber(payroll.total_deductions) ||
-        computedDeductionsSum) *
+      (Number(payroll.totalDeductions ?? payroll.total_deductions ?? computedDeductionsSum) || computedDeductionsSum) *
         100,
     ) / 100;
 

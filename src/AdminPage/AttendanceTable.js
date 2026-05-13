@@ -622,7 +622,6 @@ export default function AttendanceTable() {
     { key: "person_id", label: "Person ID" },
     { key: "name", label: "Employee Name" },
     { key: "department", label: "Department" },
-    { key: "point", label: "Location" },
     // { key: 'shift', label: 'Shift' },
     { key: "work_hours", label: "Work Hours" },
     { key: "status", label: "Attendance Status" },
@@ -639,7 +638,6 @@ export default function AttendanceTable() {
         "Person ID": row.person_id,
         Name: person.name || "",
         Department: person.department || "",
-        Location: row.point || "",
         "Attendance Event": row.event,
         Status: row.status,
         "Attendance Method": row.method,
@@ -920,8 +918,6 @@ export default function AttendanceTable() {
                             ...styles.td,
                             fontFamily:
                               col.key === "person_id" ? "monospace" : "inherit",
-                            wordBreak: col.key === "point" ? "break-word" : "normal",
-                            maxWidth: col.key === "point" ? "220px" : "none",
                             color: isLate
                               ? styles.lateText.color
                               : isOnTime
