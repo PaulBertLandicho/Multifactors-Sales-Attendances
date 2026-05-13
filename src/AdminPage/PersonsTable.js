@@ -26,6 +26,18 @@ export default function PersonsTable() {
 
   const buildLocationResult = (point, status, message) => ({ point, status, message });
 
+  const requestBrowserLocation = () => new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      resolve,
+      (error) => resolve({ error }),
+      {
+        enableHighAccuracy: true,
+        timeout: 25000,
+        maximumAge: 0,
+      },
+    );
+  });
+
   const getCurrentLocationPoint = async () => {
     const now = Date.now();
     if (adminLastLocationRef.current?.point && now - (adminLastLocationRef.current.ts || 0) < 60 * 1000) {
@@ -61,13 +73,17 @@ export default function PersonsTable() {
       }
     } catch (e) {}
 
-    const locationResult = await new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
+    let lastError = null;
+    let locationResult = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const result = await requestBrowserLocation();
+      if (result && !result.error) {
+        const position = result;
           const latNum = Number(position.coords.latitude || 0);
           const lngNum = Number(position.coords.longitude || 0);
           const lat = latNum.toFixed(6);
           const lng = lngNum.toFixed(6);
+          const accuracy = Number(position.coords.accuracy || 0);
 
           try {
             const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`;
@@ -89,66 +105,75 @@ export default function PersonsTable() {
 
               const uniqueParts = [...new Set(placeParts)];
               if (uniqueParts.length) {
-                resolve(buildLocationResult(uniqueParts.join(", "), "ok", "Location detected."));
-                return;
+                locationResult = buildLocationResult(uniqueParts.join(", "), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
+                break;
               }
               if (data?.display_name) {
-                resolve(buildLocationResult(String(data.display_name), "ok", "Location detected."));
-                return;
+                locationResult = buildLocationResult(String(data.display_name), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
+                break;
               }
             }
           } catch (e) {
             // Fallback handled below when reverse geocoding fails.
           }
 
-          resolve(buildLocationResult(`Coordinates: ${lat}, ${lng}`, "ok", "Location detected."));
-        },
-        (error) => {
-          if (error?.code === error.PERMISSION_DENIED) {
-            resolve(
-              buildLocationResult(
-                "Location unavailable",
-                "permission-denied",
-                "Browser location permission is denied. Allow location for this site in the browser settings and retry.",
-              ),
+          if (!locationResult) {
+            locationResult = buildLocationResult(
+              `Coordinates: ${lat}, ${lng}`,
+              "ok",
+              accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.",
             );
-            return;
           }
-          if (error?.code === error.POSITION_UNAVAILABLE) {
-            resolve(
-              buildLocationResult(
-                "Location unavailable",
-                "position-unavailable",
-                "The device could not determine a GPS or network location. Move to an open area and try again.",
-              ),
-            );
-            return;
+
+          if (accuracy && accuracy > 300 && attempt < 2) {
+            lastError = { code: "LOW_ACCURACY", message: `GPS accuracy is too coarse (${Math.round(accuracy)} meters). Retrying.` };
+            locationResult = null;
+            continue;
           }
-          if (error?.code === error.TIMEOUT) {
-            resolve(
-              buildLocationResult(
-                "Location unavailable",
-                "timeout",
-                "Location request timed out. Try again with better signal or wait a few seconds.",
-              ),
-            );
-            return;
-          }
-          resolve(
-            buildLocationResult(
-              "Location unavailable",
-              "unavailable",
-              "Location could not be determined on this device.",
-            ),
-          );
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0,
-        },
-      );
-    });
+          break;
+      }
+
+      lastError = result?.error || result || lastError;
+      if (lastError?.code === 1) {
+        locationResult = buildLocationResult(
+          "Location unavailable",
+          "permission-denied",
+          "Browser location permission is denied. Allow location for this site in the browser settings and retry.",
+        );
+        break;
+      }
+      if (attempt < 2) {
+        continue;
+      }
+    }
+
+    if (!locationResult) {
+      if (lastError?.code === 2) {
+        locationResult = buildLocationResult(
+          "Location unavailable",
+          "position-unavailable",
+          "The device could not determine a GPS or network location. Move to an open area and try again.",
+        );
+      } else if (lastError?.code === 3) {
+        locationResult = buildLocationResult(
+          "Location unavailable",
+          "timeout",
+          "Location request timed out. Try again with better signal or wait a few seconds.",
+        );
+      } else if (lastError?.code === "LOW_ACCURACY") {
+        locationResult = buildLocationResult(
+          "Location unavailable",
+          "position-unavailable",
+          lastError.message,
+        );
+      } else {
+        locationResult = buildLocationResult(
+          "Location unavailable",
+          "unavailable",
+          "Location could not be determined on this device.",
+        );
+      }
+    }
 
     if (locationResult.status === "ok" && locationResult.point && locationResult.point !== "Location unavailable") {
       adminLastLocationRef.current = { point: locationResult.point, ts: now };

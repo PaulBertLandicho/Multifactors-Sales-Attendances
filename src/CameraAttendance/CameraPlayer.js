@@ -118,6 +118,8 @@ export default function CameraPlayer({
   const [cameraStatus, setCameraStatus] = useState(CAMERA_STATUS.CONNECTING);
   const [cameraError, setCameraError] = useState("");
   const [useLocalCamera, setUseLocalCamera] = useState(false); // Fallback flag
+  const [locationInfo, setLocationInfo] = useState({ point: "", status: "idle", message: "Tap Enable Location to capture the current device location." });
+  const [locationBusy, setLocationBusy] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
   const lastScanRef = useRef({});
   const fullscreenRef = useRef(null);
@@ -271,6 +273,18 @@ export default function CameraPlayer({
 
   const buildLocationResult = (point, status, message) => ({ point, status, message });
 
+  const requestBrowserLocation = () => new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      resolve,
+      (error) => resolve({ error }),
+      {
+        enableHighAccuracy: true,
+        timeout: 25000,
+        maximumAge: 0,
+      },
+    );
+  });
+
   const getCurrentLocationPoint = useCallback(async () => {
     const now = Date.now();
     if (lastLocationRef.current?.point && now - (lastLocationRef.current.ts || 0) < 60 * 1000) {
@@ -306,13 +320,17 @@ export default function CameraPlayer({
       }
     } catch (e) {}
 
-    const locationResult = await new Promise((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
+    let lastError = null;
+    let locationResult = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const result = await requestBrowserLocation();
+      if (result && !result.error) {
+        const position = result;
           const latNum = Number(position.coords.latitude || 0);
           const lngNum = Number(position.coords.longitude || 0);
           const lat = latNum.toFixed(6);
           const lng = lngNum.toFixed(6);
+          const accuracy = Number(position.coords.accuracy || 0);
 
           try {
             const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`;
@@ -334,72 +352,92 @@ export default function CameraPlayer({
 
               const uniqueParts = [...new Set(placeParts)];
               if (uniqueParts.length) {
-                resolve(buildLocationResult(uniqueParts.join(", "), "ok", "Location detected."));
-                return;
+                locationResult = buildLocationResult(uniqueParts.join(", "), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
+                break;
               }
               if (data?.display_name) {
-                resolve(buildLocationResult(String(data.display_name), "ok", "Location detected."));
-                return;
+                locationResult = buildLocationResult(String(data.display_name), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
+                break;
               }
             }
           } catch (e) {
             // Fallback handled below when reverse geocoding fails.
           }
 
-          resolve(buildLocationResult(`Coordinates: ${lat}, ${lng}`, "ok", "Location detected."));
-        },
-        (error) => {
-          if (error && error.code === error.PERMISSION_DENIED) {
-            resolve(
-              buildLocationResult(
-                "Location unavailable",
-                "permission-denied",
-                "Browser location permission is denied. Allow location for this site in the browser settings and retry.",
-              ),
+          if (!locationResult) {
+            locationResult = buildLocationResult(
+              `Coordinates: ${lat}, ${lng}`,
+              "ok",
+              accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.",
             );
-            return;
           }
-          if (error && error.code === error.POSITION_UNAVAILABLE) {
-            resolve(
-              buildLocationResult(
-                "Location unavailable",
-                "position-unavailable",
-                "The device could not determine a GPS or network location. Move to an open area and try again.",
-              ),
-            );
-            return;
+
+          if (accuracy && accuracy > 300 && attempt < 2) {
+            lastError = { code: "LOW_ACCURACY", message: `GPS accuracy is too coarse (${Math.round(accuracy)} meters). Retrying.` };
+            locationResult = null;
+            continue;
           }
-          if (error && error.code === error.TIMEOUT) {
-            resolve(
-              buildLocationResult(
-                "Location unavailable",
-                "timeout",
-                "Location request timed out. Try again with better signal or wait a few seconds.",
-              ),
-            );
-            return;
-          }
-          resolve(
-            buildLocationResult(
-              "Location unavailable",
-              "unavailable",
-              "Location could not be determined on this device.",
-            ),
-          );
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 15000,
-          maximumAge: 0,
-        },
-      );
-    });
+          break;
+      }
+
+      lastError = result?.error || result || lastError;
+      if (lastError?.code === 1) {
+        locationResult = buildLocationResult(
+          "Location unavailable",
+          "permission-denied",
+          "Browser location permission is denied. Allow location for this site in the browser settings and retry.",
+        );
+        break;
+      }
+      if (attempt < 2) {
+        continue;
+      }
+    }
+
+    if (!locationResult) {
+      if (lastError?.code === 2) {
+        locationResult = buildLocationResult(
+          "Location unavailable",
+          "position-unavailable",
+          "The device could not determine a GPS or network location. Move to an open area and try again.",
+        );
+      } else if (lastError?.code === 3) {
+        locationResult = buildLocationResult(
+          "Location unavailable",
+          "timeout",
+          "Location request timed out. Try again with better signal or wait a few seconds.",
+        );
+      } else if (lastError?.code === "LOW_ACCURACY") {
+        locationResult = buildLocationResult(
+          "Location unavailable",
+          "position-unavailable",
+          lastError.message,
+        );
+      } else {
+        locationResult = buildLocationResult(
+          "Location unavailable",
+          "unavailable",
+          "Location could not be determined on this device.",
+        );
+      }
+    }
 
     if (locationResult.status === "ok" && locationResult.point && locationResult.point !== "Location unavailable") {
       lastLocationRef.current = { point: locationResult.point, ts: now };
     }
     return locationResult;
   }, []);
+
+  const refreshCurrentLocation = useCallback(async () => {
+    setLocationBusy(true);
+    try {
+      const result = await getCurrentLocationPoint();
+      setLocationInfo(result);
+      return result;
+    } finally {
+      setLocationBusy(false);
+    }
+  }, [getCurrentLocationPoint]);
 
   // ------------------- Helpers -------------------
   const captureCurrentFrame = useCallback(() => {
@@ -1500,6 +1538,23 @@ export default function CameraPlayer({
             >
               {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
             </button>
+            <button
+              onClick={refreshCurrentLocation}
+              style={{
+                marginLeft: 8,
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "none",
+                cursor: "pointer",
+                background: "#e0f2fe",
+                color: "#0369a1",
+                fontWeight: 700,
+              }}
+              disabled={locationBusy}
+              title="Request current location from the browser"
+            >
+              {locationBusy ? "Checking..." : (locationInfo.status === "ok" ? "Refresh Location" : "Enable Location")}
+            </button>
             {cameraStatus === CAMERA_STATUS.ERROR && (
               <span style={{ ...styles.badge, ...styles.badgeError }}>
                 <Icon as={FiAlertTriangle} style={{ marginRight: 8 }} ariaLabel="Error" />Error
@@ -1572,6 +1627,16 @@ export default function CameraPlayer({
               </span>
               <span style={styles.graceBadge}>
                 <FiClock style={{ marginRight: 6 }} />{settings.afternoon_grace_minutes} min grace
+              </span>
+            </div>
+            <div style={{ ...styles.settingRow, borderBottom: "none" }}>
+              <span style={styles.settingIcon}><Icon as={FiUser} ariaLabel="Location" /></span>
+              <span style={styles.settingLabel}>Location:</span>
+              <span style={styles.settingValue}>
+                {locationInfo.point || "Not captured yet"}
+              </span>
+              <span style={{ ...styles.graceBadge, background: locationInfo.status === "ok" ? "#dcfce7" : "#fee2e2", color: locationInfo.status === "ok" ? "#166534" : "#b91c1c" }}>
+                {locationInfo.status === "ok" ? (locationInfo.message || "Ready") : (locationInfo.message || "Tap Enable Location")}
               </span>
             </div>
             <div style={styles.settingsActions}>
