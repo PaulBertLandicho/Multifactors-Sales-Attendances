@@ -238,7 +238,8 @@ export default function CameraPlayer({
   const verificationStartRef = useRef(0);
   const settingsAlertShownRef = useRef(false);
   const descriptorBufferRef = useRef([]);
-  const lastLocationRef = useRef({ text: "Location unavailable", ts: 0 });
+  const lastLocationRef = useRef({ point: "Location unavailable", ts: 0 });
+  const lastLocationWarningRef = useRef({ key: "", ts: 0 });
   const DESCR_BUFFER_SIZE = 3;
   const DESCR_STABILITY = 0.07;
   const lastLandmarksRef = useRef(null);
@@ -268,17 +269,44 @@ export default function CameraPlayer({
     }
   };
 
+  const buildLocationResult = (point, status, message) => ({ point, status, message });
+
   const getCurrentLocationPoint = useCallback(async () => {
     const now = Date.now();
-    if (lastLocationRef.current?.text && now - (lastLocationRef.current.ts || 0) < 60 * 1000) {
-      return lastLocationRef.current.text;
+    if (lastLocationRef.current?.point && now - (lastLocationRef.current.ts || 0) < 60 * 1000) {
+      return buildLocationResult(lastLocationRef.current.point, "ok", "Using cached location.");
+    }
+
+    if (typeof window !== "undefined" && window.isSecureContext === false) {
+      return buildLocationResult(
+        "Location unavailable",
+        "insecure-context",
+        "Location requires HTTPS or localhost. Open the app over a secure connection.",
+      );
     }
 
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      return "Location unavailable";
+      return buildLocationResult(
+        "Location unavailable",
+        "unsupported",
+        "This device or browser does not support location services.",
+      );
     }
 
-    const locationText = await new Promise((resolve) => {
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        const permission = await navigator.permissions.query({ name: "geolocation" });
+        if (permission.state === "denied") {
+          return buildLocationResult(
+            "Location unavailable",
+            "permission-denied",
+            "Browser location permission is denied. Allow location for this site in the browser settings and retry.",
+          );
+        }
+      }
+    } catch (e) {}
+
+    const locationResult = await new Promise((resolve) => {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const latNum = Number(position.coords.latitude || 0);
@@ -306,11 +334,11 @@ export default function CameraPlayer({
 
               const uniqueParts = [...new Set(placeParts)];
               if (uniqueParts.length) {
-                resolve(uniqueParts.join(", "));
+                resolve(buildLocationResult(uniqueParts.join(", "), "ok", "Location detected."));
                 return;
               }
               if (data?.display_name) {
-                resolve(String(data.display_name));
+                resolve(buildLocationResult(String(data.display_name), "ok", "Location detected."));
                 return;
               }
             }
@@ -318,19 +346,59 @@ export default function CameraPlayer({
             // Fallback handled below when reverse geocoding fails.
           }
 
-          resolve(`Coordinates: ${lat}, ${lng}`);
+          resolve(buildLocationResult(`Coordinates: ${lat}, ${lng}`, "ok", "Location detected."));
         },
-        () => resolve("Location unavailable"),
+        (error) => {
+          if (error && error.code === error.PERMISSION_DENIED) {
+            resolve(
+              buildLocationResult(
+                "Location unavailable",
+                "permission-denied",
+                "Browser location permission is denied. Allow location for this site in the browser settings and retry.",
+              ),
+            );
+            return;
+          }
+          if (error && error.code === error.POSITION_UNAVAILABLE) {
+            resolve(
+              buildLocationResult(
+                "Location unavailable",
+                "position-unavailable",
+                "The device could not determine a GPS or network location. Move to an open area and try again.",
+              ),
+            );
+            return;
+          }
+          if (error && error.code === error.TIMEOUT) {
+            resolve(
+              buildLocationResult(
+                "Location unavailable",
+                "timeout",
+                "Location request timed out. Try again with better signal or wait a few seconds.",
+              ),
+            );
+            return;
+          }
+          resolve(
+            buildLocationResult(
+              "Location unavailable",
+              "unavailable",
+              "Location could not be determined on this device.",
+            ),
+          );
+        },
         {
-          enableHighAccuracy: false,
-          timeout: 4000,
-          maximumAge: 60000,
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
         },
       );
     });
 
-    lastLocationRef.current = { text: locationText, ts: now };
-    return locationText;
+    if (locationResult.status === "ok" && locationResult.point && locationResult.point !== "Location unavailable") {
+      lastLocationRef.current = { point: locationResult.point, ts: now };
+    }
+    return locationResult;
   }, []);
 
   // ------------------- Helpers -------------------
@@ -1212,14 +1280,29 @@ export default function CameraPlayer({
           // Ensure recordAttendanceForPerson or any attendance logic does NOT update registration_photo
           // (Assumes recordAttendanceForPerson does not update registration_photo for existing persons)
           (async () => {
-            const locationPoint = await getCurrentLocationPoint();
+            const locationResult = await getCurrentLocationPoint();
+            if (locationResult.status !== "ok") {
+              const warnKey = `${locationResult.status}:${locationResult.message}`;
+              const nowMs = Date.now();
+              if (!lastLocationWarningRef.current.key || lastLocationWarningRef.current.key !== warnKey || nowMs - lastLocationWarningRef.current.ts > 10000) {
+                lastLocationWarningRef.current = { key: warnKey, ts: nowMs };
+                playVoice("warning");
+                showSwal({
+                  icon: locationResult.status === "permission-denied" ? "error" : "warning",
+                  title: "Location unavailable",
+                  text: locationResult.message,
+                  timer: 4000,
+                  showConfirmButton: false,
+                });
+              }
+            }
             return recordAttendanceForPerson({
               supabase,
               person: bestMatch,
               settings,
               scanPayload: {
                 ...scanPayload,
-                point: locationPoint,
+                point: locationResult.point,
               },
               method: "face-scan",
             });

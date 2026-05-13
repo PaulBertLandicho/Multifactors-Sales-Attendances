@@ -22,19 +22,46 @@ export default function PersonsTable() {
   const cameraVideoRef = useRef(null);
 
   const cameraStreamRef = useRef(null);
-  const adminLastLocationRef = useRef({ text: "Location unavailable", ts: 0 });
+  const adminLastLocationRef = useRef({ point: "Location unavailable", ts: 0 });
+
+  const buildLocationResult = (point, status, message) => ({ point, status, message });
 
   const getCurrentLocationPoint = async () => {
     const now = Date.now();
-    if (adminLastLocationRef.current?.text && now - (adminLastLocationRef.current.ts || 0) < 60 * 1000) {
-      return adminLastLocationRef.current.text;
+    if (adminLastLocationRef.current?.point && now - (adminLastLocationRef.current.ts || 0) < 60 * 1000) {
+      return buildLocationResult(adminLastLocationRef.current.point, "ok", "Using cached location.");
+    }
+
+    if (typeof window !== "undefined" && window.isSecureContext === false) {
+      return buildLocationResult(
+        "Location unavailable",
+        "insecure-context",
+        "Location requires HTTPS or localhost. Open the app over a secure connection.",
+      );
     }
 
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      return "Location unavailable";
+      return buildLocationResult(
+        "Location unavailable",
+        "unsupported",
+        "This device or browser does not support location services.",
+      );
     }
 
-    const locationText = await new Promise((resolve) => {
+    try {
+      if (navigator.permissions && navigator.permissions.query) {
+        const permission = await navigator.permissions.query({ name: "geolocation" });
+        if (permission.state === "denied") {
+          return buildLocationResult(
+            "Location unavailable",
+            "permission-denied",
+            "Browser location permission is denied. Allow location for this site in the browser settings and retry.",
+          );
+        }
+      }
+    } catch (e) {}
+
+    const locationResult = await new Promise((resolve) => {
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const latNum = Number(position.coords.latitude || 0);
@@ -62,11 +89,11 @@ export default function PersonsTable() {
 
               const uniqueParts = [...new Set(placeParts)];
               if (uniqueParts.length) {
-                resolve(uniqueParts.join(", "));
+                resolve(buildLocationResult(uniqueParts.join(", "), "ok", "Location detected."));
                 return;
               }
               if (data?.display_name) {
-                resolve(String(data.display_name));
+                resolve(buildLocationResult(String(data.display_name), "ok", "Location detected."));
                 return;
               }
             }
@@ -74,19 +101,59 @@ export default function PersonsTable() {
             // Fallback handled below when reverse geocoding fails.
           }
 
-          resolve(`Coordinates: ${lat}, ${lng}`);
+          resolve(buildLocationResult(`Coordinates: ${lat}, ${lng}`, "ok", "Location detected."));
         },
-        () => resolve("Location unavailable"),
+        (error) => {
+          if (error?.code === error.PERMISSION_DENIED) {
+            resolve(
+              buildLocationResult(
+                "Location unavailable",
+                "permission-denied",
+                "Browser location permission is denied. Allow location for this site in the browser settings and retry.",
+              ),
+            );
+            return;
+          }
+          if (error?.code === error.POSITION_UNAVAILABLE) {
+            resolve(
+              buildLocationResult(
+                "Location unavailable",
+                "position-unavailable",
+                "The device could not determine a GPS or network location. Move to an open area and try again.",
+              ),
+            );
+            return;
+          }
+          if (error?.code === error.TIMEOUT) {
+            resolve(
+              buildLocationResult(
+                "Location unavailable",
+                "timeout",
+                "Location request timed out. Try again with better signal or wait a few seconds.",
+              ),
+            );
+            return;
+          }
+          resolve(
+            buildLocationResult(
+              "Location unavailable",
+              "unavailable",
+              "Location could not be determined on this device.",
+            ),
+          );
+        },
         {
-          enableHighAccuracy: false,
-          timeout: 4000,
-          maximumAge: 60000,
+          enableHighAccuracy: true,
+          timeout: 15000,
+          maximumAge: 0,
         },
       );
     });
 
-    adminLastLocationRef.current = { text: locationText, ts: now };
-    return locationText;
+    if (locationResult.status === "ok" && locationResult.point && locationResult.point !== "Location unavailable") {
+      adminLastLocationRef.current = { point: locationResult.point, ts: now };
+    }
+    return locationResult;
   };
 
   // Start camera when modal opens
@@ -170,7 +237,7 @@ export default function PersonsTable() {
   const [actionLoading, setActionLoading] = useState(false);
   const [locLoading, setLocLoading] = useState(false);
   const editPhotoInputRef = useRef(null);
-  const [adminModal, setAdminModal] = useState({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null });
+  const [adminModal, setAdminModal] = useState({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null, locationStatus: null, locationMessage: "" });
 
   const Icons = {
     download: <FiDownload color="#ffffff" style={{ marginRight: 8 }} />,
@@ -498,10 +565,10 @@ export default function PersonsTable() {
     const localIsoForInput = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
     setLocLoading(true);
     try {
-      const locationPoint = adminModal.point || (await getCurrentLocationPoint());
-      setAdminModal({ visible: true, person, event: "time-in", datetime: localIsoForInput, photo: person.registration_photo || null, note: "", point: locationPoint });
+      const locationResult = adminModal.point ? { point: adminModal.point, status: adminModal.locationStatus || "ok", message: adminModal.locationMessage || "" } : await getCurrentLocationPoint();
+      setAdminModal({ visible: true, person, event: "time-in", datetime: localIsoForInput, photo: person.registration_photo || null, note: "", point: locationResult.point, locationStatus: locationResult.status, locationMessage: locationResult.message });
     } catch (e) {
-      setAdminModal({ visible: true, person, event: "time-in", datetime: localIsoForInput, photo: person.registration_photo || null, note: "", point: null });
+      setAdminModal({ visible: true, person, event: "time-in", datetime: localIsoForInput, photo: person.registration_photo || null, note: "", point: null, locationStatus: "unavailable", locationMessage: "Location could not be determined on this device." });
     } finally {
       setLocLoading(false);
     }
@@ -541,7 +608,11 @@ export default function PersonsTable() {
 
       const iso = new Date(dtStr).toISOString();
       const hhmm = new Date(dtStr).toTimeString().slice(0, 5);
-      const locationPoint = await getCurrentLocationPoint();
+      const locationResult = adminModal.point ? { point: adminModal.point, status: adminModal.locationStatus || "ok", message: adminModal.locationMessage || "" } : await getCurrentLocationPoint();
+      if (locationResult.status !== "ok") {
+        setAdminModal((s) => ({ ...s, point: locationResult.point, locationStatus: locationResult.status, locationMessage: locationResult.message }));
+      }
+      const locationPoint = locationResult.point;
       let status = "on-time";
       try {
         status = determineAttendanceStatus(hhmm, adminModal.event, settingsData || {}, false);
@@ -597,7 +668,7 @@ export default function PersonsTable() {
       } catch (e) {}
 
       Swal.fire("Recorded", "Attendance recorded.", "success");
-      setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null });
+      setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null, locationStatus: null, locationMessage: "" });
     } catch (err) {
       console.error(err);
       Swal.fire("Error", err.message || String(err), "error");
@@ -1483,10 +1554,10 @@ export default function PersonsTable() {
                     onClick={async () => {
                       try {
                         setLocLoading(true);
-                        const p = await getCurrentLocationPoint();
-                        setAdminModal((s) => ({ ...s, point: p }));
+                        const locationResult = await getCurrentLocationPoint();
+                        setAdminModal((s) => ({ ...s, point: locationResult.point, locationStatus: locationResult.status, locationMessage: locationResult.message }));
                       } catch (e) {
-                        setAdminModal((s) => ({ ...s, point: null }));
+                        setAdminModal((s) => ({ ...s, point: null, locationStatus: "unavailable", locationMessage: "Location could not be determined on this device." }));
                       } finally {
                         setLocLoading(false);
                       }
@@ -1497,6 +1568,11 @@ export default function PersonsTable() {
                     {locLoading ? 'Refreshing...' : 'Refresh'}
                   </button>
                 </div>
+                {adminModal.locationMessage && adminModal.locationStatus && adminModal.locationStatus !== "ok" && (
+                  <div style={{ marginTop: 6, color: '#b45309', fontSize: 12, lineHeight: 1.4 }}>
+                    {adminModal.locationMessage}
+                  </div>
+                )}
               </div>
               {/* <div>
                 <label style={styles.modalLabel}>Registered Photo</label>
