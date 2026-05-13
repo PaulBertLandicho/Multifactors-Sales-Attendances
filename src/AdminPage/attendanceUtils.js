@@ -416,6 +416,7 @@ export async function recordAttendanceForPerson({
       name: person.name,
       department: person.department,
       event,
+      point: scanPayload?.point || null,
       method,
       device_time: deviceTime,
       status,
@@ -424,6 +425,16 @@ export async function recordAttendanceForPerson({
     if (error) throw error;
     return { inserted: true, blocked: false, event, status };
   } catch (e) {
+    const errorMessage = String(e?.message || e || "");
+    if (/duplicate attendance|duplicate scan|duplicate|unique|constraint/i.test(errorMessage)) {
+      return {
+        inserted: false,
+        blocked: true,
+        event,
+        message: "Duplicate attendance detected — skipping duplicate record.",
+      };
+    }
+
     // If insert failed (likely network), enqueue to offline queue if available
     console.warn("recordAttendanceForPerson: insert failed, enqueueing offline", e);
     try {
@@ -433,6 +444,7 @@ export async function recordAttendanceForPerson({
           name: person.name,
           department: person.department,
           event,
+          point: scanPayload?.point || null,
           method: method || "face-scan",
           device_time: deviceTime,
           status,
@@ -548,6 +560,7 @@ export async function autoGenerateMorningOut({ supabase, settings }) {
           name: p.name,
           department: p.department,
           event: 'time-out',
+          point: 'System auto-generated',
           method: 'auto-morning-out',
           device_time: outIso,
           status,

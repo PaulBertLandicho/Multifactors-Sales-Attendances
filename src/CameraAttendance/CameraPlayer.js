@@ -39,6 +39,35 @@ const playVoice = (type = "info") => {
   }
 };
 
+const isDuplicateAttendanceError = (error) => {
+  const candidates = [
+    error?.message,
+    error?.details,
+    error?.hint,
+    error?.error_description,
+    error?.description,
+    error?.cause?.message,
+    typeof error === "string" ? error : "",
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).toLowerCase());
+
+  try {
+    candidates.push(JSON.stringify(error).toLowerCase());
+  } catch (e) {}
+
+  return candidates.some((text) =>
+    /duplicate attendance detected recently|duplicate attendance|already recorded|duplicate|unique|constraint|p0001/.test(
+      text,
+    ),
+  );
+};
+
+const notifyDuplicateAttendance = (name) => {
+  playVoice("info");
+  console.info(`Duplicate attendance ignored for ${name}.`);
+};
+
 const DETECTION_INTERVAL_MS = 70;
 const PERSON_COOLDOWN_MS = 1200;
 // const UNKNOWN_FACE_COOLDOWN_MS = 3500; // Removed: unused constant
@@ -209,6 +238,7 @@ export default function CameraPlayer({
   const verificationStartRef = useRef(0);
   const settingsAlertShownRef = useRef(false);
   const descriptorBufferRef = useRef([]);
+  const lastLocationRef = useRef({ text: "Location unavailable", ts: 0 });
   const DESCR_BUFFER_SIZE = 3;
   const DESCR_STABILITY = 0.07;
   const lastLandmarksRef = useRef(null);
@@ -237,6 +267,71 @@ export default function CameraPlayer({
       return Swal.fire(opts);
     }
   };
+
+  const getCurrentLocationPoint = useCallback(async () => {
+    const now = Date.now();
+    if (lastLocationRef.current?.text && now - (lastLocationRef.current.ts || 0) < 60 * 1000) {
+      return lastLocationRef.current.text;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      return "Location unavailable";
+    }
+
+    const locationText = await new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const latNum = Number(position.coords.latitude || 0);
+          const lngNum = Number(position.coords.longitude || 0);
+          const lat = latNum.toFixed(6);
+          const lng = lngNum.toFixed(6);
+
+          try {
+            const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`;
+            const res = await fetch(reverseUrl, {
+              headers: {
+                Accept: "application/json",
+                "Accept-Language": "en",
+              },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              const addr = data?.address || {};
+              const placeParts = [
+                addr.road || addr.neighbourhood || addr.suburb || addr.village || addr.town || addr.city || addr.municipality,
+                addr.city || addr.town || addr.village || addr.municipality,
+                addr.state || addr.region || addr.province,
+                addr.country,
+              ].filter(Boolean);
+
+              const uniqueParts = [...new Set(placeParts)];
+              if (uniqueParts.length) {
+                resolve(uniqueParts.join(", "));
+                return;
+              }
+              if (data?.display_name) {
+                resolve(String(data.display_name));
+                return;
+              }
+            }
+          } catch (e) {
+            // Fallback handled below when reverse geocoding fails.
+          }
+
+          resolve(`Coordinates: ${lat}, ${lng}`);
+        },
+        () => resolve("Location unavailable"),
+        {
+          enableHighAccuracy: false,
+          timeout: 4000,
+          maximumAge: 60000,
+        },
+      );
+    });
+
+    lastLocationRef.current = { text: locationText, ts: now };
+    return locationText;
+  }, []);
 
   // ------------------- Helpers -------------------
   const captureCurrentFrame = useCallback(() => {
@@ -1116,13 +1211,19 @@ export default function CameraPlayer({
 
           // Ensure recordAttendanceForPerson or any attendance logic does NOT update registration_photo
           // (Assumes recordAttendanceForPerson does not update registration_photo for existing persons)
-          recordAttendanceForPerson({
-            supabase,
-            person: bestMatch,
-            settings,
-            scanPayload,
-            method: "face-scan",
-          })
+          (async () => {
+            const locationPoint = await getCurrentLocationPoint();
+            return recordAttendanceForPerson({
+              supabase,
+              person: bestMatch,
+              settings,
+              scanPayload: {
+                ...scanPayload,
+                point: locationPoint,
+              },
+              method: "face-scan",
+            });
+          })()
             .then((result) => {
               console.log("ATTENDANCE DEBUG: recordAttendance result=", result);
               if (result.inserted) {
@@ -1142,26 +1243,24 @@ export default function CameraPlayer({
                         showConfirmButton: false,
                       });
               } else if (result.blocked) {
-                // Throttle SweetAlert for blocked/info (already timed in) to once every 5 seconds
+                // Throttle duplicate/info voice feedback to once every 5 seconds.
                 const nowMs = Date.now();
                 if (
                   !lastScanRef.current.blockedInfoTs ||
                   nowMs - lastScanRef.current.blockedInfoTs > 5000
                 ) {
-                  playVoice("info");
-                  showSwal({
-                    icon: "info",
-                    title: bestMatch.name,
-                    text: result.message,
-                    timer: 2200,
-                    showConfirmButton: false,
-                  });
+                  notifyDuplicateAttendance(bestMatch.name);
                   lastScanRef.current.blockedInfoTs = nowMs;
                 }
               }
             })
             .catch((err) => {
               console.error("ATTENDANCE ERROR:", err);
+              if (isDuplicateAttendanceError(err)) {
+                notifyDuplicateAttendance(bestMatch.name);
+                return;
+              }
+
               playVoice("error");
               showSwal({
                 icon: "error",
@@ -1239,6 +1338,7 @@ export default function CameraPlayer({
     useLocalCamera,
     debugMode,
     settings,
+    getCurrentLocationPoint,
   ]);
 
   // ------------------- Update current time -------------------

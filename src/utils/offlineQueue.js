@@ -39,7 +39,7 @@ function withStore(storeName, mode, cb) {
 }
 
 export async function enqueueAttendance(item) {
-  // item should include: person_id, name, department, event, device_time, status, method, photo
+  // item should include: person_id, name, department, event, point, device_time, status, method, photo
   // avoid duplicates in queue within 30s
   const DUP_MS = 30 * 1000;
   const items = await getAllQueue();
@@ -262,6 +262,7 @@ export async function enqueueAutoMorningOuts() {
           name: p.name,
           department: p.department,
           event: 'time-out',
+          point: 'System auto-generated',
           method: 'auto-morning-out-offline',
           device_time: deviceTimeIso,
           status,
@@ -319,6 +320,7 @@ export async function syncQueue(supabase) {
         name: it.name,
         department: it.department,
         event: it.event,
+        point: it.point || null,
         method: it.method || "offline-queue",
         device_time: it.device_time,
         status: it.status,

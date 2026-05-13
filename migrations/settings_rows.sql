@@ -1,0 +1,1 @@
+INSERT INTO "public"."settings" ("id", "morning_start", "morning_end", "afternoon_start", "afternoon_end", "updated_at", "morning_grace_minutes", "afternoon_grace_minutes", "late_count_limit", "late_penalty", "payroll_period_days") VALUES (1, '08:10:00', '11:59:00', '13:10:00', '17:00:00', '2026-05-11 03:37:01.581+00', 15, 59, 1, 50, 15);

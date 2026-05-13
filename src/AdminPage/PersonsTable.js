@@ -22,6 +22,72 @@ export default function PersonsTable() {
   const cameraVideoRef = useRef(null);
 
   const cameraStreamRef = useRef(null);
+  const adminLastLocationRef = useRef({ text: "Location unavailable", ts: 0 });
+
+  const getCurrentLocationPoint = async () => {
+    const now = Date.now();
+    if (adminLastLocationRef.current?.text && now - (adminLastLocationRef.current.ts || 0) < 60 * 1000) {
+      return adminLastLocationRef.current.text;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      return "Location unavailable";
+    }
+
+    const locationText = await new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const latNum = Number(position.coords.latitude || 0);
+          const lngNum = Number(position.coords.longitude || 0);
+          const lat = latNum.toFixed(6);
+          const lng = lngNum.toFixed(6);
+
+          try {
+            const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`;
+            const res = await fetch(reverseUrl, {
+              headers: {
+                Accept: "application/json",
+                "Accept-Language": "en",
+              },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              const addr = data?.address || {};
+              const placeParts = [
+                addr.road || addr.neighbourhood || addr.suburb || addr.village || addr.town || addr.city || addr.municipality,
+                addr.city || addr.town || addr.village || addr.municipality,
+                addr.state || addr.region || addr.province,
+                addr.country,
+              ].filter(Boolean);
+
+              const uniqueParts = [...new Set(placeParts)];
+              if (uniqueParts.length) {
+                resolve(uniqueParts.join(", "));
+                return;
+              }
+              if (data?.display_name) {
+                resolve(String(data.display_name));
+                return;
+              }
+            }
+          } catch (e) {
+            // Fallback handled below when reverse geocoding fails.
+          }
+
+          resolve(`Coordinates: ${lat}, ${lng}`);
+        },
+        () => resolve("Location unavailable"),
+        {
+          enableHighAccuracy: false,
+          timeout: 4000,
+          maximumAge: 60000,
+        },
+      );
+    });
+
+    adminLastLocationRef.current = { text: locationText, ts: now };
+    return locationText;
+  };
 
   // Start camera when modal opens
 
@@ -102,8 +168,9 @@ export default function PersonsTable() {
   const [newCashAmount, setNewCashAmount] = useState("");
   const [newCashNote, setNewCashNote] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+  const [locLoading, setLocLoading] = useState(false);
   const editPhotoInputRef = useRef(null);
-  const [adminModal, setAdminModal] = useState({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "" });
+  const [adminModal, setAdminModal] = useState({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null });
 
   const Icons = {
     download: <FiDownload color="#ffffff" style={{ marginRight: 8 }} />,
@@ -429,7 +496,15 @@ export default function PersonsTable() {
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
     const localIsoForInput = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    setAdminModal({ visible: true, person, event: "time-in", datetime: localIsoForInput, photo: person.registration_photo || null, note: "" });
+    setLocLoading(true);
+    try {
+      const locationPoint = adminModal.point || (await getCurrentLocationPoint());
+      setAdminModal({ visible: true, person, event: "time-in", datetime: localIsoForInput, photo: person.registration_photo || null, note: "", point: locationPoint });
+    } catch (e) {
+      setAdminModal({ visible: true, person, event: "time-in", datetime: localIsoForInput, photo: person.registration_photo || null, note: "", point: null });
+    } finally {
+      setLocLoading(false);
+    }
   };
 
   // Helper to get photo for a person (latest attendance photo or registration photo)
@@ -466,6 +541,7 @@ export default function PersonsTable() {
 
       const iso = new Date(dtStr).toISOString();
       const hhmm = new Date(dtStr).toTimeString().slice(0, 5);
+      const locationPoint = await getCurrentLocationPoint();
       let status = "on-time";
       try {
         status = determineAttendanceStatus(hhmm, adminModal.event, settingsData || {}, false);
@@ -479,6 +555,7 @@ export default function PersonsTable() {
         method: "admin-entry",
         device_time: iso,
         status,
+        point: locationPoint,
         photo: adminModal.photo || null,
       };
 
@@ -520,7 +597,7 @@ export default function PersonsTable() {
       } catch (e) {}
 
       Swal.fire("Recorded", "Attendance recorded.", "success");
-      setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "" });
+      setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null });
     } catch (err) {
       console.error(err);
       Swal.fire("Error", err.message || String(err), "error");
@@ -1398,6 +1475,29 @@ export default function PersonsTable() {
                 <label style={styles.modalLabel}>Date & time</label>
                 <input type="datetime-local" value={adminModal.datetime} onChange={(e) => setAdminModal((s) => ({ ...s, datetime: e.target.value }))} style={styles.modalInput} />
               </div>
+              <div>
+                <label style={styles.modalLabel}>Location</label>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div style={{ flex: 1, padding: 8, background: '#f9fafb', borderRadius: 8, minHeight: 40 }}>{adminModal.point ? adminModal.point : <span style={{ color: '#9ca3af' }}>—</span>}</div>
+                  <button
+                    onClick={async () => {
+                      try {
+                        setLocLoading(true);
+                        const p = await getCurrentLocationPoint();
+                        setAdminModal((s) => ({ ...s, point: p }));
+                      } catch (e) {
+                        setAdminModal((s) => ({ ...s, point: null }));
+                      } finally {
+                        setLocLoading(false);
+                      }
+                    }}
+                    style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer' }}
+                    disabled={locLoading}
+                  >
+                    {locLoading ? 'Refreshing...' : 'Refresh'}
+                  </button>
+                </div>
+              </div>
               {/* <div>
                 <label style={styles.modalLabel}>Registered Photo</label>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -1405,7 +1505,7 @@ export default function PersonsTable() {
                 </div>
               </div> */}
               <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button onClick={() => setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "" })} style={{ ...styles.button, ...styles.buttonSecondary }}>Cancel</button>
+                <button onClick={() => setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null })} style={{ ...styles.button, ...styles.buttonSecondary }}>Cancel</button>
                 <button onClick={submitAdminAttendance} style={{ ...styles.button, ...styles.buttonPrimary }}>{actionLoading ? "Recording..." : "Record"}</button>
               </div>
             </div>
