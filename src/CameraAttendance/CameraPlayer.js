@@ -129,7 +129,7 @@ export default function CameraPlayer({
   const [persons, setPersons] = useState([]);
   const [settings, setSettings] = useState(null);
   const [verifying, setVerifying] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
+  const [debugMode, ] = useState(false);
   const [cameraStatus, setCameraStatus] = useState(CAMERA_STATUS.CONNECTING);
   const [cameraError, setCameraError] = useState("");
   const [useLocalCamera, setUseLocalCamera] = useState(false); // Fallback flag
@@ -1528,7 +1528,7 @@ export default function CameraPlayer({
                 <Icon as={FiCircle} style={{ marginRight: 8 }} ariaLabel="Live" />Live
               </span>
             )}
-            <button
+            {/* <button
               onClick={() => setDebugMode((d) => !d)}
               style={{
                 marginLeft: 8,
@@ -1541,7 +1541,7 @@ export default function CameraPlayer({
               }}
             >
               {debugMode ? "Hide" : "Debug"}
-            </button>
+            </button> */}
             <button
               onClick={toggleFullScreen}
               style={{
