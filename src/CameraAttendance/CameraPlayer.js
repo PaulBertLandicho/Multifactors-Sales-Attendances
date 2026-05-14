@@ -64,9 +64,23 @@ const isDuplicateAttendanceError = (error) => {
   );
 };
 
-const notifyDuplicateAttendance = (name) => {
+const notifyDuplicateAttendance = (name, showAlert) => {
   playVoice("info");
+  const text = "You have already recorded attendance.";
   console.info(`Duplicate attendance ignored for ${name}.`);
+
+  try {
+    const fire = typeof showAlert === "function" ? showAlert : Swal.fire;
+    fire({
+      icon: "info",
+      title: name || "Attendance",
+      text,
+      timer: 2500,
+      showConfirmButton: false,
+    });
+  } catch (e) {
+    // Non-fatal: duplicate alert fallback failed.
+  }
 };
 
 const DETECTION_INTERVAL_MS = 70;
@@ -1374,7 +1388,7 @@ export default function CameraPlayer({
                   !lastScanRef.current.blockedInfoTs ||
                   nowMs - lastScanRef.current.blockedInfoTs > 5000
                 ) {
-                  notifyDuplicateAttendance(bestMatch.name);
+                  notifyDuplicateAttendance(bestMatch.name, showSwal);
                   lastScanRef.current.blockedInfoTs = nowMs;
                 }
               }
@@ -1382,7 +1396,7 @@ export default function CameraPlayer({
             .catch((err) => {
               console.error("ATTENDANCE ERROR:", err);
               if (isDuplicateAttendanceError(err)) {
-                notifyDuplicateAttendance(bestMatch.name);
+                notifyDuplicateAttendance(bestMatch.name, showSwal);
                 return;
               }
 
