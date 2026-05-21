@@ -24,10 +24,19 @@ import AttendanceTable from "./AdminPage/AttendanceTable";
 import AdminSidebar from "./AdminPage/AdminSidebar";
 import DepartmentRates from "./AdminPage/DepartmentRates";
 import PersonsTable from "./AdminPage/PersonsTable";
+import StaffLoginModal from "./AdminPage/StaffLoginModal";
+import {
+  ADMIN_ROLE,
+  STAFF_ROLES,
+  getLoginRedirectPath,
+  getSessionRole,
+  hasAllowedRole,
+} from "./utils/authRoles";
 
 function App() {
   const modalTimerRef = useRef(null);
   const [cameraActive, setCameraActive] = useState(false);
+  const [showStaffLogin, setShowStaffLogin] = useState(false);
   const [session, setSession] = useState(() => {
     // Try to get session from localStorage if available
     const stored = localStorage.getItem("sb-session");
@@ -73,6 +82,22 @@ function App() {
   // const isAdminPath = location.pathname.startsWith("/admin");
   const isCameraPath = location.pathname === "/" || location.pathname === "";
   const isAdminLoginPath = location.pathname === "/admin";
+  const currentRole = getSessionRole(session);
+  const hasStaffAccess = hasAllowedRole(session, STAFF_ROLES);
+
+  useEffect(() => {
+    if (!session) return;
+    if (!hasStaffAccess) {
+      supabase.auth.signOut().finally(() => {
+        localStorage.removeItem("sb-session");
+        setSession(null);
+      });
+    }
+  }, [hasStaffAccess, session]);
+
+  const ProtectedRoute = ({ allowedRoles = STAFF_ROLES, children }) =>
+    hasAllowedRole(session, allowedRoles) ? children : <Navigate to="/admin" replace />;
+
   useEffect(() => {
     // show overlay immediately on navigation
     setLoading(true);
@@ -148,20 +173,36 @@ function App() {
                   </span>
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => navigate("/admin")}
-                  style={styles.adminButton}
-                >
-                  <span
-                    style={{ display: "inline-flex", alignItems: "center" }}
+                <div style={styles.headerActions}>
+                  {/* <button
+                    type="button"
+                    onClick={() => setShowStaffLogin(true)}
+                    style={styles.staffButton}
                   >
-                    <FiLogIn
-                      style={{ marginRight: 8, verticalAlign: "middle" }}
-                    />
-                    Admin Login
-                  </span>
-                </button>
+                    <span
+                      style={{ display: "inline-flex", alignItems: "center" }}
+                    >
+                      <FiLogIn
+                        style={{ marginRight: 8, verticalAlign: "middle" }}
+                      />
+                      Staff Login
+                    </span>
+                  </button> */}
+                  <button
+                    type="button"
+                    onClick={() => navigate("/admin")}
+                    style={styles.adminButton}
+                  >
+                    <span
+                      style={{ display: "inline-flex", alignItems: "center" }}
+                    >
+                      <FiLogIn
+                        style={{ marginRight: 8, verticalAlign: "middle" }}
+                      />
+                      Admin Login
+                    </span>
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -171,41 +212,61 @@ function App() {
             path="/"
             element={
               <div style={{ maxWidth: 900, margin: "0 auto" }}>
-                {cameraActive ? (
-                  <CameraPlayer />
+                {hasStaffAccess ? (
+                  cameraActive ? (
+                    <CameraPlayer />
+                  ) : (
+                    <div
+                      style={{
+                        marginTop: 24,
+                        padding: "40px 24px",
+                        borderRadius: 24,
+                        background: "#0b1120",
+                        color: "#e5e7eb",
+                        textAlign: "center",
+                      }}
+                    >
+                      <p style={{ marginBottom: 12, fontSize: 15 }}>
+                        Camera is currently off. Click below to open the camera.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setCameraActive(true)}
+                        style={{
+                          padding: "10px 24px",
+                          borderRadius: 999,
+                          border: "1px solid #237227",
+                          background: "#237227",
+                          color: "#ffffff",
+                          cursor: "pointer",
+                          fontSize: 14,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Open Camera
+                      </button>
+                    </div>
+                  )
                 ) : (
-                  <div
-                    style={{
-                      marginTop: 24,
-                      padding: "40px 24px",
-                      borderRadius: 24,
-                      background: "#0b1120",
-                      color: "#e5e7eb",
-                      textAlign: "center",
-                    }}
-                  >
-                    <p style={{ marginBottom: 12, fontSize: 15 }}>
-                      Camera is currently off. Click below to open the camera.
+                  <div style={styles.staffGateCard}>
+                    <div style={styles.staffGatePill}>Staff login required</div>
+                    <h2 style={styles.staffGateTitle}>
+                      Sign in to record attendance
+                    </h2>
+                    <p style={styles.staffGateText}>
+                      Department secretaries can log in to record attendance and review records.
+                      Admin accounts keep full access to the management tools.
                     </p>
                     <button
                       type="button"
-                      onClick={() => setCameraActive(true)}
-                      style={{
-                        padding: "10px 24px",
-                        borderRadius: 999,
-                        border: "1px solid #237227",
-                        background: "#237227",
-                        color: "#ffffff",
-                        cursor: "pointer",
-                        fontSize: 14,
-                        fontWeight: 600,
-                      }}
+                      onClick={() => setShowStaffLogin(true)}
+                      style={styles.staffGateButton}
                     >
-                      Open Camera
+                      Open Staff Login
                     </button>
                   </div>
                 )}
-                {cameraActive && (
+                {cameraActive && hasStaffAccess && (
                   <div style={{ marginTop: 12, textAlign: "right" }}>
                     <button
                       type="button"
@@ -228,11 +289,33 @@ function App() {
             }
           />
           <Route
+            path="/staff-login"
+            element={
+              <div style={{ maxWidth: 900, margin: "0 auto" }}>
+                <div style={styles.staffGateCard}>
+                  <div style={styles.staffGatePill}>Staff login</div>
+                  <h2 style={styles.staffGateTitle}>Open the secretary account</h2>
+                  <p style={styles.staffGateText}>
+                    Use the popup login to sign in with the staff email and password.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowStaffLogin(true)}
+                    style={styles.staffGateButton}
+                  >
+                    Open Staff Login
+                  </button>
+                </div>
+              </div>
+            }
+          />
+          <Route
             path="/admin/register-person"
             element={
-              session ? (
+              <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
                 <div style={styles.adminLayout}>
                   <AdminSidebar
+                    role={currentRole}
                     onLogout={async () => {
                       await supabase.auth.signOut();
                       localStorage.removeItem("sb-session");
@@ -248,17 +331,16 @@ function App() {
                     <PersonRegistration />
                   </div>
                 </div>
-              ) : (
-                <Navigate to="/admin" />
-              )
+              </ProtectedRoute>
             }
           />
           <Route
             path="/admin/dashboard"
             element={
-              session ? (
+              <ProtectedRoute allowedRoles={STAFF_ROLES}>
                 <div style={styles.adminLayout}>
                   <AdminSidebar
+                    role={currentRole}
                     onLogout={async () => {
                       await supabase.auth.signOut();
                       localStorage.removeItem("sb-session");
@@ -274,23 +356,26 @@ function App() {
                     <Dashboard />
                   </div>
                 </div>
-              ) : (
-                <Navigate to="/admin" />
-              )
+              </ProtectedRoute>
             }
           />
           <Route
             path="/admin"
             element={
-              session ? <Navigate to="/admin/dashboard" /> : <AdminLogin />
+              currentRole === ADMIN_ROLE ? (
+                <Navigate to={getLoginRedirectPath(session)} />
+              ) : (
+                <AdminLogin />
+              )
             }
           />
           <Route
             path="/admin/settings"
             element={
-              session ? (
+              <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
                 <div style={styles.adminLayout}>
                   <AdminSidebar
+                    role={currentRole}
                     onLogout={async () => {
                       await supabase.auth.signOut();
                       localStorage.removeItem("sb-session");
@@ -306,17 +391,16 @@ function App() {
                     <AdminSettings />
                   </div>
                 </div>
-              ) : (
-                <Navigate to="/admin" />
-              )
+              </ProtectedRoute>
             }
           />
           <Route
             path="/admin/attendance"
             element={
-              session ? (
+              <ProtectedRoute allowedRoles={STAFF_ROLES}>
                 <div style={styles.adminLayout}>
                   <AdminSidebar
+                    role={currentRole}
                     onLogout={async () => {
                       await supabase.auth.signOut();
                       localStorage.removeItem("sb-session");
@@ -332,17 +416,16 @@ function App() {
                     <AttendanceTable />
                   </div>
                 </div>
-              ) : (
-                <Navigate to="/admin" />
-              )
+              </ProtectedRoute>
             }
           />
           <Route
             path="/admin/department-rates"
             element={
-              session ? (
+              <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
                 <div style={styles.adminLayout}>
                   <AdminSidebar
+                    role={currentRole}
                     onLogout={async () => {
                       await supabase.auth.signOut();
                       localStorage.removeItem("sb-session");
@@ -358,17 +441,16 @@ function App() {
                     <DepartmentRates />
                   </div>
                 </div>
-              ) : (
-                <Navigate to="/admin" />
-              )
+              </ProtectedRoute>
             }
           />
           <Route
             path="/admin/persons"
             element={
-              session ? (
+              <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
                 <div style={styles.adminLayout}>
                   <AdminSidebar
+                    role={currentRole}
                     onLogout={async () => {
                       await supabase.auth.signOut();
                       localStorage.removeItem("sb-session");
@@ -384,17 +466,16 @@ function App() {
                     <PersonsTable />
                   </div>
                 </div>
-              ) : (
-                <Navigate to="/admin" />
-              )
+              </ProtectedRoute>
             }
           />
           <Route
             path="/admin/payroll"
             element={
-              session ? (
+              <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
                 <div style={styles.adminLayout}>
                   <AdminSidebar
+                    role={currentRole}
                     onLogout={async () => {
                       await supabase.auth.signOut();
                       localStorage.removeItem("sb-session");
@@ -410,17 +491,16 @@ function App() {
                     <PayrollPage />
                   </div>
                 </div>
-              ) : (
-                <Navigate to="/admin" />
-              )
+              </ProtectedRoute>
             }
           />
           <Route
             path="/admin/released-history"
             element={
-              session ? (
+              <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
                 <div style={styles.adminLayout}>
                   <AdminSidebar
+                    role={currentRole}
                     onLogout={async () => {
                       await supabase.auth.signOut();
                       localStorage.removeItem("sb-session");
@@ -436,17 +516,16 @@ function App() {
                     <ReleasedHistoryPayroll />
                   </div>
                 </div>
-              ) : (
-                <Navigate to="/admin" />
-              )
+              </ProtectedRoute>
             }
           />
           <Route
             path="/admin/ReleasedPayrollLogs"
             element={
-              session ? (
+              <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
                 <div style={styles.adminLayout}>
                   <AdminSidebar
+                    role={currentRole}
                     onLogout={async () => {
                       await supabase.auth.signOut();
                       localStorage.removeItem("sb-session");
@@ -462,12 +541,15 @@ function App() {
                     <ReleasedPayrollLogs />
                   </div>
                 </div>
-              ) : (
-                <Navigate to="/admin" />
-              )
+              </ProtectedRoute>
             }
           />
         </Routes>
+        <StaffLoginModal
+          open={showStaffLogin}
+          onClose={() => setShowStaffLogin(false)}
+          onStaffLoggedIn={() => setShowStaffLogin(false)}
+        />
       </header>
     </div>
   );
@@ -563,6 +645,18 @@ const styles = {
     transform: "translateY(-50%)",
     zIndex: 10,
   },
+  staffButton: {
+    padding: "8px 14px",
+    borderRadius: 999,
+    border: "1px solid #0f172a",
+    background: "#0f172a",
+    color: "#ffffff",
+    cursor: "pointer",
+    fontSize: 14,
+    fontWeight: 700,
+    position: "relative",
+    zIndex: 10,
+  },
   headerContainer: {
     width: "100%",
     background: "#f9fafc",
@@ -570,6 +664,54 @@ const styles = {
     padding: "30px 0",
     boxShadow: "0 6px 18px rgba(0,0,0,0.03)",
     position: "relative",
+  },
+  staffGateCard: {
+    marginTop: 24,
+    padding: "40px 28px",
+    borderRadius: 24,
+    background: "linear-gradient(180deg, #0f172a 0%, #111827 100%)",
+    color: "#e5e7eb",
+    textAlign: "center",
+    border: "1px solid rgba(255,255,255,0.08)",
+    boxShadow: "0 24px 60px rgba(15,23,42,0.25)",
+  },
+  staffGatePill: {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "6px 12px",
+    borderRadius: 999,
+    background: "rgba(35,114,39,0.16)",
+    color: "#86efac",
+    fontSize: 12,
+    fontWeight: 700,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    marginBottom: 14,
+  },
+  staffGateTitle: {
+    margin: 0,
+    fontSize: 26,
+    lineHeight: 1.2,
+    color: "#ffffff",
+  },
+  staffGateText: {
+    maxWidth: 560,
+    margin: "14px auto 24px",
+    fontSize: 15,
+    lineHeight: 1.7,
+    color: "#cbd5e1",
+  },
+  staffGateButton: {
+    padding: "12px 22px",
+    borderRadius: 999,
+    border: "1px solid #237227",
+    background: "#237227",
+    color: "#ffffff",
+    cursor: "pointer",
+    fontSize: 14,
+    fontWeight: 700,
+    boxShadow: "0 12px 30px rgba(35,114,39,0.25)",
   },
 };
 
