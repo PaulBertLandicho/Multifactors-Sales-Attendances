@@ -535,24 +535,8 @@ USING (
   public._is_admin_for_current_user()
 );
 
--- =====================================================
--- MAKE USER ADMIN
--- =====================================================
-
-UPDATE auth.users
-SET raw_user_meta_data =
-  COALESCE(raw_user_meta_data, '{}'::jsonb)
-  || '{"role":"admin"}'
-WHERE email = 'multifactors-sales@gmail.com';
-
 ------------------------------ additional -----------------
 
 ALTER TABLE public.persons
 ADD COLUMN role text DEFAULT 'employee'
 CHECK (role IN ('employee'));
-
-update auth.users
-set raw_user_meta_data =
-  coalesce(raw_user_meta_data, '{}'::jsonb)
-  || '{"role":"secretary"}'
-where email = 'attendance@gmail.com';

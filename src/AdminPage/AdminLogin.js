@@ -1,7 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../supabaseClient";
-import { FaEye, FaEyeSlash, FaEnvelope, FaLock, FaSignInAlt } from "react-icons/fa";
+import {
+  FaEye,
+  FaEyeSlash,
+  FaEnvelope,
+  FaLock,
+  FaSignInAlt,
+} from "react-icons/fa";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
@@ -49,7 +55,9 @@ export default function AdminLogin() {
             />
           </div>
           <h2 style={styles.welcomeTitle}>Welcome back</h2>
-          <div style={styles.headerSub}>Sign in to access the admin dashboard</div>
+          <div style={styles.headerSub}>
+            Sign in to access the admin dashboard
+          </div>
         </div>
 
         <form onSubmit={handleLogin} style={styles.form}>
@@ -129,10 +137,15 @@ export default function AdminLogin() {
               ...(loading ? styles.buttonDisabled : {}),
             }}
           >
-            {loading ? "Logging in..." : <><FaSignInAlt style={styles.signInIcon} /> Sign in</>}
+            {loading ? (
+              "Logging in..."
+            ) : (
+              <>
+                <FaSignInAlt style={styles.signInIcon} /> Sign in
+              </>
+            )}
           </button>
         </form>
-
       </div>
     </div>
   );
@@ -165,7 +178,7 @@ const styles = {
     gap: 8,
     paddingTop: 4,
   },
-   icon: {
+  icon: {
     fontSize: "40px",
   },
   logoImage: {
@@ -299,5 +312,4 @@ const styles = {
     marginRight: 8,
     verticalAlign: "middle",
   },
-  
 };

@@ -1,7 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { FaEnvelope, FaLock, FaTimes, FaSignInAlt, FaUserShield } from "react-icons/fa";
+import {
+  FaEnvelope,
+  FaLock,
+  FaTimes,
+  FaSignInAlt,
+  FaUserShield,
+  FaEye,
+  FaEyeSlash,
+} from "react-icons/fa";
 import { supabase } from "../supabaseClient";
-import { SECRETARY_ROLE, getLoginRedirectPath, getSessionRole } from "../utils/authRoles";
+import {
+  SECRETARY_ROLE,
+  getLoginRedirectPath,
+  getSessionRole,
+} from "../utils/authRoles";
 
 export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
   const [email, setEmail] = useState("");
@@ -9,6 +21,7 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -26,10 +39,11 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
     setMessage("");
 
     try {
-      const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
 
       if (signInError) {
         setError(signInError.message || "Unable to sign in.");
@@ -51,7 +65,10 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
 
       setMessage("Signed in successfully.");
       if (typeof onStaffLoggedIn === "function") {
-        onStaffLoggedIn({ email: email.trim(), redirectTo: getLoginRedirectPath(data) });
+        onStaffLoggedIn({
+          email: email.trim(),
+          redirectTo: getLoginRedirectPath(data),
+        });
       }
     } catch (err) {
       setError(err.message || "Unable to sign in.");
@@ -63,7 +80,12 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
   return (
     <div style={styles.backdrop} onClick={onClose} role="presentation">
       <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <button type="button" onClick={onClose} style={styles.closeButton} aria-label="Close staff login modal">
+        <button
+          type="button"
+          onClick={onClose}
+          style={styles.closeButton}
+          aria-label="Close staff login modal"
+        >
           <FaTimes />
         </button>
 
@@ -74,11 +96,12 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
 
         <h2 style={styles.title}>Open the attendance account</h2>
         <p style={styles.subtitle}>
-          Sign in with the secretary email and password. Admin accounts must use the Admin Login page.
+          Sign in with the secretary email and password. Admin accounts must use
+          the Admin Login page.
         </p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          <label style={styles.label}>Staff email</label>
+          <label style={styles.label}>Attendance email</label>
           <div style={styles.inputRow}>
             <FaEnvelope style={styles.inputIcon} />
             <input
@@ -86,7 +109,7 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="secretary@company.com"
+              placeholder="attendances@gmail.com"
               required
               style={styles.input}
             />
@@ -95,15 +118,25 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
           <label style={styles.label}>Password</label>
           <div style={styles.inputRow}>
             <FaLock style={styles.inputIcon} />
+
             <input
               name="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter staff password"
+              placeholder="Enter attendance password"
               required
               style={styles.input}
             />
+
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              style={styles.eyeButton}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <FaEyeSlash /> : <FaEye />}
+            </button>
           </div>
 
           {error && <div style={styles.error}>{error}</div>}
