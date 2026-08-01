@@ -28,10 +28,10 @@ export default function ReleasedHistoryPayroll() {
       const { data } = await supabase
         .from("payroll_periods")
         .select(
-          "id, person_id, period, released, daily_rate, late_penalty, gross, net, days_present, person:persons(id,name,department)"
+          "id, person_id, period, released, daily_rate, late_penalty, gross, net, days_present, person:persons(id,name,department)",
         )
         .eq("released", true)
-        .order('period', { ascending: false })
+        .order("period", { ascending: false })
         .limit(2000);
       setReleasedPayrolls(data || []);
 
@@ -41,7 +41,7 @@ export default function ReleasedHistoryPayroll() {
           .from("payroll_activity_logs")
           .select("payroll_period_id, action")
           .order("timestamp", { ascending: false });
-        
+
         // Create a map of payroll_period_id -> action (most recent action)
         const logsMap = {};
         (logs || []).forEach((log) => {
@@ -121,7 +121,7 @@ export default function ReleasedHistoryPayroll() {
     const { data: person } = await supabase
       .from("persons")
       .select(
-        "id, name, department, daily_rate, late_penalty, sss, pag_ibig, philhealth, cash_advance, registration_photo"
+        "id, name, department, daily_rate, late_penalty, sss, pag_ibig, philhealth, cash_advance, registration_photo",
       )
       .eq("id", payroll.person_id)
       .single();
@@ -135,7 +135,7 @@ export default function ReleasedHistoryPayroll() {
     const { data: deptRates } = await supabase
       .from("department_rates")
       .select(
-        "department, daily_rate, late_penalty, sss, pag_ibig, philhealth, ot_rate, regular_holiday_rate, special_holiday_rate"
+        "department, daily_rate, late_penalty, sss, pag_ibig, philhealth, ot_rate, regular_holiday_rate, special_holiday_rate",
       );
     // Fetch attendance for this period
     let detailedAttendance = [];
@@ -149,7 +149,7 @@ export default function ReleasedHistoryPayroll() {
         .eq("person_id", payroll.person_id)
         .gte("device_time", start)
         .lte("device_time", end)
-        .order('device_time', { ascending: true });
+        .order("device_time", { ascending: true });
       detailedAttendance = getDetailedAttendance(
         attendance || [],
         payroll.person_id,
@@ -401,7 +401,8 @@ export default function ReleasedHistoryPayroll() {
                           borderRadius: "30px",
                         }}
                       >
-                       <FiEye color="#ffffff"/>View
+                        <FiEye color="#ffffff" />
+                        View
                       </button>
                     </td>
                     <td style={styles.td}>

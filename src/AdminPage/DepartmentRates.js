@@ -3,19 +3,13 @@
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { supabase } from "../supabaseClient";
-import {
-  FiPlusCircle,
-  FiHome,
-  FiTrendingDown,
-} from "react-icons/fi";
+import { FiPlusCircle, FiHome, FiTrendingDown } from "react-icons/fi";
 import Icon from "../components/Icon";
-import { useLoading } from "../LoadingContext";
 
 export default function DepartmentRates() {
   const [rates, setRates] = useState([]);
   // Track original department names for rename
   const [originalNames, setOriginalNames] = useState([]);
-  const { setLoading } = useLoading();
   const [saving, setSaving] = useState(false);
   // Removed unused navigate
   const Icons = {
@@ -27,7 +21,6 @@ export default function DepartmentRates() {
   }, []);
 
   const fetchRates = async () => {
-    setLoading(true);
     try {
       const { data, error } = await supabase
         .from("department_rates")
@@ -39,8 +32,6 @@ export default function DepartmentRates() {
       }
     } catch (e) {
       console.error("Error fetching department rates:", e);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -159,8 +150,6 @@ export default function DepartmentRates() {
     fetchRates();
   };
 
-  
-
   return (
     <div style={styles.container}>
       {/* Header */}
@@ -189,6 +178,8 @@ export default function DepartmentRates() {
               </span>
               <input
                 type="text"
+                id={`department-name-${row.department || idx}`}
+                name={`department-name-${row.department || idx}`}
                 value={row.department}
                 onChange={(e) =>
                   handleChange(idx, "department", e.target.value)
@@ -262,13 +253,20 @@ export default function DepartmentRates() {
             {/* Rates Section */}
             <div style={styles.section}>
               <h3 style={styles.sectionTitle}>
-                <span aria-label="Peso" style={{ marginRight: 8, fontSize: 18, fontWeight: 700 }}>₱</span>
+                <span
+                  aria-label="Peso"
+                  style={{ marginRight: 8, fontSize: 18, fontWeight: 700 }}
+                >
+                  ₱
+                </span>
                 Rates
               </h3>
               <div style={styles.inputGrid}>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Daily Rate (₱)</label>
+                  <label htmlFor={`daily-rate-${row.department || idx}`} style={styles.label}>Daily Rate (₱)</label>
                   <input
+                    id={`daily-rate-${row.department || idx}`}
+                    name={`daily-rate-${row.department || idx}`}
                     type="number"
                     step="0.01"
                     min="0"
@@ -280,8 +278,10 @@ export default function DepartmentRates() {
                   />
                 </div>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Late Penalty (₱)</label>
+                  <label htmlFor={`late-penalty-${row.department || idx}`} style={styles.label}>Late Penalty (₱)</label>
                   <input
+                    id={`late-penalty-${row.department || idx}`}
+                    name={`late-penalty-${row.department || idx}`}
                     type="number"
                     step="0.01"
                     min="0"
@@ -304,8 +304,10 @@ export default function DepartmentRates() {
                   />
                 </div> */}
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Regular Holiday Rate (%)</label>
+                  <label htmlFor={`regular-holiday-rate-${row.department || idx}`} style={styles.label}>Regular Holiday Rate (%)</label>
                   <input
+                    id={`regular-holiday-rate-${row.department || idx}`}
+                    name={`regular-holiday-rate-${row.department || idx}`}
                     type="number"
                     step="0.01"
                     min="0"
@@ -315,8 +317,10 @@ export default function DepartmentRates() {
                     }
                     style={styles.input}
                   />
-                  <label style={styles.label}>Special Holiday Rate (%)</label>
+                  <label htmlFor={`special-holiday-rate-${row.department || idx}`} style={styles.label}>Special Holiday Rate (%)</label>
                   <input
+                    id={`special-holiday-rate-${row.department || idx}`}
+                    name={`special-holiday-rate-${row.department || idx}`}
                     type="number"
                     step="0.01"
                     min="0"
@@ -342,8 +346,10 @@ export default function DepartmentRates() {
               </h3>
               <div style={styles.inputGrid}>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>SSS (₱)</label>
+                  <label htmlFor={`sss-${row.department || idx}`} style={styles.label}>SSS (₱)</label>
                   <input
+                    id={`sss-${row.department || idx}`}
+                    name={`sss-${row.department || idx}`}
                     type="number"
                     step="0.01"
                     min="0"
@@ -353,8 +359,10 @@ export default function DepartmentRates() {
                   />
                 </div>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>Pag-ibig (₱)</label>
+                  <label htmlFor={`pag-ibig-${row.department || idx}`} style={styles.label}>Pag-ibig (₱)</label>
                   <input
+                    id={`pag-ibig-${row.department || idx}`}
+                    name={`pag-ibig-${row.department || idx}`}
                     type="number"
                     step="0.01"
                     min="0"
@@ -366,8 +374,10 @@ export default function DepartmentRates() {
                   />
                 </div>
                 <div style={styles.inputGroup}>
-                  <label style={styles.label}>PhilHealth (₱)</label>
+                  <label htmlFor={`philhealth-${row.department || idx}`} style={styles.label}>PhilHealth (₱)</label>
                   <input
+                    id={`philhealth-${row.department || idx}`}
+                    name={`philhealth-${row.department || idx}`}
                     type="number"
                     step="0.01"
                     min="0"

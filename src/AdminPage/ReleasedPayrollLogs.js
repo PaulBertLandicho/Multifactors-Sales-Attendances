@@ -25,7 +25,9 @@ export default function ReleasedPayrollLogs() {
         const end = start + pageSize - 1;
         const { data, error } = await supabase
           .from("payroll_activity_logs")
-          .select("id, payroll_period_id, person_id, person_name, released_by, action, timestamp")
+          .select(
+            "id, payroll_period_id, person_id, person_name, released_by, action, timestamp",
+          )
           .order("timestamp", { ascending: false })
           .range(start, end);
         if (error) throw error;
@@ -37,7 +39,7 @@ export default function ReleasedPayrollLogs() {
           setPage(p);
         }
       } catch (err) {
-        console.error('Failed to load payroll activity logs page', err);
+        console.error("Failed to load payroll activity logs page", err);
       } finally {
         if (mounted) setLoadingPage(false);
       }
@@ -46,22 +48,32 @@ export default function ReleasedPayrollLogs() {
 
     // realtime subscription to new logs — prepend to current list
     const sub = supabase
-      .channel('public:payroll_activity_logs')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payroll_activity_logs' }, (payload) => {
-        try {
-          const newRow = payload.new;
-          setLogs((prev) => {
-            // avoid duplicate if already loaded
-            if (!prev || !prev.length) return [newRow];
-            if (prev.some((r) => r.id === newRow.id)) return prev;
-            return [newRow, ...prev];
-          });
-        } catch (e) { console.error('realtime payload error', e); }
-      })
+      .channel("public:payroll_activity_logs")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "payroll_activity_logs" },
+        (payload) => {
+          try {
+            const newRow = payload.new;
+            setLogs((prev) => {
+              // avoid duplicate if already loaded
+              if (!prev || !prev.length) return [newRow];
+              if (prev.some((r) => r.id === newRow.id)) return prev;
+              return [newRow, ...prev];
+            });
+          } catch (e) {
+            console.error("realtime payload error", e);
+          }
+        },
+      )
       .subscribe();
     return () => {
       mounted = false;
-      try { supabase.removeChannel(sub); } catch (e) { /* older clients */ }
+      try {
+        supabase.removeChannel(sub);
+      } catch (e) {
+        /* older clients */
+      }
     };
   }, [pageSize]);
 
@@ -217,7 +229,7 @@ export default function ReleasedPayrollLogs() {
             </tbody>
           </table>
         </div>
-        <div style={{ padding: 12, textAlign: 'center' }}>
+        <div style={{ padding: 12, textAlign: "center" }}>
           {hasMore ? (
             <button
               onClick={async () => {
@@ -229,7 +241,9 @@ export default function ReleasedPayrollLogs() {
                   const end = start + pageSize - 1;
                   const { data, error } = await supabase
                     .from("payroll_activity_logs")
-                    .select("id, payroll_period_id, person_id, person_name, released_by, action, timestamp")
+                    .select(
+                      "id, payroll_period_id, person_id, person_name, released_by, action, timestamp",
+                    )
                     .order("timestamp", { ascending: false })
                     .range(start, end);
                   if (error) throw error;
@@ -237,17 +251,24 @@ export default function ReleasedPayrollLogs() {
                   setPage(next);
                   setHasMore((data || []).length === pageSize);
                 } catch (err) {
-                  console.error('Failed to load more logs', err);
+                  console.error("Failed to load more logs", err);
                 } finally {
                   setLoadingPage(false);
                 }
               }}
-              style={{ marginTop: 8, padding: '8px 14px', borderRadius: 8, background: '#fff', border: '1px solid #e5e7eb', cursor: 'pointer' }}
+              style={{
+                marginTop: 8,
+                padding: "8px 14px",
+                borderRadius: 8,
+                background: "#fff",
+                border: "1px solid #e5e7eb",
+                cursor: "pointer",
+              }}
             >
-              {loadingPage ? 'Loading...' : 'Load more'}
+              {loadingPage ? "Loading..." : "Load more"}
             </button>
           ) : (
-            <div style={{ color: '#6b7280', fontSize: 13 }}>No more logs</div>
+            <div style={{ color: "#6b7280", fontSize: 13 }}>No more logs</div>
           )}
         </div>
       </div>

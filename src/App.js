@@ -96,7 +96,11 @@ function App() {
   }, [hasStaffAccess, session]);
 
   const ProtectedRoute = ({ allowedRoles = STAFF_ROLES, children }) =>
-    hasAllowedRole(session, allowedRoles) ? children : <Navigate to="/admin" replace />;
+    hasAllowedRole(session, allowedRoles) ? (
+      children
+    ) : (
+      <Navigate to="/admin" replace />
+    );
 
   useEffect(() => {
     // show overlay immediately on navigation
@@ -249,20 +253,21 @@ function App() {
                   )
                 ) : (
                   <div style={styles.staffGateCard}>
-                    <div style={styles.staffGatePill}>Staff login required</div>
+                    <div style={styles.staffGatePill}>
+                      Attendance login required
+                    </div>
                     <h2 style={styles.staffGateTitle}>
                       Sign in to record attendance
                     </h2>
                     <p style={styles.staffGateText}>
-                      Department secretaries can log in to record attendance and review records.
-                      Admin accounts keep full access to the management tools.
+                      Log in to record attendance.
                     </p>
                     <button
                       type="button"
                       onClick={() => setShowStaffLogin(true)}
                       style={styles.staffGateButton}
                     >
-                      Open Staff Login
+                      Open Attendance Login
                     </button>
                   </div>
                 )}
@@ -294,9 +299,12 @@ function App() {
               <div style={{ maxWidth: 900, margin: "0 auto" }}>
                 <div style={styles.staffGateCard}>
                   <div style={styles.staffGatePill}>Staff login</div>
-                  <h2 style={styles.staffGateTitle}>Open the secretary account</h2>
+                  <h2 style={styles.staffGateTitle}>
+                    Open the secretary account
+                  </h2>
                   <p style={styles.staffGateText}>
-                    Use the popup login to sign in with the staff email and password.
+                    Use the popup login to sign in with the staff email and
+                    password.
                   </p>
                   <button
                     type="button"

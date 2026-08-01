@@ -13,14 +13,15 @@ import {
 
 export default function RegistrationCamera({ onFaceScan, disabled }) {
   const [persons, setPersons] = useState([]);
-  const isSwalOpen = () => typeof Swal?.isVisible === "function" && Swal.isVisible();
+  const isSwalOpen = () =>
+    typeof Swal?.isVisible === "function" && Swal.isVisible();
 
   // Load persons with descriptors from Supabase
   useEffect(() => {
     async function loadPersons() {
       if (!SUPABASE_CONFIGURED || !supabase) {
         console.warn(
-          "Supabase not configured; skipping person load in RegistrationCamera."
+          "Supabase not configured; skipping person load in RegistrationCamera.",
         );
         return;
       }
@@ -46,7 +47,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
                   ? averageDescriptors(p.descriptor)
                   : normalizeDescriptor(toFloat32Array(p.descriptor))
                 : null,
-            }))
+            })),
           );
         }
       } catch (err) {
@@ -134,7 +135,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
                 new faceapi.TinyFaceDetectorOptions({
                   inputSize: 320,
                   scoreThreshold: 0.5,
-                })
+                }),
               )
               .withFaceLandmarks()
               .withFaceDescriptor();
@@ -150,9 +151,9 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
 
             // Normalize descriptor and run the same duplicate check used for live camera
             const newDesc = normalizeDescriptor(
-              toFloat32Array(detection.descriptor)
+              toFloat32Array(detection.descriptor),
             );
-            const UPLOAD_FACE_MATCH = 0.30;
+            const UPLOAD_FACE_MATCH = 0.3;
             const UPLOAD_MARGIN = 0.08;
 
             const candidates = persons
@@ -170,7 +171,8 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
             let isConfidentDuplicate = false;
             if (best && best.p && best.p.registration_photo) {
               if (second) {
-                isConfidentDuplicate = best.dist < UPLOAD_FACE_MATCH && margin >= UPLOAD_MARGIN;
+                isConfidentDuplicate =
+                  best.dist < UPLOAD_FACE_MATCH && margin >= UPLOAD_MARGIN;
               } else {
                 // no second candidate, require a very strong match
                 isConfidentDuplicate = best.dist < UPLOAD_FACE_MATCH * 0.8;
@@ -186,7 +188,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
                 }</strong> (ID: ${
                   best.p.id
                 }) with distance <strong>${best.dist.toFixed(
-                  3
+                  3,
                 )}</strong>.<br/>Registering a new person may create a duplicate.`,
                 showCancelButton: true,
                 confirmButtonText: "Register Anyway",
@@ -203,10 +205,14 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
               const now = Date.now();
               if (now - scanCooldownRef.current >= SCAN_COOLDOWN_MS) {
                 scanCooldownRef.current = now;
-                if (!isSwalOpen()) onFaceScan({ descriptor: newDesc, photoDataUrl: dataUrl });
-                else console.log("Swal visible — skipping onFaceScan from upload");
+                if (!isSwalOpen())
+                  onFaceScan({ descriptor: newDesc, photoDataUrl: dataUrl });
+                else
+                  console.log("Swal visible — skipping onFaceScan from upload");
               } else {
-                console.log("RegistrationCamera: suppressed upload scan due to cooldown");
+                console.log(
+                  "RegistrationCamera: suppressed upload scan due to cooldown",
+                );
               }
             }
           } catch (err) {
@@ -343,7 +349,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
           new faceapi.TinyFaceDetectorOptions({
             inputSize: 320,
             scoreThreshold: 0.5,
-          })
+          }),
         )
         .withFaceLandmarks()
         .withFaceDescriptor();
@@ -371,7 +377,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
         const boxValid =
           box &&
           [box.x, box.y, box.width, box.height].every(
-            (v) => typeof v === "number" && !isNaN(v)
+            (v) => typeof v === "number" && !isNaN(v),
           );
 
         const ctx = canvas.getContext("2d");
@@ -397,7 +403,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
       // If face detected, collect descriptors across frames and only act when stable
       if (detection && detection.descriptor) {
         const rawDesc = normalizeDescriptor(
-          toFloat32Array(detection.descriptor)
+          toFloat32Array(detection.descriptor),
         );
 
         // Push to circular buffer
@@ -418,7 +424,10 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
             // Stable averaged descriptor — perform duplicate check with stricter thresholds
             const candidates = persons
               .filter((p) => p.descriptor)
-              .map((p) => ({ p, dist: euclideanDistance(avgDesc, p.descriptor) }))
+              .map((p) => ({
+                p,
+                dist: euclideanDistance(avgDesc, p.descriptor),
+              }))
               .sort((a, b) => a.dist - b.dist);
 
             const best = candidates.length ? candidates[0] : null;
@@ -427,20 +436,30 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
 
             console.log(
               "REGISTRATION DEBUG: averaged candidate distances=",
-              candidates.map((c) => ({ id: c.p.id, name: c.p.name, dist: c.dist }))
+              candidates.map((c) => ({
+                id: c.p.id,
+                name: c.p.name,
+                dist: c.dist,
+              })),
             );
 
             // More conservative duplicate decision for live capture
             let isConfidentDuplicate = false;
             if (best && best.p && best.p.registration_photo) {
               if (second) {
-                isConfidentDuplicate = best.dist < FACE_MATCH_THRESHOLD && margin >= MATCH_MARGIN;
+                isConfidentDuplicate =
+                  best.dist < FACE_MATCH_THRESHOLD && margin >= MATCH_MARGIN;
               } else {
                 isConfidentDuplicate = best.dist < FACE_MATCH_THRESHOLD * 0.8;
               }
             }
 
-            console.log('REGISTRATION duplicate-check', { best: best?.dist, second: second?.dist, margin, isConfidentDuplicate });
+            console.log("REGISTRATION duplicate-check", {
+              best: best?.dist,
+              second: second?.dist,
+              margin,
+              isConfidentDuplicate,
+            });
 
             if (isConfidentDuplicate) {
               const res = await Swal.fire({
@@ -449,7 +468,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
                 html: `This face is similar to <strong>${
                   best.p.name || "a person"
                 }</strong> (ID: ${best.p.id}) with distance <strong>${best.dist.toFixed(
-                  3
+                  3,
                 )}</strong>.<br/>Registering a new person may create a duplicate.`,
                 showCancelButton: true,
                 confirmButtonText: "Register Anyway",
@@ -460,10 +479,21 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
               if (res.isConfirmed) {
                 // Capture a frame to include with the scan payload
                 const frameCanvas = document.createElement("canvas");
-                frameCanvas.width = canvas ? canvas.width : (isVideo ? source.videoWidth : source.naturalWidth) || 640;
-                frameCanvas.height = canvas ? canvas.height : (isVideo ? source.videoHeight : source.naturalHeight) || 480;
+                frameCanvas.width = canvas
+                  ? canvas.width
+                  : (isVideo ? source.videoWidth : source.naturalWidth) || 640;
+                frameCanvas.height = canvas
+                  ? canvas.height
+                  : (isVideo ? source.videoHeight : source.naturalHeight) ||
+                    480;
                 const fctx = frameCanvas.getContext("2d");
-                fctx.drawImage(source, 0, 0, frameCanvas.width, frameCanvas.height);
+                fctx.drawImage(
+                  source,
+                  0,
+                  0,
+                  frameCanvas.width,
+                  frameCanvas.height,
+                );
                 const photoDataUrl = frameCanvas.toDataURL("image/jpeg", 0.85);
                 // clear buffer so next person starts fresh
                 descBufferRef.current = [];
@@ -471,30 +501,52 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
                   const now = Date.now();
                   if (now - scanCooldownRef.current >= SCAN_COOLDOWN_MS) {
                     scanCooldownRef.current = now;
-                    if (!isSwalOpen()) onFaceScan({ descriptor: avgDesc, photoDataUrl });
-                    else console.log("Swal visible — skipping onFaceScan after duplicate confirm");
+                    if (!isSwalOpen())
+                      onFaceScan({ descriptor: avgDesc, photoDataUrl });
+                    else
+                      console.log(
+                        "Swal visible — skipping onFaceScan after duplicate confirm",
+                      );
                   } else {
-                    console.log("RegistrationCamera: suppressed duplicate-confirmed scan due to cooldown");
+                    console.log(
+                      "RegistrationCamera: suppressed duplicate-confirmed scan due to cooldown",
+                    );
                   }
                 }
               }
             } else {
               // Not a duplicate — send averaged descriptor as a single stable scan
               const frameCanvas = document.createElement("canvas");
-              frameCanvas.width = canvas ? canvas.width : (isVideo ? source.videoWidth : source.naturalWidth) || 640;
-              frameCanvas.height = canvas ? canvas.height : (isVideo ? source.videoHeight : source.naturalHeight) || 480;
+              frameCanvas.width = canvas
+                ? canvas.width
+                : (isVideo ? source.videoWidth : source.naturalWidth) || 640;
+              frameCanvas.height = canvas
+                ? canvas.height
+                : (isVideo ? source.videoHeight : source.naturalHeight) || 480;
               const fctx = frameCanvas.getContext("2d");
-              fctx.drawImage(source, 0, 0, frameCanvas.width, frameCanvas.height);
+              fctx.drawImage(
+                source,
+                0,
+                0,
+                frameCanvas.width,
+                frameCanvas.height,
+              );
               const photoDataUrl = frameCanvas.toDataURL("image/jpeg", 0.85);
               descBufferRef.current = [];
               if (typeof onFaceScan === "function") {
                 const now = Date.now();
                 if (now - scanCooldownRef.current >= SCAN_COOLDOWN_MS) {
                   scanCooldownRef.current = now;
-                  if (!isSwalOpen()) onFaceScan({ descriptor: avgDesc, photoDataUrl });
-                  else console.log("Swal visible — skipping onFaceScan from live capture");
+                  if (!isSwalOpen())
+                    onFaceScan({ descriptor: avgDesc, photoDataUrl });
+                  else
+                    console.log(
+                      "Swal visible — skipping onFaceScan from live capture",
+                    );
                 } else {
-                  console.log("RegistrationCamera: suppressed live scan due to cooldown");
+                  console.log(
+                    "RegistrationCamera: suppressed live scan due to cooldown",
+                  );
                 }
               }
             }

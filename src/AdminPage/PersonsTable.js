@@ -1,6 +1,5 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
-import { useLoading } from "../LoadingContext";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
 import {
@@ -247,11 +246,9 @@ export default function PersonsTable() {
   const [payrollMap, setPayrollMap] = useState({});
   const [payrollGrossMap, setPayrollGrossMap] = useState({});
   const [presenceMap, setPresenceMap] = useState({});
-  const { setLoading } = useLoading();
   const [departments, setDepartments] = useState([]);
   const [showRegModal, setShowRegModal] = useState(false);
   const [regModalImage, setRegModalImage] = useState(null);
-  const initialLoadRef = useRef(true);
   const [error, setError] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editPerson, setEditPerson] = useState(null);
@@ -278,11 +275,8 @@ export default function PersonsTable() {
         setError(
           "Supabase client not configured. Check REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY in your environment.",
         );
-        setLoading(false);
-        initialLoadRef.current = false;
         return;
       }
-      if (initialLoadRef.current) setLoading(true);
       try {
         setError(null);
         const { data, error: err } = await supabase.from("persons").select("*");
@@ -388,16 +382,13 @@ export default function PersonsTable() {
           // ignore payroll fetch errors
         }
       } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-        initialLoadRef.current = false;
+        setError(err.message || "Failed to load persons.");
       }
     }
     fetchPersons();
     const interval = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) fetchPersons(); }, 60_000); // 60s
     return () => clearInterval(interval);
-  }, [setLoading]);
+  }, []);
 
   const handleEdit = (person) => {
     setEditPerson({ ...person });
@@ -911,7 +902,10 @@ export default function PersonsTable() {
       <div style={styles.filterBar}>
         <div style={styles.filterGroup}>
           <div style={styles.searchWrapper}>
+            <label htmlFor="persons-search" style={{ display: "block", marginBottom: 4, fontSize: 12, color: "#4b5563", fontWeight: 600 }}>Search</label>
             <input
+              id="persons-search"
+              name="persons-search"
               type="text"
               placeholder="Search name or ID"
               value={search}
@@ -919,7 +913,10 @@ export default function PersonsTable() {
               style={styles.searchInput}
             />
           </div>
+          <label htmlFor="persons-department-filter" style={{ display: "block", marginBottom: 4, fontSize: 12, color: "#4b5563", fontWeight: 600 }}>Department</label>
           <select
+            id="persons-department-filter"
+            name="persons-department-filter"
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
             style={styles.select}
@@ -1297,8 +1294,10 @@ export default function PersonsTable() {
               </div>
               <div className="persons-modal-grid" style={styles.modalGrid}>
                 <div style={styles.modalField}>
-                  <label style={styles.modalLabel}>Name</label>
+                  <label htmlFor="edit-person-name" style={styles.modalLabel}>Name</label>
                   <input
+                    id="edit-person-name"
+                    name="edit-person-name"
                     value={editPerson.name || ""}
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, name: e.target.value })
@@ -1307,8 +1306,10 @@ export default function PersonsTable() {
                   />
                 </div>
                 <div style={styles.modalField}>
-                  <label style={styles.modalLabel}>Department</label>
+                  <label htmlFor="edit-person-department" style={styles.modalLabel}>Department</label>
                   <select
+                    id="edit-person-department"
+                    name="edit-person-department"
                     value={editPerson.department || ""}
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, department: e.target.value })
@@ -1335,8 +1336,10 @@ export default function PersonsTable() {
                 </div>
 
                 <div style={styles.modalField}>
-                  <label style={styles.modalLabel}>Phone</label>
+                  <label htmlFor="edit-person-phone" style={styles.modalLabel}>Phone</label>
                   <input
+                    id="edit-person-phone"
+                    name="edit-person-phone"
                     value={editPerson.phone_number || ""}
                     onChange={(e) =>
                       setEditPerson({
@@ -1348,8 +1351,10 @@ export default function PersonsTable() {
                   />
                 </div>
                 <div style={styles.modalField}>
-                  <label style={styles.modalLabel}>Email</label>
+                  <label htmlFor="edit-person-email" style={styles.modalLabel}>Email</label>
                   <input
+                    id="edit-person-email"
+                    name="edit-person-email"
                     value={editPerson.email || ""}
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, email: e.target.value })
@@ -1359,8 +1364,10 @@ export default function PersonsTable() {
                 </div>
 
                 <div style={styles.modalField}>
-                  <label style={styles.modalLabel}>Address</label>
+                  <label htmlFor="edit-person-address" style={styles.modalLabel}>Address</label>
                   <input
+                    id="edit-person-address"
+                    name="edit-person-address"
                     value={editPerson.address || ""}
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, address: e.target.value })
@@ -1369,8 +1376,10 @@ export default function PersonsTable() {
                   />
                 </div>
                 <div style={styles.modalField}>
-                  <label style={styles.modalLabel}>Sex</label>
+                  <label htmlFor="edit-person-sex" style={styles.modalLabel}>Sex</label>
                   <select
+                    id="edit-person-sex"
+                    name="edit-person-sex"
                     value={editPerson.sex || ""}
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, sex: e.target.value })
@@ -1388,8 +1397,10 @@ export default function PersonsTable() {
                 <label style={styles.modalLabel}>Mandatory Contributions</label>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                     <div style={{ minWidth: 200 }}>
-                      <label style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 6 }}>SSS Number</label>
+                      <label htmlFor="edit-person-sss" style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 6 }}>SSS Number</label>
                       <input
+                        id="edit-person-sss"
+                        name="edit-person-sss"
                         type="text"
                         placeholder="e.g. 12-3456789-0"
                         value={editPerson.sss ?? ''}
@@ -1401,8 +1412,10 @@ export default function PersonsTable() {
                     </div>
 
                     <div style={{ minWidth: 200 }}>
-                      <label style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 6 }}>Pag-ibig Number</label>
+                      <label htmlFor="edit-person-pag-ibig" style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 6 }}>Pag-ibig Number</label>
                       <input
+                        id="edit-person-pag-ibig"
+                        name="edit-person-pag-ibig"
                         type="text"
                         placeholder="e.g. 0000-0000-0000"
                         value={editPerson.pag_ibig ?? ''}
@@ -1414,8 +1427,10 @@ export default function PersonsTable() {
                     </div>
 
                     <div style={{ minWidth: 200 }}>
-                      <label style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 6 }}>PhilHealth Number</label>
+                      <label htmlFor="edit-person-philhealth" style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 6 }}>PhilHealth Number</label>
                       <input
+                        id="edit-person-philhealth"
+                        name="edit-person-philhealth"
                         type="text"
                         placeholder="e.g. 123456789012"
                         value={editPerson.philhealth ?? ''}
@@ -1439,6 +1454,8 @@ export default function PersonsTable() {
                     }}
                   >
                     <input
+                      id="cash-advance-amount"
+                      name="cash-advance-amount"
                       type="number"
                       placeholder="Amount"
                       value={newCashAmount}
@@ -1446,6 +1463,8 @@ export default function PersonsTable() {
                       style={{ ...styles.modalInput, maxWidth: 160 }}
                     />
                     <input
+                      id="cash-advance-note"
+                      name="cash-advance-note"
                       placeholder="Note (optional)"
                       value={newCashNote}
                       onChange={(e) => setNewCashNote(e.target.value)}
@@ -1567,15 +1586,15 @@ export default function PersonsTable() {
                 <div style={{ padding: 8, background: "#f9fafb", borderRadius: 8 }}>{adminModal.person.name} • ID: {adminModal.person.id}</div>
               </div>
               <div>
-                <label style={styles.modalLabel}>Event</label>
-                <select value={adminModal.event} onChange={(e) => setAdminModal((s) => ({ ...s, event: e.target.value }))} style={styles.modalSelect}>
+                <label htmlFor="admin-attendance-event" style={styles.modalLabel}>Event</label>
+                <select id="admin-attendance-event" name="admin-attendance-event" value={adminModal.event} onChange={(e) => setAdminModal((s) => ({ ...s, event: e.target.value }))} style={styles.modalSelect}>
                   <option value="time-in">Time In</option>
                   <option value="time-out">Time Out</option>
                 </select>
               </div>
               <div>
-                <label style={styles.modalLabel}>Date & time</label>
-                <input type="datetime-local" value={adminModal.datetime} onChange={(e) => setAdminModal((s) => ({ ...s, datetime: e.target.value }))} style={styles.modalInput} />
+                <label htmlFor="admin-attendance-datetime" style={styles.modalLabel}>Date & time</label>
+                <input id="admin-attendance-datetime" name="admin-attendance-datetime" type="datetime-local" value={adminModal.datetime} onChange={(e) => setAdminModal((s) => ({ ...s, datetime: e.target.value }))} style={styles.modalInput} />
               </div>
               <div>
                 <label style={styles.modalLabel}>Location</label>

@@ -56,8 +56,8 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
         await supabase.auth.signOut();
         setError(
           role === "admin"
-            ? "This is the admin account. Please use secretary account instead."
-            : "That account does not have secretary access yet.",
+            ? "This is the admin account. Please use attendance account instead."
+            : "That account does not have attendance access yet.",
         );
         setLoading(false);
         return;
@@ -91,13 +91,18 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
 
         <div style={styles.badge}>
           <FaUserShield style={{ marginRight: 8 }} />
-          Secretary Login
+          Attendance Login
         </div>
 
         <h2 style={styles.title}>Open the attendance account</h2>
         <p style={styles.subtitle}>
+<<<<<<< HEAD
           Sign in with the secretary email and password. Admin accounts must use
           the Admin Login page.
+=======
+          Sign in with the attendance email and password. Admin accounts must
+          use the Admin Login page.
+>>>>>>> d1e9825 (40th Commit)
         </p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
@@ -270,4 +275,17 @@ const styles = {
     color: "#166534",
     fontSize: 13,
   },
+<<<<<<< HEAD
+=======
+  eyeButton: {
+    background: "transparent",
+    border: "none",
+    cursor: "pointer",
+    color: "#64748b",
+    fontSize: "16px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+>>>>>>> d1e9825 (40th Commit)
 };

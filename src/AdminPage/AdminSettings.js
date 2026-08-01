@@ -4,68 +4,69 @@ import { FiSun, FiMoon, FiAlertTriangle, FiCalendar } from "react-icons/fi";
 import Icon from "../components/Icon";
 import { supabase } from "../supabaseClient";
 import HolidayManagerGlobal from "./HolidayManager";
-import { useLoading } from "../LoadingContext";
+
+const DEFAULT_SETTINGS = {
+  morning_start: "08:00",
+  morning_end: "11:59",
+  afternoon_start: "13:00",
+  afternoon_end: "17:00",
+  morning_grace_minutes: 15,
+  afternoon_grace_minutes: 15,
+  late_count_limit: 5,
+  payroll_period_days: 15,
+};
 
 export default function AdminSettings() {
-  const [settings, setSettings] = useState({
-    morning_start: "08:00",
-    morning_end: "11:59",
-    afternoon_start: "13:00",
-    late_count_limit: 5,
-    payroll_period_days: 15, // Default to 15 days, can be adjusted
-  });
-  const { setLoading } = useLoading();
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     async function fetchSettings() {
-      setLoading(true);
       try {
         const { data, error } = await supabase
           .from("settings")
           .select("*")
+          .eq("id", 1)
           .maybeSingle();
+
         if (!error && data) {
-          // Fallbacks for missing/invalid values
           setSettings({
             morning_start: data.morning_start
               ? data.morning_start.slice(0, 5)
-              : "08:00",
+              : DEFAULT_SETTINGS.morning_start,
             morning_end: data.morning_end
               ? data.morning_end.slice(0, 5)
-              : "11:59",
+              : DEFAULT_SETTINGS.morning_end,
             afternoon_start: data.afternoon_start
               ? data.afternoon_start.slice(0, 5)
-              : "13:00",
+              : DEFAULT_SETTINGS.afternoon_start,
             afternoon_end: data.afternoon_end
               ? data.afternoon_end.slice(0, 5)
-              : "17:00",
-            morning_grace_minutes: Number.isFinite(
-              data.morning_grace_minutes,
-            )
+              : DEFAULT_SETTINGS.afternoon_end,
+            morning_grace_minutes: Number.isFinite(data.morning_grace_minutes)
               ? data.morning_grace_minutes
-              : 15,
+              : DEFAULT_SETTINGS.morning_grace_minutes,
             afternoon_grace_minutes: Number.isFinite(
               data.afternoon_grace_minutes,
             )
               ? data.afternoon_grace_minutes
-              : 15,
+              : DEFAULT_SETTINGS.afternoon_grace_minutes,
             late_count_limit: Number.isFinite(data.late_count_limit)
               ? data.late_count_limit
-              : 5,
+              : DEFAULT_SETTINGS.late_count_limit,
             payroll_period_days: Number.isFinite(data.payroll_period_days)
               ? data.payroll_period_days
-              : 15,
+              : DEFAULT_SETTINGS.payroll_period_days,
           });
+        } else if (!error) {
+          setSettings(DEFAULT_SETTINGS);
         }
       } catch (e) {
         console.error("Error fetching settings:", e);
-      } finally {
-        setLoading(false);
       }
     }
     fetchSettings();
-  }, [setLoading]);
+  }, []);
 
   const handleChange = (e) => {
     const { name, value, type } = e.target;
@@ -77,50 +78,32 @@ export default function AdminSettings() {
 
   const handleSave = async () => {
     setSaving(true);
-    // Check if settings row exists
-    const { data: existing, error: fetchError } = await supabase
-      .from("settings")
-      .select("id")
-      .eq("id", 1)
-      .maybeSingle();
 
-    let error = null;
-    if (!fetchError && existing) {
-      // Update existing row
-      ({ error } = await supabase
-        .from("settings")
-        .update({
-          morning_start: settings.morning_start,
-          morning_end: settings.morning_end,
-          afternoon_start: settings.afternoon_start,
-          afternoon_end: settings.afternoon_end,
-          morning_grace_minutes: settings.morning_grace_minutes,
-          afternoon_grace_minutes: settings.afternoon_grace_minutes,
-          late_count_limit: settings.late_count_limit,
-          payroll_period_days: settings.payroll_period_days,
-          updated_at: new Date(),
-        })
-        .eq("id", 1));
+    const payload = {
+      id: 1,
+      morning_start: settings.morning_start,
+      morning_end: settings.morning_end,
+      afternoon_start: settings.afternoon_start,
+      afternoon_end: settings.afternoon_end,
+      morning_grace_minutes: Number(settings.morning_grace_minutes) || 0,
+      afternoon_grace_minutes: Number(settings.afternoon_grace_minutes) || 0,
+      late_count_limit: Number(settings.late_count_limit) || 0,
+      payroll_period_days: Number(settings.payroll_period_days) || 15,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase
+      .from("settings")
+      .upsert(payload, { onConflict: "id" });
+
+    if (error) {
+      Swal.fire("Error saving", error.message, "error");
     } else {
-      // Insert new row
-      ({ error } = await supabase.from("settings").insert({
-        id: 1,
-        morning_start: settings.morning_start,
-        morning_end: settings.morning_end,
-        afternoon_start: settings.afternoon_start,
-        afternoon_end: settings.afternoon_end,
-        morning_grace_minutes: settings.morning_grace_minutes,
-        afternoon_grace_minutes: settings.afternoon_grace_minutes,
-        payroll_period_days: settings.payroll_period_days,
-        updated_at: new Date(),
-      }));
+      Swal.fire("Settings updated!", "", "success");
     }
-    if (error) Swal.fire("Error saving", error.message, "error");
-    else Swal.fire("Settings updated!", "", "success");
+
     setSaving(false);
   };
-
-  // Page-level loading handled by LoadingContext overlay
 
   return (
     <div style={styles.container}>
@@ -133,14 +116,19 @@ export default function AdminSettings() {
       <div style={styles.cardsRow}>
         {/* Morning Shift Card */}
         <div style={styles.card}>
-            <div style={styles.cardHeader}>
-              <span style={styles.cardIcon}><Icon as={FiSun} size={28} ariaLabel="Morning shift" /></span>
-              <h2 style={styles.cardTitle}>Morning Shift</h2>
-            </div>
+          <div style={styles.cardHeader}>
+            <span style={styles.cardIcon}>
+              <Icon as={FiSun} size={28} ariaLabel="Morning shift" />
+            </span>
+            <h2 style={styles.cardTitle}>Morning Shift</h2>
+          </div>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Start Time</label>
+            <label htmlFor="morning_start" style={styles.label}>
+              Start Time
+            </label>
             <input
               type="time"
+              id="morning_start"
               name="morning_start"
               value={settings.morning_start}
               onChange={handleChange}
@@ -148,9 +136,12 @@ export default function AdminSettings() {
             />
           </div>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>End Time</label>
+            <label htmlFor="morning_end" style={styles.label}>
+              End Time
+            </label>
             <input
               type="time"
+              id="morning_end"
               name="morning_end"
               value={settings.morning_end}
               onChange={handleChange}
@@ -159,10 +150,13 @@ export default function AdminSettings() {
             />
           </div>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Grace Period</label>
+            <label htmlFor="morning_grace_minutes" style={styles.label}>
+              Grace Period
+            </label>
             <div style={styles.numberInputWrapper}>
               <input
                 type="number"
+                id="morning_grace_minutes"
                 name="morning_grace_minutes"
                 value={settings.morning_grace_minutes}
                 onChange={handleChange}
@@ -181,13 +175,18 @@ export default function AdminSettings() {
         {/* Afternoon Shift Card */}
         <div style={styles.card}>
           <div style={styles.cardHeader}>
-              <span style={styles.cardIcon}><Icon as={FiMoon} size={28} ariaLabel="Afternoon shift" /></span>
-              <h2 style={styles.cardTitle}>Afternoon Shift</h2>
-            </div>
+            <span style={styles.cardIcon}>
+              <Icon as={FiMoon} size={28} ariaLabel="Afternoon shift" />
+            </span>
+            <h2 style={styles.cardTitle}>Afternoon Shift</h2>
+          </div>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Start Time</label>
+            <label htmlFor="afternoon_start" style={styles.label}>
+              Start Time
+            </label>
             <input
               type="time"
+              id="afternoon_start"
               name="afternoon_start"
               value={settings.afternoon_start}
               onChange={handleChange}
@@ -195,9 +194,12 @@ export default function AdminSettings() {
             />
           </div>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>End Time</label>
+            <label htmlFor="afternoon_end" style={styles.label}>
+              End Time
+            </label>
             <input
               type="time"
+              id="afternoon_end"
               name="afternoon_end"
               value={settings.afternoon_end}
               onChange={handleChange}
@@ -205,10 +207,13 @@ export default function AdminSettings() {
             />
           </div>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Grace Period</label>
+            <label htmlFor="afternoon_grace_minutes" style={styles.label}>
+              Grace Period
+            </label>
             <div style={styles.numberInputWrapper}>
               <input
                 type="number"
+                id="afternoon_grace_minutes"
                 name="afternoon_grace_minutes"
                 value={settings.afternoon_grace_minutes}
                 onChange={handleChange}
@@ -227,14 +232,19 @@ export default function AdminSettings() {
         {/* Late Count Limit Card */}
         <div style={styles.card}>
           <div style={styles.cardHeader}>
-            <span style={styles.cardIcon}><Icon as={FiAlertTriangle} size={24} ariaLabel="Warning" /></span>
+            <span style={styles.cardIcon}>
+              <Icon as={FiAlertTriangle} size={24} ariaLabel="Warning" />
+            </span>
             <h2 style={styles.cardTitle}>Late Count Limit</h2>
           </div>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Limit</label>
+            <label htmlFor="late_count_limit" style={styles.label}>
+              Limit
+            </label>
             <div style={styles.numberInputWrapper}>
               <input
                 type="number"
+                id="late_count_limit"
                 name="late_count_limit"
                 value={settings.late_count_limit}
                 onChange={handleChange}
@@ -246,13 +256,18 @@ export default function AdminSettings() {
             </div>
             <span style={styles.hint}>Late occurrences before deduction</span>
           </div>
-          <span style={styles.cardIcon}><Icon as={FiCalendar} size={24} ariaLabel="Payroll calendar" /></span>
+          <span style={styles.cardIcon}>
+            <Icon as={FiCalendar} size={24} ariaLabel="Payroll calendar" />
+          </span>
           <h2 style={styles.cardTitle}>Payroll Period Length</h2>
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Days per Payroll Period</label>
+            <label htmlFor="payroll_period_days" style={styles.label}>
+              Days per Payroll Period
+            </label>
             <div style={styles.numberInputWrapper}>
               <input
                 type="number"
+                id="payroll_period_days"
                 name="payroll_period_days"
                 value={settings.payroll_period_days}
                 onChange={handleChange}
@@ -315,10 +330,10 @@ export default function AdminSettings() {
           Department Rates
         </button> */}
       </div>
-      {/* Global Holiday Manager (applies to all departments) */}
-      <div style={{ margin: "40px 0" }}>
-        <HolidayManagerGlobal />
-      </div>
+        {/* Global Holiday Manager (applies to all departments) */}
+        <div style={{ margin: "40px 0" }}>
+          <HolidayManagerGlobal />
+        </div>
     </div>
   );
 }
