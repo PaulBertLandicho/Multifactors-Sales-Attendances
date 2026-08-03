@@ -905,7 +905,6 @@ export default function PayrollPage() {
         <button
           onClick={handleExportPayslipExcel}
           style={{
-            marginRight: -300,
             ...styles.button,
             ...styles.buttonPrimary,
           }}

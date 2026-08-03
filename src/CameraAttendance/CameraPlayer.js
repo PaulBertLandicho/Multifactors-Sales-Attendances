@@ -133,8 +133,7 @@ export default function CameraPlayer({
   const [cameraStatus, setCameraStatus] = useState(CAMERA_STATUS.CONNECTING);
   const [cameraError, setCameraError] = useState("");
   const [useLocalCamera, setUseLocalCamera] = useState(false); // Fallback flag
-  const [locationInfo, setLocationInfo] = useState({ point: "", status: "idle", message: "Tap Enable Location to capture the current device location." });
-  const [locationBusy, setLocationBusy] = useState(false);
+  const [locationInfo, setLocationInfo] = useState({ point: "", status: "idle", message: "Getting exact device location..." });
   const [currentTime, setCurrentTime] = useState(new Date());
   const lastScanRef = useRef({});
   const fullscreenRef = useRef(null);
@@ -294,7 +293,7 @@ export default function CameraPlayer({
       (error) => resolve({ error }),
       {
         enableHighAccuracy: true,
-        timeout: 25000,
+        timeout: 30000,
         maximumAge: 0,
       },
     );
@@ -302,9 +301,6 @@ export default function CameraPlayer({
 
   const getCurrentLocationPoint = useCallback(async () => {
     const now = Date.now();
-    if (lastLocationRef.current?.point && now - (lastLocationRef.current.ts || 0) < 60 * 1000) {
-      return buildLocationResult(lastLocationRef.current.point, "ok", "Using cached location.");
-    }
 
     if (typeof window !== "undefined" && window.isSecureContext === false) {
       return buildLocationResult(
@@ -341,58 +337,71 @@ export default function CameraPlayer({
       const result = await requestBrowserLocation();
       if (result && !result.error) {
         const position = result;
-          const latNum = Number(position.coords.latitude || 0);
-          const lngNum = Number(position.coords.longitude || 0);
-          const lat = latNum.toFixed(6);
-          const lng = lngNum.toFixed(6);
-          const accuracy = Number(position.coords.accuracy || 0);
+        const latNum = Number(position.coords.latitude || 0);
+        const lngNum = Number(position.coords.longitude || 0);
+        const lat = latNum.toFixed(7);
+        const lng = lngNum.toFixed(7);
+        const accuracy = Number(position.coords.accuracy || 0);
+        const exactPoint = `${lat}, ${lng}`;
+        const accuracyText = accuracy ? `GPS accuracy: ±${Math.round(accuracy)} m` : "GPS accuracy: unknown";
 
-          try {
-            const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`;
-            const res = await fetch(reverseUrl, {
-              headers: {
-                Accept: "application/json",
-                "Accept-Language": "en",
-              },
-            });
-            if (res.ok) {
-              const data = await res.json();
-              const addr = data?.address || {};
-              const placeParts = [
-                addr.road || addr.neighbourhood || addr.suburb || addr.village || addr.town || addr.city || addr.municipality,
-                addr.city || addr.town || addr.village || addr.municipality,
-                addr.state || addr.region || addr.province,
-                addr.country,
-              ].filter(Boolean);
+        try {
+          const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`;
+          const res = await fetch(reverseUrl, {
+            headers: {
+              Accept: "application/json",
+              "Accept-Language": "en",
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const addr = data?.address || {};
+            const placeParts = [
+              addr.road || addr.neighbourhood || addr.suburb || addr.village || addr.town || addr.city || addr.municipality,
+              addr.city || addr.town || addr.village || addr.municipality,
+              addr.state || addr.region || addr.province,
+              addr.country,
+            ].filter(Boolean);
 
-              const uniqueParts = [...new Set(placeParts)];
-              if (uniqueParts.length) {
-                locationResult = buildLocationResult(uniqueParts.join(", "), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
-                break;
-              }
-              if (data?.display_name) {
-                locationResult = buildLocationResult(String(data.display_name), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
-                break;
-              }
+const uniqueParts = [...new Set(placeParts)];
+
+if (uniqueParts.length) {
+  const address = uniqueParts.join(", ");
+
+  locationResult = buildLocationResult(
+    address,
+    "ok",
+    "Location detected."
+  );
+  break;
+}
+            if (data?.display_name) {
+              locationResult = buildLocationResult(
+                exactPoint,
+                "ok",
+                `${String(data.display_name)} • ${accuracyText}`,
+              );
+              break;
             }
-          } catch (e) {
-            // Fallback handled below when reverse geocoding fails.
           }
+        } catch (e) {
+          // Fallback handled below when reverse geocoding fails.
+        }
 
-          if (!locationResult) {
-            locationResult = buildLocationResult(
-              `Coordinates: ${lat}, ${lng}`,
-              "ok",
-              accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.",
-            );
-          }
+        if (!locationResult) {
+       locationResult = buildLocationResult(
+    "Unknown Address",
+    "ok",
+    "Location detected."
+);
+        }
 
-          if (accuracy && accuracy > 300 && attempt < 2) {
-            lastError = { code: "LOW_ACCURACY", message: `GPS accuracy is too coarse (${Math.round(accuracy)} meters). Retrying.` };
-            locationResult = null;
-            continue;
-          }
-          break;
+        if (accuracy && accuracy > 300 && attempt < 2) {
+          lastError = { code: "LOW_ACCURACY", message: `GPS accuracy is too coarse (${Math.round(accuracy)} meters). Retrying.` };
+          locationResult = null;
+          continue;
+        }
+        break;
       }
 
       lastError = result?.error || result || lastError;
@@ -444,15 +453,27 @@ export default function CameraPlayer({
   }, []);
 
   const refreshCurrentLocation = useCallback(async () => {
-    setLocationBusy(true);
-    try {
-      const result = await getCurrentLocationPoint();
-      setLocationInfo(result);
-      return result;
-    } finally {
-      setLocationBusy(false);
-    }
-  }, [getCurrentLocationPoint]);
+  const result = await getCurrentLocationPoint();
+  setLocationInfo(result);
+  return result;
+}, [getCurrentLocationPoint]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await refreshCurrentLocation();
+        if (!cancelled && result?.status === "ok") {
+          setLocationInfo(result);
+        }
+      } catch (e) {
+        console.warn("Automatic location enable failed", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshCurrentLocation]);
 
   // ------------------- Helpers -------------------
   const captureCurrentFrame = useCallback(() => {
@@ -1557,23 +1578,6 @@ export default function CameraPlayer({
             >
               {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
             </button>
-            <button
-              onClick={refreshCurrentLocation}
-              style={{
-                marginLeft: 8,
-                padding: "6px 10px",
-                borderRadius: 8,
-                border: "none",
-                cursor: "pointer",
-                background: "#e0f2fe",
-                color: "#0369a1",
-                fontWeight: 700,
-              }}
-              disabled={locationBusy}
-              title="Request current location from the browser"
-            >
-              {locationBusy ? "Checking..." : (locationInfo.status === "ok" ? "Refresh Location" : "Enable Location")}
-            </button>
             {cameraStatus === CAMERA_STATUS.ERROR && (
               <span style={{ ...styles.badge, ...styles.badgeError }}>
                 <Icon as={FiAlertTriangle} style={{ marginRight: 8 }} ariaLabel="Error" />Error
@@ -1652,11 +1656,30 @@ export default function CameraPlayer({
               <span style={styles.settingIcon}><Icon as={FiUser} ariaLabel="Location" /></span>
               <span style={styles.settingLabel}>Location:</span>
               <span style={styles.settingValue}>
-                {locationInfo.point || "Not captured yet"}
-              </span>
-              <span style={{ ...styles.graceBadge, background: locationInfo.status === "ok" ? "#dcfce7" : "#fee2e2", color: locationInfo.status === "ok" ? "#166534" : "#b91c1c" }}>
-                {locationInfo.status === "ok" ? (locationInfo.message || "Ready") : (locationInfo.message || "Tap Enable Location")}
-              </span>
+    {locationInfo.point || "Detecting location..."}
+</span>
+
+{locationInfo.status === "ok" ? (
+    <span
+        style={{
+            ...styles.graceBadge,
+            background: "#dcfce7",
+            color: "#166534",
+        }}
+    >
+        Location detected.
+    </span>
+) : (
+    <span
+        style={{
+            ...styles.graceBadge,
+            background: "#fee2e2",
+            color: "#b91c1c",
+        }}
+    >
+        {locationInfo.message}
+    </span>
+)}
             </div>
             <div style={styles.settingsActions}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
