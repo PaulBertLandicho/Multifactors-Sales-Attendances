@@ -1,17 +1,18 @@
 import { Fragment, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLoading } from "../LoadingContext";
 import { supabase } from "../supabaseClient";
-import { determineExpectedEvent, determineAttendanceStatus, toMinutes } from "./attendanceUtils";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import { MdFilterList } from "react-icons/md";
-import { FiDownload, FiArchive, FiRotateCcw, FiPlus, FiX, FiClock, FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { FiDownload, FiArchive, FiRotateCcw, FiPlus, FiX, FiChevronLeft, FiChevronRight, FiCamera } from "react-icons/fi";
 
 export default function AttendanceTable() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
-  const [sortKey, setSortKey] = useState("person_id");
+  const [sortKey] = useState("person_id");
   const [sortOrder, setSortOrder] = useState("asc");
   const [selectedDate, setSelectedDate] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -104,65 +105,6 @@ export default function AttendanceTable() {
   if (error) {
     return <p className="text-red-500">{error}</p>;
   }
-
-  const computeStatusForEdit = async (rec, isoTime) => {
-    if (!settings) return { event: rec.event, status: rec.status };
-    try {
-      const deviceDate = new Date(isoTime);
-      const year = deviceDate.getFullYear();
-      const month = String(deviceDate.getMonth() + 1).padStart(2, "0");
-      const day = String(deviceDate.getDate()).padStart(2, "0");
-      const dayStartIso = `${year}-${month}-${day}T00:00:00.000Z`;
-      const dayEndIso = `${year}-${month}-${day}T23:59:59.999Z`;
-
-      const { data: attData, error: attErr } = await supabase
-        .from("attendance").select("id,event,device_time")
-        .eq("person_id", rec.person_id)
-        .gte("device_time", dayStartIso)
-        .lte("device_time", dayEndIso)
-        .order("device_time", { ascending: true });
-      if (attErr) throw attErr;
-
-      let lastEvent = null;
-      let lastEventDeviceTimeIso = null;
-      if (Array.isArray(attData)) {
-        for (const r of attData) {
-          if (!r || !r.device_time) continue;
-          if (r.id === rec.id) continue;
-          if (new Date(r.device_time).getTime() < deviceDate.getTime()) {
-            lastEvent = r.event;
-            lastEventDeviceTimeIso = r.device_time;
-          }
-        }
-      }
-
-      const currentTime = deviceDate.toTimeString().slice(0, 5);
-      const event = determineExpectedEvent(currentTime, lastEvent, settings, lastEventDeviceTimeIso);
-
-      let hadMorningTimeIn = false;
-      if (Array.isArray(attData) && attData.length > 0) {
-        const morningStartMinutes = toMinutes(settings.morning_start);
-        const morningEndMinutes = toMinutes(settings.morning_end);
-        for (const row of attData) {
-          if (!row || row.id === rec.id) continue;
-          if (row.event !== "time-in" || !row.device_time) continue;
-          const dt = new Date(row.device_time);
-          const hhmm = dt.toTimeString().slice(0, 5);
-          const minutes = toMinutes(hhmm);
-          if (minutes >= morningStartMinutes && minutes <= morningEndMinutes) {
-            hadMorningTimeIn = true;
-            break;
-          }
-        }
-      }
-
-      const status = determineAttendanceStatus(currentTime, event, settings, hadMorningTimeIn);
-      return { event, status };
-    } catch (e) {
-      console.error("computeStatusForEdit failed", e);
-      return { event: rec.event, status: rec.status };
-    }
-  };
 
   const handleEdit = async (rec) => {
     try {
@@ -516,6 +458,15 @@ export default function AttendanceTable() {
             className="px-4 py-2.5 rounded-lg bg-[#237227] text-white text-sm cursor-pointer min-w-[72px] text-center font-semibold border-none"
           >
             {sortOrder === "asc" ? "Asc" : "Desc"}
+          </button>
+
+          {/* Attendance Camera Button */}
+          <button
+            onClick={() => navigate("/")}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#237227] text-white text-sm cursor-pointer font-semibold border-none"
+            title="Open Attendance Camera"
+          >
+            <FiCamera className="text-base" /> Attendance Camera
           </button>
         </div>
 

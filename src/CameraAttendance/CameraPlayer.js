@@ -138,9 +138,7 @@ export default function CameraPlayer({
   const lastScanRef = useRef({});
   const fullscreenRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined" ? window.innerWidth <= 600 : false
-  );
+
   const [queueCount, setQueueCount] = useState(0);
   const [syncingOffline, setSyncingOffline] = useState(false);
   const [showQueuePanel, setShowQueuePanel] = useState(false);
@@ -148,9 +146,8 @@ export default function CameraPlayer({
 
   useEffect(() => {
     function handleResize() {
-      setIsMobile(window.innerWidth <= 600);
+      // isMobile is determined from initial window width
     }
-    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -1806,7 +1803,7 @@ if (uniqueParts.length) {
 }
 
 // Blink keyframe animation for Tailwind
-const _blinkStyle = (() => {
+(() => {
   if (typeof document === 'undefined') return;
   const id = 'camera-blink-kf';
   if (!document.getElementById(id)) {
