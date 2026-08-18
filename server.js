@@ -247,6 +247,119 @@ app.get("/api/device/status", (req, res) => {
   }
 });
 // Supabase-backed attendance API
+app.get("/api/persons", async (req, res) => {
+  if (!supabase) {
+    return res
+      .status(500)
+      .json({ error: "Supabase not configured on server." });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("persons")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(req.query.limit ? Number(req.query.limit) : 200);
+
+    if (error) {
+      console.error("Supabase persons select error:", error.message);
+      return res.status(500).json({ error: "Failed to load persons." });
+    }
+
+    res.json({ persons: data || [] });
+  } catch (err) {
+    console.error("Unexpected /api/persons GET error:", err.message);
+    res.status(500).json({ error: "Unexpected error loading persons." });
+  }
+});
+
+app.post("/api/persons", async (req, res) => {
+  if (!supabase) {
+    return res
+      .status(500)
+      .json({ error: "Supabase not configured on server." });
+  }
+
+  const body = req.body || {};
+  const payload = {
+    id: body.id || null,
+    name: body.name || null,
+    department: body.department || null,
+    phone_number: body.phone_number || null,
+    email: body.email || null,
+    address: body.address || null,
+    sex: body.sex || null,
+    descriptor: body.descriptor || null,
+    daily_rate: body.daily_rate ?? null,
+    late_penalty: body.late_penalty ?? null,
+    registration_photo: body.registration_photo || null,
+  };
+
+  if (!payload.id) {
+    return res.status(400).json({ error: "Person id is required." });
+  }
+
+  try {
+    if (payload.email) {
+      const { data: existingEmail, error: emailError } = await supabase
+        .from("persons")
+        .select("id")
+        .eq("email", payload.email)
+        .maybeSingle();
+
+      if (emailError) {
+        console.error("Supabase duplicate-email check error:", emailError.message);
+      }
+
+      if (existingEmail && existingEmail.id !== payload.id) {
+        return res.status(409).json({
+          error: "A person with this email already exists.",
+          code: "duplicate_email",
+        });
+      }
+    }
+
+    if (payload.name) {
+      const { data: existingName, error: nameError } = await supabase
+        .from("persons")
+        .select("id, name")
+        .ilike("name", payload.name)
+        .limit(1);
+
+      if (nameError) {
+        console.error("Supabase duplicate-name check error:", nameError.message);
+      }
+
+      const duplicateName = (existingName || []).find(
+        (person) => person.id !== payload.id && person.name && person.name.toLowerCase() === payload.name.toLowerCase()
+      );
+
+      if (duplicateName) {
+        return res.status(409).json({
+          error: `A person named "${payload.name}" already exists.`,
+          code: "duplicate_name",
+        });
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("persons")
+      .upsert([payload], { onConflict: "id" })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Supabase persons upsert error:", error.message);
+      return res.status(500).json({ error: "Failed to save person." });
+    }
+
+    res.status(201).json({ ok: true, person: data });
+  } catch (err) {
+    console.error("Unexpected /api/persons POST error:", err.message);
+    res.status(500).json({ error: "Unexpected error saving person." });
+  }
+});
+
 app.get("/api/attendance", async (req, res) => {
   if (!supabase) {
     return res
