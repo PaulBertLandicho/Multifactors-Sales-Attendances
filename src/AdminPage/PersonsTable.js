@@ -16,10 +16,8 @@ import PersonRegistration from "./PersonRegistration";
 import { determineAttendanceStatus } from "./attendanceUtils";
 
 export default function PersonsTable() {
-  // Camera state/hooks for Edit Person modal
   const [showCamera, setShowCamera] = useState(false);
   const cameraVideoRef = useRef(null);
-
   const cameraStreamRef = useRef(null);
   const adminLastLocationRef = useRef({ point: "Location unavailable", ts: 0 });
 
@@ -78,58 +76,56 @@ export default function PersonsTable() {
       const result = await requestBrowserLocation();
       if (result && !result.error) {
         const position = result;
-          const latNum = Number(position.coords.latitude || 0);
-          const lngNum = Number(position.coords.longitude || 0);
-          const lat = latNum.toFixed(6);
-          const lng = lngNum.toFixed(6);
-          const accuracy = Number(position.coords.accuracy || 0);
+        const latNum = Number(position.coords.latitude || 0);
+        const lngNum = Number(position.coords.longitude || 0);
+        const lat = latNum.toFixed(6);
+        const lng = lngNum.toFixed(6);
+        const accuracy = Number(position.coords.accuracy || 0);
 
-          try {
-            const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`;
-            const res = await fetch(reverseUrl, {
-              headers: {
-                Accept: "application/json",
-                "Accept-Language": "en",
-              },
-            });
-            if (res.ok) {
-              const data = await res.json();
-              const addr = data?.address || {};
-              const placeParts = [
-                addr.road || addr.neighbourhood || addr.suburb || addr.village || addr.town || addr.city || addr.municipality,
-                addr.city || addr.town || addr.village || addr.municipality,
-                addr.state || addr.region || addr.province,
-                addr.country,
-              ].filter(Boolean);
+        try {
+          const reverseUrl = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}&zoom=18&addressdetails=1`;
+          const res = await fetch(reverseUrl, {
+            headers: {
+              Accept: "application/json",
+              "Accept-Language": "en",
+            },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const addr = data?.address || {};
+            const placeParts = [
+              addr.road || addr.neighbourhood || addr.suburb || addr.village || addr.town || addr.city || addr.municipality,
+              addr.city || addr.town || addr.village || addr.municipality,
+              addr.state || addr.region || addr.province,
+              addr.country,
+            ].filter(Boolean);
 
-              const uniqueParts = [...new Set(placeParts)];
-              if (uniqueParts.length) {
-                locationResult = buildLocationResult(uniqueParts.join(", "), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
-                break;
-              }
-              if (data?.display_name) {
-                locationResult = buildLocationResult(String(data.display_name), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
-                break;
-              }
+            const uniqueParts = [...new Set(placeParts)];
+            if (uniqueParts.length) {
+              locationResult = buildLocationResult(uniqueParts.join(", "), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
+              break;
             }
-          } catch (e) {
-            // Fallback handled below when reverse geocoding fails.
+            if (data?.display_name) {
+              locationResult = buildLocationResult(String(data.display_name), "ok", accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.");
+              break;
+            }
           }
+        } catch (e) {}
 
-          if (!locationResult) {
-            locationResult = buildLocationResult(
-              `Coordinates: ${lat}, ${lng}`,
-              "ok",
-              accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.",
-            );
-          }
+        if (!locationResult) {
+          locationResult = buildLocationResult(
+            `Coordinates: ${lat}, ${lng}`,
+            "ok",
+            accuracy && accuracy > 250 ? `Location detected, but GPS accuracy is about ${Math.round(accuracy)} meters.` : "Location detected.",
+          );
+        }
 
-          if (accuracy && accuracy > 300 && attempt < 2) {
-            lastError = { code: "LOW_ACCURACY", message: `GPS accuracy is too coarse (${Math.round(accuracy)} meters). Retrying.` };
-            locationResult = null;
-            continue;
-          }
-          break;
+        if (accuracy && accuracy > 300 && attempt < 2) {
+          lastError = { code: "LOW_ACCURACY", message: `GPS accuracy is too coarse (${Math.round(accuracy)} meters). Retrying.` };
+          locationResult = null;
+          continue;
+        }
+        break;
       }
 
       lastError = result?.error || result || lastError;
@@ -180,10 +176,7 @@ export default function PersonsTable() {
     return locationResult;
   };
 
-  // Start camera when modal opens
-
   useEffect(() => {
-    // Capture refs at effect start for cleanup
     const initialVideoRef = cameraVideoRef.current;
     if (showCamera) {
       (async () => {
@@ -194,12 +187,11 @@ export default function PersonsTable() {
             cameraStreamRef.current = stream;
           }
         } catch (err) {
-          Swal.fire("Camera Error", "Unable to access camera.", "error");
+          showModalAlert({ title: "Camera Error", text: "Unable to access camera.", icon: "error" });
           setShowCamera(false);
         }
       })();
     } else {
-      // Stop camera
       if (cameraStreamRef.current) {
         cameraStreamRef.current.getTracks &&
           cameraStreamRef.current.getTracks().forEach((track) => track.stop());
@@ -209,7 +201,6 @@ export default function PersonsTable() {
         initialVideoRef.srcObject = null;
       }
     }
-    // Cleanup on unmount
     return () => {
       const localStream = cameraStreamRef.current;
       if (localStream) {
@@ -223,7 +214,6 @@ export default function PersonsTable() {
     };
   }, [showCamera]);
 
-  // Handler to capture photo from camera
   const handleCapturePhoto = () => {
     if (!cameraVideoRef.current) return;
     const video = cameraVideoRef.current;
@@ -236,6 +226,7 @@ export default function PersonsTable() {
     setEditPerson((prev) => ({ ...prev, registration_photo: dataUrl }));
     setShowCamera(false);
   };
+
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
   const [sortKey] = useState("created_at");
@@ -261,12 +252,48 @@ export default function PersonsTable() {
   const editPhotoInputRef = useRef(null);
   const [adminModal, setAdminModal] = useState({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null, locationStatus: null, locationMessage: "" });
 
+  const showToast = (title, icon = "success") => {
+    Swal.fire({
+      toast: true,
+      position: "top-end",
+      showConfirmButton: false,
+      timer: 2000,
+      icon,
+      title,
+      customClass: {
+        popup: "!rounded-2xl !shadow-[0_10px_25px_rgba(0,0,0,0.1)] !border !border-gray-100 !px-4 !py-2.5 !w-auto !inline-flex !items-center !gap-2.5 font-sans",
+        title: "!text-sm !font-semibold !text-gray-800 !m-0 !whitespace-nowrap",
+      },
+    });
+  };
+
+  const showModalAlert = ({ title, text, icon = "success", confirmText = "OK" }) => {
+    Swal.fire({
+      icon,
+      title,
+      text,
+      width: "360px",
+      padding: "1.5rem",
+      confirmButtonText: confirmText,
+      confirmButtonColor: "#237227",
+      iconColor: icon === "success" ? "#237227" : icon === "error" ? "#ef4444" : "#f59e0b",
+      customClass: {
+        popup: "!rounded-[24px] !shadow-2xl !border !border-gray-100 font-sans",
+        title: "!text-lg !font-bold !text-gray-800 !mt-2",
+        htmlContainer: "!text-xs !text-gray-500 !mt-1",
+        icon: "!scale-75 !my-2",
+        confirmButton: "!px-8 !py-2.5 !min-w-[110px] !rounded-full !font-semibold !text-sm cursor-pointer !shadow-[0_4px_10px_rgba(35,114,39,0.3)] !bg-[#237227] hover:!bg-[#1a5a1d] !text-white !border-none",
+      },
+      buttonsStyling: false,
+    });
+  };
+
   const Icons = {
-    download: <FiDownload color="#ffffff" style={{ marginRight: 8 }} />,
-    archive: <FiArchive />,
-    edit: <FiEdit color="#ffffff" style={{ marginRight: 8 }} />,
-    add: <FiUserPlus color="#ffffff" style={{ marginRight: 8 }} />,
-    circle: <FiPlusCircle color="#ffffff" style={{ marginRight: 0 }} />,
+    download: <FiDownload color="#ffffff" className="mr-2 inline" />,
+    archive: <FiArchive className="inline" />,
+    edit: <FiEdit color="#ffffff" className="mr-2 inline" />,
+    add: <FiUserPlus color="#ffffff" className="mr-2 inline" />,
+    circle: <FiPlusCircle color="#ffffff" className="mr-0 inline" />,
   };
 
   useEffect(() => {
@@ -284,7 +311,6 @@ export default function PersonsTable() {
         const list = data || [];
         setPersons(list);
 
-        // Fetch latest payroll/net for these persons
         try {
           const ids = list.map((p) => p.id).filter(Boolean);
           if (ids.length) {
@@ -313,7 +339,7 @@ export default function PersonsTable() {
             }
             setPayrollMap(map);
             setPayrollGrossMap(gmap);
-            // Fetch today's attendance for presence
+
             try {
               const start = new Date();
               start.setHours(0, 0, 0, 0);
@@ -342,7 +368,6 @@ export default function PersonsTable() {
                       if (hour < 12) pmap[pid].morning = true;
                       else pmap[pid].afternoon = true;
                     }
-                    // track earliest time-in for the person today
                     if (!pmap[pid].firstScan)
                       pmap[pid].firstScan = dt.toISOString();
                     else {
@@ -352,12 +377,11 @@ export default function PersonsTable() {
                     }
                   } catch (e) {}
                 });
-                // mark present if any session true
                 Object.keys(pmap).forEach((k) => {
                   pmap[k].present = !!(pmap[k].morning || pmap[k].afternoon);
                 });
                 setPresenceMap(pmap);
-                // fetch department rates list (for edit dropdown)
+
                 try {
                   const { data: deptData, error: deptErr } = await supabase
                     .from("department_rates")
@@ -370,23 +394,17 @@ export default function PersonsTable() {
                     );
                     setDepartments(uniq);
                   }
-                } catch (e) {
-                  // ignore department fetch errors
-                }
+                } catch (e) {}
               }
-            } catch (e) {
-              // ignore attendance fetch errors
-            }
+            } catch (e) {}
           }
-        } catch (e) {
-          // ignore payroll fetch errors
-        }
+        } catch (e) {}
       } catch (err) {
         setError(err.message || "Failed to load persons.");
       }
     }
     fetchPersons();
-    const interval = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) fetchPersons(); }, 60_000); // 60s
+    const interval = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) fetchPersons(); }, 60_000);
     return () => clearInterval(interval);
   }, []);
 
@@ -397,7 +415,6 @@ export default function PersonsTable() {
 
   const editPersonId = editPerson && editPerson.id ? editPerson.id : null;
 
-  // Load recent cash advance history for the person when opening the edit modal
   useEffect(() => {
     let mounted = true;
     async function loadCashAdvances() {
@@ -462,7 +479,6 @@ export default function PersonsTable() {
         .eq("person_id", editPerson.id);
       if (error) throw error;
       const total = (rows || []).reduce((s, r) => s + Number(r.amount || 0), 0);
-      // Update local editPerson and main persons list
       setEditPerson((p) => (p ? { ...p, cash_advance: total } : p));
       setPersons((prev) =>
         prev.map((p) =>
@@ -478,11 +494,11 @@ export default function PersonsTable() {
     if (!editPerson || !editPerson.id) return;
     const amt = Number(newCashAmount);
     if (Number.isNaN(amt) || amt <= 0) {
-      Swal.fire(
-        "Invalid amount",
-        "Enter a positive cash advance amount.",
-        "error",
-      );
+      showModalAlert({
+        title: "Invalid Amount",
+        text: "Please enter a positive cash advance amount.",
+        icon: "warning",
+      });
       return;
     }
     setActionLoading(true);
@@ -501,10 +517,10 @@ export default function PersonsTable() {
       await computeAndUpdatePersonCashAdvance();
       setNewCashAmount("");
       setNewCashNote("");
-      Swal.fire("Added", "Cash advance recorded.", "success");
+      showToast("Cash advance recorded successfully!");
     } catch (e) {
       console.error(e);
-      Swal.fire("Error", e.message || String(e), "error");
+      showModalAlert({ title: "Error", text: e.message || String(e), icon: "error" });
     } finally {
       setActionLoading(false);
     }
@@ -518,6 +534,16 @@ export default function PersonsTable() {
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Delete",
+      cancelButtonText: "Cancel",
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#ffffff",
+      customClass: {
+        popup: "!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.15)] !px-8 !py-8 !max-w-[380px] font-sans",
+        title: "!text-gray-800 !text-[1.35rem] !font-bold !mt-2",
+        confirmButton: "!bg-[#ef4444] hover:!bg-[#dc2626] !text-white !font-semibold !rounded-full !px-8 !py-2.5 !text-sm !border-none cursor-pointer",
+        cancelButton: "!bg-white hover:!bg-gray-50 !text-gray-700 !font-semibold !rounded-full !px-8 !py-2.5 !text-sm !border !border-gray-300 cursor-pointer",
+      },
+      buttonsStyling: false,
     });
     if (!res.isConfirmed) return;
     setActionLoading(true);
@@ -529,30 +555,34 @@ export default function PersonsTable() {
       if (error) throw error;
       await refreshCashAdvances();
       await computeAndUpdatePersonCashAdvance();
-      Swal.fire("Deleted", "Cash advance removed.", "success");
+      showToast("Cash advance removed successfully!");
     } catch (e) {
       console.error(e);
-      Swal.fire("Error", e.message || String(e), "error");
+      showModalAlert({ title: "Error", text: e.message || String(e), icon: "error" });
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Note: sorting is controlled by `sortKey`/`sortOrder` state via UI inputs.
-
-  // Archive modal
   const handleArchive = async (person) => {
     Swal.fire({
       title: "Archive Person",
-      html: `<div style='margin-bottom:12px;'>Are you sure you want to archive <b>${
+      html: `<div class="text-gray-600 text-sm mt-2">Are you sure you want to archive <b class="text-gray-800">${
         person.name || person.id
       }</b>?</div>`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Archive",
-      cancelButtonText: "Cancel",
-      focusCancel: true,
-      customClass: { popup: "swal2-modal" },
+      confirmButtonColor: "#237227",
+      cancelButtonColor: "#ffffff",
+      customClass: {
+        popup: "!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.15)] !px-8 !py-8 !max-w-[400px] font-sans",
+        title: "!text-gray-800 !text-[1.35rem] !font-bold !mt-2",
+        actions: "!flex !items-center !justify-center !gap-4 !mt-6 !w-full",
+        confirmButton: "!bg-[#237227] hover:!bg-[#1a5a1d] !text-white !font-semibold !rounded-lg !px-6 !py-2.5 !text-sm cursor-pointer !m-0 !min-w-[100px]",
+        cancelButton: "!bg-white !border !border-gray-300 !text-gray-700 !font-semibold !rounded-lg !px-6 !py-2.5 !text-sm cursor-pointer !m-0 !min-w-[100px]",
+      },
+      buttonsStyling: false,
     }).then(async (result) => {
       if (result.isConfirmed) {
         const { error: archErr } = await supabase
@@ -560,20 +590,58 @@ export default function PersonsTable() {
           .update({ archived: true })
           .eq("id", person.id);
         if (archErr) {
-          Swal.fire("Error", archErr.message, "error");
+          showModalAlert({ title: "Error", text: archErr.message, icon: "error" });
         } else {
           setPersons((prev) =>
             prev.map((p) =>
               p.id === person.id ? { ...p, archived: true } : p,
             ),
           );
-          Swal.fire("Archived!", "", "success");
+          showToast("Person archived successfully!");
         }
       }
     });
   };
 
-  // Admin: record attendance on behalf of a person (customize attendance)
+  const handleRestore = async (person) => {
+    Swal.fire({
+      title: "Restore Person",
+      html: `<div class="text-gray-600 text-sm mt-2">Are you sure you want to restore <b class="text-gray-800">${
+        person.name || person.id
+      }</b>?</div>`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonText: "Restore",
+      confirmButtonColor: "#237227",
+      cancelButtonColor: "#ffffff",
+      customClass: {
+        popup: "!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.15)] !px-8 !py-8 !max-w-[400px] font-sans",
+        title: "!text-gray-800 !text-[1.35rem] !font-bold !mt-2",
+        actions: "!flex !items-center !justify-center !gap-4 !mt-6 !w-full",
+        confirmButton: "!bg-[#237227] hover:!bg-[#1a5a1d] !text-white !font-semibold !rounded-lg !px-6 !py-2.5 !text-sm cursor-pointer !m-0 !min-w-[100px]",
+        cancelButton: "!bg-white !border !border-gray-300 !text-gray-700 !font-semibold !rounded-lg !px-6 !py-2.5 !text-sm cursor-pointer !m-0 !min-w-[100px]",
+      },
+      buttonsStyling: false,
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        const { error: restErr } = await supabase
+          .from("persons")
+          .update({ archived: false })
+          .eq("id", person.id);
+        if (restErr) {
+          showModalAlert({ title: "Error", text: restErr.message, icon: "error" });
+        } else {
+          setPersons((prev) =>
+            prev.map((p) =>
+              p.id === person.id ? { ...p, archived: false } : p,
+            ),
+          );
+          showToast("Person restored successfully!");
+        }
+      }
+    });
+  };
+
   const handleAdminAttendance = async (person) => {
     if (!person || !person.id) return;
     const now = new Date();
@@ -590,28 +658,22 @@ export default function PersonsTable() {
     }
   };
 
-  // Helper to get photo for a person (latest attendance photo or registration photo)
   const getPersonPhoto = (person) => {
-    // Always use registration photo if available
     if (person && person.registration_photo) return person.registration_photo;
     return null;
   };
-
-  // Removed unused: closeModal
 
   const handleEditModalClose = () => {
     setShowEditModal(false);
     setEditPerson(null);
   };
 
-  // Admin attendance modal handlers
-  
   const submitAdminAttendance = async () => {
     if (!adminModal.visible || !adminModal.person) return;
     const person = adminModal.person;
     const dtStr = adminModal.datetime;
     if (!dtStr) {
-      Swal.fire("Validation", "Please provide date & time.", "warning");
+      showModalAlert({ title: "Validation", text: "Please provide date & time.", icon: "warning" });
       return;
     }
     setActionLoading(true);
@@ -627,11 +689,11 @@ export default function PersonsTable() {
       const locationResult = adminModal.point ? { point: adminModal.point, status: adminModal.locationStatus || "ok", message: adminModal.locationMessage || "" } : await getCurrentLocationPoint();
       if (locationResult.status !== "ok") {
         setAdminModal((s) => ({ ...s, point: locationResult.point, locationStatus: locationResult.status, locationMessage: locationResult.message }));
-        Swal.fire(
-          "Location unavailable",
-          locationResult.message || "Please enable location and try again.",
-          locationResult.status === "permission-denied" ? "error" : "warning",
-        );
+        showModalAlert({
+          title: "Location Unavailable",
+          text: locationResult.message || "Please enable location and try again.",
+          icon: locationResult.status === "permission-denied" ? "error" : "warning",
+        });
         return;
       }
       const locationPoint = locationResult.point;
@@ -655,7 +717,6 @@ export default function PersonsTable() {
       const { error: insertErr } = await supabase.from("attendance").insert([payload]);
       if (insertErr) throw insertErr;
 
-      // refresh presenceMap for the day
       try {
         const dt = new Date(iso);
         const start = new Date(dt);
@@ -689,11 +750,11 @@ export default function PersonsTable() {
         }
       } catch (e) {}
 
-      Swal.fire("Recorded", "Attendance recorded.", "success");
+      showToast("Attendance recorded successfully!");
       setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null, locationStatus: null, locationMessage: "" });
     } catch (err) {
       console.error(err);
-      Swal.fire("Error", err.message || String(err), "error");
+      showModalAlert({ title: "Error", text: err.message || String(err), icon: "error" });
     } finally {
       setActionLoading(false);
     }
@@ -746,7 +807,6 @@ export default function PersonsTable() {
       cash_advance,
       registration_photo,
     } = editPerson;
-    // Ensure checkboxes are stored as 1/0
     const sssVal = editPerson.sss ? String(editPerson.sss).trim() : null;
     const pagIbigVal = editPerson.pag_ibig ? String(editPerson.pag_ibig).trim() : null;
     const philhealthVal = editPerson.philhealth ? String(editPerson.philhealth).trim() : null;
@@ -767,7 +827,7 @@ export default function PersonsTable() {
       })
       .eq("id", id);
     if (error) {
-      Swal.fire("Error", error.message, "error");
+      showModalAlert({ title: "Error", text: error.message, icon: "error" });
     } else {
       setPersons((prev) =>
         prev.map((p) =>
@@ -789,12 +849,11 @@ export default function PersonsTable() {
             : p,
         ),
       );
-      Swal.fire("Updated!", "", "success");
+      showToast("Person updated successfully!");
       handleEditModalClose();
     }
   };
 
-  // Filter and sort
   const filteredPersons = persons.filter((p) => {
     if (showArchived ? !p.archived : p.archived) return false;
     const matchesSearch =
@@ -807,7 +866,6 @@ export default function PersonsTable() {
   });
 
   const sortedPersons = [...filteredPersons].sort((a, b) => {
-    // Always prioritize present persons first
     try {
       const aPresent = !!(
         presenceMap &&
@@ -821,7 +879,6 @@ export default function PersonsTable() {
       );
       if (aPresent !== bPresent) return aPresent ? -1 : 1;
 
-      // If both present, sort by earliest attendance time (firstScan) ascending
       if (aPresent && bPresent) {
         const aTime =
           presenceMap[a.id] && presenceMap[a.id].firstScan
@@ -831,11 +888,10 @@ export default function PersonsTable() {
           presenceMap[b.id] && presenceMap[b.id].firstScan
             ? new Date(presenceMap[b.id].firstScan).getTime()
             : Infinity;
-        if (aTime !== bTime) return aTime - bTime; // earlier (smaller) first
+        if (aTime !== bTime) return aTime - bTime;
       }
     } catch (e) {}
 
-    // Within the same group (both absent or both present with same time), apply sortKey/sortOrder
     try {
       let aVal, bVal;
       if (sortKey === "created_at") {
@@ -861,12 +917,10 @@ export default function PersonsTable() {
     return 0;
   });
 
-  // Page-level loading handled by LoadingContext overlay
   if (error) {
-    return <p style={{ color: "red" }}>{error}</p>;
+    return <p className="text-red-500 text-center p-10 bg-white rounded-[32px] mx-auto my-10 max-w-[800px]">{error}</p>;
   }
 
-  // Export to Excel
   const handleExportExcel = () => {
     if (!Array.isArray(sortedPersons)) return;
     const exportData = sortedPersons.map((row) => ({
@@ -892,17 +946,18 @@ export default function PersonsTable() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Registered Persons</h1>
-        <div style={styles.titleUnderline} />
+    <div className="max-w-[1600px] mx-auto mt-2 mb-10 px-8 py-10 bg-white rounded-[32px] shadow-[0_10px_30px_rgba(0,0,0,0.1)] text-gray-800 font-sans">
+      {/* Header */}
+      <div className="text-center mb-10">
+        <h1 className="text-[2.8rem] font-bold text-gray-800 m-0 inline-block">Registered Persons</h1>
+        <div className="h-1 w-24 bg-[#237227] mx-auto mt-2 rounded-sm" />
       </div>
 
       {/* Filter Bar */}
-      <div style={styles.filterBar}>
-        <div style={styles.filterGroup}>
-          <div style={styles.searchWrapper}>
-            <label htmlFor="persons-search" style={{ display: "block", marginBottom: 4, fontSize: 12, color: "#4b5563", fontWeight: 600 }}>Search</label>
+      <div className="flex flex-wrap justify-between items-end gap-4 mb-6 p-5 sm:px-6 bg-gray-50 rounded-[20px] border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="relative">
+            <label htmlFor="persons-search" className="block mb-1 text-xs text-gray-600 font-semibold">Search</label>
             <input
               id="persons-search"
               name="persons-search"
@@ -910,41 +965,45 @@ export default function PersonsTable() {
               placeholder="Search name or ID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={styles.searchInput}
+              className="pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none min-w-[250px] transition-all focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+              style={{
+                backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "16px center",
+                backgroundSize: "16px",
+              }}
             />
           </div>
-          <label htmlFor="persons-department-filter" style={{ display: "block", marginBottom: 4, fontSize: 12, color: "#4b5563", fontWeight: 600 }}>Department</label>
-          <select
-            id="persons-department-filter"
-            name="persons-department-filter"
-            value={departmentFilter}
-            onChange={(e) => setDepartmentFilter(e.target.value)}
-            style={styles.select}
-          >
-            <option value="">All Departments</option>
-            {[...new Set(persons.map((p) => p.department).filter(Boolean))].map(
-              (dept) => (
-                <option key={dept} value={dept}>
-                  {dept}
-                </option>
-              ),
-            )}
-          </select>
+          <div>
+            <label htmlFor="persons-department-filter" className="block mb-1 text-xs text-gray-600 font-semibold">Department</label>
+            <select
+              id="persons-department-filter"
+              name="persons-department-filter"
+              value={departmentFilter}
+              onChange={(e) => setDepartmentFilter(e.target.value)}
+              className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer min-w-[160px] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+            >
+              <option value="">All Departments</option>
+              {[...new Set(persons.map((p) => p.department).filter(Boolean))].map(
+                (dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ),
+              )}
+            </select>
+          </div>
           <button
             onClick={() => setShowArchived((a) => !a)}
-            style={{ ...styles.button, ...styles.buttonSecondary }}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border border-gray-300 cursor-pointer bg-white text-gray-700"
           >
-            {showArchived ? (
-              <>{Icons.archive} Show Active</>
-            ) : (
-              <>{Icons.archive} Show Archived</>
-            )}
+            {Icons.archive} {showArchived ? "Show Active" : "Show Archived"}
           </button>
           <input
             id="reg-image-input"
             type="file"
             accept="image/*"
-            style={{ display: "none" }}
+            className="hidden"
             onChange={(e) => {
               const f = e.target.files && e.target.files[0];
               if (!f) return;
@@ -962,7 +1021,7 @@ export default function PersonsTable() {
               setRegModalImage(null);
               setShowRegModal(true);
             }}
-            style={{ ...styles.button, ...styles.buttonPrimary, marginLeft: 8 }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
           >
             {Icons.add} Open Register Camera
           </button>
@@ -970,7 +1029,7 @@ export default function PersonsTable() {
 
         <button
           onClick={handleExportExcel}
-          style={{ ...styles.button, ...styles.buttonPrimary }}
+          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
         >
           {Icons.download} Export Excel
         </button>
@@ -978,43 +1037,11 @@ export default function PersonsTable() {
 
       {/* Registration modal */}
       {showRegModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(0,0,0,0.5)",
-            zIndex: 2000,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 12,
-              padding: 20,
-              width: 800,
-              maxWidth: "95vw",
-              maxHeight: "90vh",
-              overflow: "auto",
-              position: "relative",
-            }}
-          >
+        <div className="fixed inset-0 w-screen h-screen bg-black/50 z-[2000] flex items-center justify-center">
+          <div className="bg-white rounded-xl p-5 w-[800px] max-w-[95vw] max-h-[90vh] overflow-auto relative">
             <button
               onClick={() => setShowRegModal(false)}
-              style={{
-                position: "absolute",
-                right: 12,
-                top: 12,
-                border: "none",
-                background: "transparent",
-                fontSize: 20,
-                cursor: "pointer",
-              }}
+              className="absolute right-3 top-3 border-none bg-transparent text-xl cursor-pointer text-gray-500 hover:text-gray-900 leading-none"
             >
               &times;
             </button>
@@ -1024,11 +1051,11 @@ export default function PersonsTable() {
       )}
 
       {/* Card Grid */}
-      <div style={styles.tableContainer}>
-        <div style={{ padding: 24 }}>
-          <div style={styles.cardsGrid}>
+      <div className="rounded-[20px] overflow-hidden border border-gray-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
+        <div className="p-6">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5 items-stretch">
             {sortedPersons.length === 0 ? (
-              <div style={styles.emptyState}>No persons found.</div>
+              <div className="col-span-full text-center py-16 px-5 text-gray-500 text-[1.1rem]">No persons found.</div>
             ) : (
               sortedPersons.map((p) => {
                 const initials = (p.name || "")
@@ -1037,7 +1064,6 @@ export default function PersonsTable() {
                   .slice(0, 2)
                   .join("")
                   .toUpperCase();
-                // Compute display amount: prefer explicit daily_rate, then payroll gross, then net
                 const displayAmount = Number(
                   p.daily_rate ??
                     payrollGrossMap[p.id] ??
@@ -1047,61 +1073,61 @@ export default function PersonsTable() {
                     0,
                 );
                 return (
-                  <div key={p.id} style={styles.card}>
-                    <div style={styles.cardHeader}>
-                      <div style={styles.cardAvatarWrapper}>
+                  <div key={p.id} className="bg-white rounded-xl border border-gray-200 p-5 flex flex-col justify-between shadow-[0_8px_20px_rgba(16,185,129,0.05)] transition-all hover:shadow-md">
+                    <div className="flex justify-between items-center mb-3">
+                      <div className="flex items-center justify-center w-[84px] h-[84px] mr-3">
                         {getPersonPhoto(p) ? (
                           <img
                             src={getPersonPhoto(p)}
                             alt={p.name || "person"}
-                            style={{ ...styles.cardAvatar, cursor: 'pointer' }}
+                            className="w-[84px] h-[84px] rounded-full object-cover border-4 border-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] cursor-pointer hover:opacity-90 transition-opacity"
                             onClick={() => openPhotoModal(getPersonPhoto(p), p.name || p.id)}
                           />
                         ) : (
-                          <div style={styles.cardAvatarPlaceholder}>
+                          <div className="w-[84px] h-[84px] rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-xl">
                             {initials || "?"}
                           </div>
                         )}
                       </div>
-                      <div style={styles.cardStatus}>
+                      <div className="ml-auto">
                         {p.archived ? (
-                          <span style={styles.badgeArchived}>Archived</span>
+                          <span className="bg-red-500 text-white px-2.5 py-1.5 rounded-[20px] text-xs font-semibold">Archived</span>
                         ) : presenceMap[p.id] && presenceMap[p.id].present ? (
-                          <span style={styles.badgePresent}>Present</span>
+                          <span className="bg-[#237227] text-white px-2.5 py-1.5 rounded-[20px] text-xs font-semibold">Present</span>
                         ) : (
-                          <span style={styles.badgeAbsent}>Absent</span>
+                          <span className="bg-red-500 text-white px-2.5 py-1.5 rounded-[20px] text-xs font-semibold">Absent</span>
                         )}
                       </div>
                     </div>
 
-                    <div style={styles.cardBody}>
-                      <h3 style={styles.cardName}>{p.name || "Unnamed"}</h3>
-                      <div style={styles.cardId}>{p.id}</div>
+                    <div className="pt-1.5 pb-3">
+                      <h3 className="m-0 text-[1.05rem] font-bold text-gray-900">{p.name || "Unnamed"}</h3>
+                      <div className="inline-block mt-1.5 px-2.5 py-1.5 rounded-xl bg-gray-200 text-gray-700 text-xs font-mono">{p.id}</div>
 
-                      <div style={styles.cardInfoRow}>
-                        <span style={styles.iconAndText}>
-                          <FiBriefcase style={styles.deptIcon} />{" "}
+                      <div className="mt-2.5 text-gray-500 text-[0.95rem]">
+                        <span className="inline-flex items-center gap-2 text-gray-700 flex-wrap">
+                          <FiBriefcase className="text-cyan-500 text-[1.05rem]" />{" "}
                           {p.department || ""}
                         </span>
                       </div>
-                      <div style={styles.phoneRow}>
-                        <span style={styles.iconAndText}>
-                          <FiMail style={styles.emailIcon} />
-                          <span style={styles.contactText}>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="inline-flex items-center gap-2 text-gray-700 flex-wrap">
+                          <FiMail className="text-gray-500 text-base mr-1.5 mt-0.5" />
+                          <span className="max-w-[220px] [overflow-wrap:anywhere] break-words text-gray-700 inline-block">
                             {p.email || ""}
                           </span>
                         </span>
                       </div>
-                      <div style={styles.phoneRow}>
-                        <span style={styles.iconAndText}>
-                          <FiPhone style={styles.phoneIcon} />
-                          <span style={styles.contactText}>
+                      <div className="flex justify-between items-center mt-2">
+                        <span className="inline-flex items-center gap-2 text-gray-700 flex-wrap">
+                          <FiPhone className="text-blue-500 text-base" />
+                          <span className="max-w-[220px] [overflow-wrap:anywhere] break-words text-gray-700 inline-block">
                             {p.phone_number || ""}
                           </span>
                         </span>
                       </div>
-                      <div style={styles.netPayRow}>
-                        <div style={styles.iconAndTexts}>
+                      <div className="flex justify-between items-center mt-2">
+                        <div className="inline-flex items-center gap-2 font-bold text-[#237227]">
                           Daily Rate (₱):{" "}
                           <strong>
                             {`₱${displayAmount.toLocaleString(undefined, {
@@ -1113,36 +1139,39 @@ export default function PersonsTable() {
                       </div>
                     </div>
 
-                    <div style={styles.cardActions}>
-                      <button
-                        onClick={() => handleEdit(p)}
-                        style={{
-                          ...styles.smallButton,
-                          ...styles.buttonSuccess,
-                        }}
-                      >
-                        {Icons.edit} Edit
-                      </button>
-                      {!p.archived && (
+                    {/* Action Buttons */}
+                    <div className="mt-4 pt-3 border-t border-gray-100 flex flex-col gap-2">
+                      <div className="grid grid-cols-2 gap-2">
                         <button
-                          onClick={() => handleArchive(p)}
-                          style={{
-                            ...styles.smallButton,
-                            ...styles.buttonSecondary,
-                          }}
+                          type="button"
+                          onClick={() => handleEdit(p)}
+                          className="flex items-center justify-center py-2 px-3 rounded-xl border-none text-xs font-semibold cursor-pointer transition-colors bg-[#237227] text-white hover:bg-[#1a5a1d]"
                         >
-                          {Icons.archive} Archive
+                          Edit
                         </button>
-                      )}
+                        {!p.archived ? (
+                          <button
+                            type="button"
+                            onClick={() => handleArchive(p)}
+                            className="flex items-center justify-center py-2 px-3 rounded-xl border border-gray-300 text-xs font-semibold cursor-pointer bg-white text-gray-700"
+                          >
+                            Archive
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleRestore(p)}
+                            className="flex items-center justify-center py-2 px-3 rounded-xl border border-gray-300 text-xs font-semibold cursor-pointer bg-white text-gray-700"
+                          >
+                            Restore
+                          </button>
+                        )}
+                      </div>
                       {!p.archived && (
                         <button
+                          type="button"
                           onClick={() => handleAdminAttendance(p)}
-                          style={{
-                            ...styles.smallButton,
-                            background: '#868279',
-                            color: '#fff',
-                            border: 'none',
-                          }}
+                          className="w-full flex items-center justify-center py-2 px-3 rounded-xl border border-gray-200 text-xs font-semibold cursor-pointer transition-colors bg-gray-200 text-gray-700"
                         >
                           Customize Attendance
                         </button>
@@ -1158,31 +1187,24 @@ export default function PersonsTable() {
 
       {/* Edit Modal */}
       {showEditModal && editPerson && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <h2 style={styles.modalTitle}>
-              <FiEdit style={styles.modalTitleIcon} /> Edit Person
+        <div className="fixed inset-0 w-full h-full bg-black/50 flex justify-center items-center z-[1000] backdrop-blur-sm">
+          <div className="bg-white text-gray-800 p-7 rounded-[28px] max-w-[900px] w-[95%] overflow-y-auto max-h-[90%] shadow-[0_20px_40px_rgba(0,0,0,0.2)] border border-gray-200 font-sans">
+            <h2 className="text-[2rem] font-bold mb-4 text-[#0f3d16] text-center flex items-center justify-center gap-2">
+              <FiEdit className="text-[#237227] text-2xl" /> Edit Person
             </h2>
             <form onSubmit={handleEditModalSave}>
-              <div style={styles.modalField}>
-                <label style={styles.modalLabel}>Registration Photo</label>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "12px",
-                    flexWrap: "wrap",
-                  }}
-                >
+              <div className="mb-4.5 block">
+                <label className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Registration Photo</label>
+                <div className="flex items-center gap-3 flex-wrap">
                   {editPerson.registration_photo ? (
                     <img
                       src={editPerson.registration_photo}
                       alt="person"
-                      style={{ ...styles.photoPreview, cursor: 'pointer' }}
+                      className="w-[88px] h-[88px] object-cover rounded-full shadow-[0_6px_18px_rgba(16,185,129,0.08)] cursor-pointer hover:opacity-90 transition-opacity"
                       onClick={() => openPhotoModal(editPerson.registration_photo, editPerson.name || editPerson.id)}
                     />
                   ) : (
-                    <span style={{ color: "#9ca3af", fontSize: "0.9rem" }}>
+                    <span className="text-gray-400 text-[0.9rem]">
                       No photo
                     </span>
                   )}
@@ -1192,22 +1214,14 @@ export default function PersonsTable() {
                       editPhotoInputRef.current &&
                       editPhotoInputRef.current.click()
                     }
-                    style={{
-                      ...styles.button,
-                      ...styles.buttonSecondary,
-                      padding: "8px 16px",
-                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold border border-gray-300 cursor-pointer bg-white text-gray-700"
                   >
                     Upload New Photo
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowCamera(true)}
-                    style={{
-                      ...styles.button,
-                      ...styles.buttonPrimary,
-                      padding: "8px 16px",
-                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
                   >
                     Use Camera
                   </button>
@@ -1216,73 +1230,40 @@ export default function PersonsTable() {
                   ref={editPhotoInputRef}
                   type="file"
                   accept="image/*"
-                  style={{ display: "none" }}
+                  className="hidden"
                   onChange={handleEditPhotoChange}
                 />
 
                 {/* Camera Modal for capturing photo */}
                 {showCamera && (
-                  <div
-                    style={{
-                      position: "fixed",
-                      top: 0,
-                      left: 0,
-                      width: "100vw",
-                      height: "100vh",
-                      background: "rgba(0,0,0,0.5)",
-                      zIndex: 2000,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <div
-                      style={{
-                        background: "#fff",
-                        padding: 32,
-                        borderRadius: 20,
-                        boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
-                        position: "relative",
-                      }}
-                    >
+                  <div className="fixed inset-0 w-screen h-screen bg-black/50 z-[2000] flex items-center justify-center">
+                    <div className="bg-white p-8 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.2)] relative">
                       <button
                         onClick={() => setShowCamera(false)}
-                        style={{
-                          position: "absolute",
-                          top: 12,
-                          right: 16,
-                          background: "transparent",
-                          border: "none",
-                          fontSize: 28,
-                          color: "#888",
-                          cursor: "pointer",
-                        }}
+                        className="absolute top-3 right-4 bg-transparent border-none text-2xl text-gray-500 cursor-pointer leading-none hover:text-gray-800"
                       >
                         &times;
                       </button>
-                      <h3 style={{ marginBottom: 16 }}>Capture Photo</h3>
+                      <h3 className="mb-4 font-bold text-lg">Capture Photo</h3>
                       <video
                         ref={cameraVideoRef}
                         autoPlay
                         playsInline
                         width={320}
                         height={240}
-                        style={{ borderRadius: 12, background: "#000" }}
+                        className="rounded-xl bg-black"
                       />
-                      <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
+                      <div className="mt-4 flex gap-3">
                         <button
                           type="button"
-                          style={{ ...styles.button, ...styles.buttonPrimary }}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
                           onClick={handleCapturePhoto}
                         >
                           Capture
                         </button>
                         <button
                           type="button"
-                          style={{
-                            ...styles.button,
-                            ...styles.buttonSecondary,
-                          }}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold border border-gray-300 cursor-pointer bg-white text-gray-700"
                           onClick={() => setShowCamera(false)}
                         >
                           Cancel
@@ -1292,9 +1273,10 @@ export default function PersonsTable() {
                   </div>
                 )}
               </div>
-              <div className="persons-modal-grid" style={styles.modalGrid}>
-                <div style={styles.modalField}>
-                  <label htmlFor="edit-person-name" style={styles.modalLabel}>Name</label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
+                <div className="mb-4.5 block">
+                  <label htmlFor="edit-person-name" className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Name</label>
                   <input
                     id="edit-person-name"
                     name="edit-person-name"
@@ -1302,11 +1284,11 @@ export default function PersonsTable() {
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, name: e.target.value })
                     }
-                    style={styles.modalInput}
+                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                   />
                 </div>
-                <div style={styles.modalField}>
-                  <label htmlFor="edit-person-department" style={styles.modalLabel}>Department</label>
+                <div className="mb-4.5 block">
+                  <label htmlFor="edit-person-department" className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Department</label>
                   <select
                     id="edit-person-department"
                     name="edit-person-department"
@@ -1314,7 +1296,7 @@ export default function PersonsTable() {
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, department: e.target.value })
                     }
-                    style={styles.modalSelect}
+                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none cursor-pointer focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                   >
                     <option value="">(Select department)</option>
                     {departments && departments.length
@@ -1335,8 +1317,8 @@ export default function PersonsTable() {
                   </select>
                 </div>
 
-                <div style={styles.modalField}>
-                  <label htmlFor="edit-person-phone" style={styles.modalLabel}>Phone</label>
+                <div className="mb-4.5 block">
+                  <label htmlFor="edit-person-phone" className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Phone</label>
                   <input
                     id="edit-person-phone"
                     name="edit-person-phone"
@@ -1347,11 +1329,11 @@ export default function PersonsTable() {
                         phone_number: e.target.value,
                       })
                     }
-                    style={styles.modalInput}
+                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                   />
                 </div>
-                <div style={styles.modalField}>
-                  <label htmlFor="edit-person-email" style={styles.modalLabel}>Email</label>
+                <div className="mb-4.5 block">
+                  <label htmlFor="edit-person-email" className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Email</label>
                   <input
                     id="edit-person-email"
                     name="edit-person-email"
@@ -1359,12 +1341,12 @@ export default function PersonsTable() {
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, email: e.target.value })
                     }
-                    style={styles.modalInput}
+                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                   />
                 </div>
 
-                <div style={styles.modalField}>
-                  <label htmlFor="edit-person-address" style={styles.modalLabel}>Address</label>
+                <div className="mb-4.5 block">
+                  <label htmlFor="edit-person-address" className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Address</label>
                   <input
                     id="edit-person-address"
                     name="edit-person-address"
@@ -1372,11 +1354,11 @@ export default function PersonsTable() {
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, address: e.target.value })
                     }
-                    style={styles.modalInput}
+                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                   />
                 </div>
-                <div style={styles.modalField}>
-                  <label htmlFor="edit-person-sex" style={styles.modalLabel}>Sex</label>
+                <div className="mb-4.5 block">
+                  <label htmlFor="edit-person-sex" className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Sex</label>
                   <select
                     id="edit-person-sex"
                     name="edit-person-sex"
@@ -1384,7 +1366,7 @@ export default function PersonsTable() {
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, sex: e.target.value })
                     }
-                    style={styles.modalSelect}
+                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none cursor-pointer focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                   >
                     <option value="">Select sex</option>
                     <option value="Male">Male</option>
@@ -1393,11 +1375,11 @@ export default function PersonsTable() {
                   </select>
                 </div>
 
-                <div style={{ gridColumn: "1 / -1" }}>
-                <label style={styles.modalLabel}>Mandatory Contributions</label>
-                  <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <div style={{ minWidth: 200 }}>
-                      <label htmlFor="edit-person-sss" style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 6 }}>SSS Number</label>
+                <div className="col-span-full">
+                  <label className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Mandatory Contributions</label>
+                  <div className="flex gap-3 items-center flex-wrap">
+                    <div className="min-w-[200px] flex-1">
+                      <label htmlFor="edit-person-sss" className="block text-xs text-gray-700 mb-1.5">SSS Number</label>
                       <input
                         id="edit-person-sss"
                         name="edit-person-sss"
@@ -1407,12 +1389,12 @@ export default function PersonsTable() {
                         onChange={(e) =>
                           setEditPerson({ ...editPerson, sss: e.target.value })
                         }
-                        style={styles.modalInput}
+                        className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                       />
                     </div>
 
-                    <div style={{ minWidth: 200 }}>
-                      <label htmlFor="edit-person-pag-ibig" style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 6 }}>Pag-ibig Number</label>
+                    <div className="min-w-[200px] flex-1">
+                      <label htmlFor="edit-person-pag-ibig" className="block text-xs text-gray-700 mb-1.5">Pag-ibig Number</label>
                       <input
                         id="edit-person-pag-ibig"
                         name="edit-person-pag-ibig"
@@ -1422,12 +1404,12 @@ export default function PersonsTable() {
                         onChange={(e) =>
                           setEditPerson({ ...editPerson, pag_ibig: e.target.value })
                         }
-                        style={styles.modalInput}
+                        className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                       />
                     </div>
 
-                    <div style={{ minWidth: 200 }}>
-                      <label htmlFor="edit-person-philhealth" style={{ display: 'block', fontSize: 12, color: '#374151', marginBottom: 6 }}>PhilHealth Number</label>
+                    <div className="min-w-[200px] flex-1">
+                      <label htmlFor="edit-person-philhealth" className="block text-xs text-gray-700 mb-1.5">PhilHealth Number</label>
                       <input
                         id="edit-person-philhealth"
                         name="edit-person-philhealth"
@@ -1437,22 +1419,15 @@ export default function PersonsTable() {
                         onChange={(e) =>
                           setEditPerson({ ...editPerson, philhealth: e.target.value })
                         }
-                        style={styles.modalInput}
+                        className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                       />
                     </div>
                   </div>
                 </div>
 
-                <div style={{ gridColumn: "1 / -1" }}>
-                  <label style={styles.modalLabel}>Add Cash Advance</label>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      alignItems: "center",
-                      flexWrap: "wrap",
-                    }}
-                  >
+                <div className="col-span-full">
+                  <label className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Add Cash Advance</label>
+                  <div className="flex gap-2 items-center flex-wrap">
                     <input
                       id="cash-advance-amount"
                       name="cash-advance-amount"
@@ -1460,7 +1435,7 @@ export default function PersonsTable() {
                       placeholder="Amount"
                       value={newCashAmount}
                       onChange={(e) => setNewCashAmount(e.target.value)}
-                      style={{ ...styles.modalInput, maxWidth: 160 }}
+                      className="max-w-[160px] px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                     />
                     <input
                       id="cash-advance-note"
@@ -1468,65 +1443,38 @@ export default function PersonsTable() {
                       placeholder="Note (optional)"
                       value={newCashNote}
                       onChange={(e) => setNewCashNote(e.target.value)}
-                      style={{ ...styles.modalInput, flex: 1 }}
+                      className="flex-1 px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                     />
                     <button
                       type="button"
                       onClick={addCashAdvance}
                       disabled={actionLoading}
-                      style={{
-                        ...styles.button,
-                        ...styles.buttonPrimary,
-                        padding: "8px 12px",
-                      }}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
                     >
-                     {Icons.circle}{actionLoading ? "Working..." : "Add"}
+                      {Icons.circle} {actionLoading ? "Working..." : "Add"}
                     </button>
                   </div>
                 </div>
 
-                <div style={{ gridColumn: "1 / -1", marginTop: 6 }}>
-                  <label style={styles.modalLabel}>Cash Advance History</label>
+                <div className="col-span-full mt-1.5">
+                  <label className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Cash Advance History</label>
                   {loadingCashAdvances ? (
-                    <div style={{ color: "#6b7280" }}>Loading...</div>
+                    <div className="text-gray-500">Loading...</div>
                   ) : editCashAdvances && editCashAdvances.length ? (
-                    <div
-                      style={{
-                        maxHeight: 140,
-                        overflow: "auto",
-                        border: "1px solid #e6eef6",
-                        borderRadius: 8,
-                        padding: 6,
-                      }}
-                    >
+                    <div className="max-h-[140px] overflow-auto border border-[#e6eef6] rounded-lg p-1.5">
                       {editCashAdvances.map((c) => (
                         <div
                           key={c.id}
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            padding: "6px 8px",
-                            borderBottom: "1px solid #f1f5f9",
-                          }}
+                          className="flex justify-between items-center py-1.5 px-2 border-b border-gray-100 last:border-b-0"
                         >
-                          <div style={{ color: "#374151", fontSize: 13 }}>
+                          <div className="text-gray-700 text-xs">
                             {new Date(c.created_at).toLocaleString()}
                           </div>
-                          <div
-                            style={{
-                              textAlign: "right",
-                              display: "flex",
-                              gap: 12,
-                              alignItems: "center",
-                            }}
-                          >
+                          <div className="text-right flex gap-3 items-center">
                             <div>
-                              <div
-                                style={{ fontWeight: 700, color: "#0f172a" }}
-                              >{`₱${Number(c.amount || 0).toFixed(2)}`}</div>
+                              <div className="font-bold text-slate-900">{`₱${Number(c.amount || 0).toFixed(2)}`}</div>
                               {c.note ? (
-                                <div style={{ fontSize: 12, color: "#9ca3af" }}>
+                                <div className="text-xs text-gray-400">
                                   {c.note}
                                 </div>
                               ) : null}
@@ -1535,10 +1483,7 @@ export default function PersonsTable() {
                               <button
                                 type="button"
                                 onClick={() => deleteCashAdvance(c.id)}
-                                style={{
-                                  ...styles.smallButton,
-                                  ...styles.buttonSecondary,
-                                }}
+                                className="inline-flex items-center gap-1 px-3 py-1 rounded-[30px] border border-gray-300 text-[0.85rem] font-medium cursor-pointer bg-white text-gray-700"
                                 disabled={actionLoading}
                               >
                                 Delete
@@ -1549,23 +1494,24 @@ export default function PersonsTable() {
                       ))}
                     </div>
                   ) : (
-                    <div style={{ color: "#9ca3af" }}>
+                    <div className="text-gray-400">
                       No cash advance history
                     </div>
                   )}
                 </div>
               </div>
-              <div style={styles.modalActions}>
+
+              <div className="flex justify-end gap-3 mt-5">
                 <button
                   type="submit"
-                  style={{ ...styles.button, ...styles.buttonPrimary }}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 min-w-[100px] rounded-lg text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
                 >
                   Save
                 </button>
                 <button
                   type="button"
                   onClick={handleEditModalClose}
-                  style={{ ...styles.button, ...styles.buttonSecondary }}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 min-w-[100px] rounded-lg text-sm font-semibold border border-gray-300 cursor-pointer bg-white text-gray-700"
                 >
                   Cancel
                 </button>
@@ -1577,29 +1523,29 @@ export default function PersonsTable() {
 
       {/* Admin Attendance Modal */}
       {adminModal.visible && adminModal.person && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <h2 style={styles.modalTitle}>Record Attendance</h2>
-            <div style={{ display: "grid", gap: 12 }}>
+        <div className="fixed inset-0 w-full h-full bg-black/50 flex justify-center items-center z-[1000] backdrop-blur-sm">
+          <div className="bg-white text-gray-800 p-7 rounded-[28px] max-w-[500px] w-[95%] overflow-y-auto max-h-[90%] shadow-[0_20px_40px_rgba(0,0,0,0.2)] border border-gray-200 font-sans">
+            <h2 className="text-2xl font-bold mb-4 text-[#0f3d16] text-center">Record Attendance</h2>
+            <div className="grid gap-3">
               <div>
-                <label style={styles.modalLabel}>Person</label>
-                <div style={{ padding: 8, background: "#f9fafb", borderRadius: 8 }}>{adminModal.person.name} • ID: {adminModal.person.id}</div>
+                <label className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Person</label>
+                <div className="p-2 bg-gray-50 rounded-lg text-sm">{adminModal.person.name} • ID: {adminModal.person.id}</div>
               </div>
               <div>
-                <label htmlFor="admin-attendance-event" style={styles.modalLabel}>Event</label>
-                <select id="admin-attendance-event" name="admin-attendance-event" value={adminModal.event} onChange={(e) => setAdminModal((s) => ({ ...s, event: e.target.value }))} style={styles.modalSelect}>
+                <label htmlFor="admin-attendance-event" className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Event</label>
+                <select id="admin-attendance-event" name="admin-attendance-event" value={adminModal.event} onChange={(e) => setAdminModal((s) => ({ ...s, event: e.target.value }))} className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none cursor-pointer focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]">
                   <option value="time-in">Time In</option>
                   <option value="time-out">Time Out</option>
                 </select>
               </div>
               <div>
-                <label htmlFor="admin-attendance-datetime" style={styles.modalLabel}>Date & time</label>
-                <input id="admin-attendance-datetime" name="admin-attendance-datetime" type="datetime-local" value={adminModal.datetime} onChange={(e) => setAdminModal((s) => ({ ...s, datetime: e.target.value }))} style={styles.modalInput} />
+                <label htmlFor="admin-attendance-datetime" className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Date & time</label>
+                <input id="admin-attendance-datetime" name="admin-attendance-datetime" type="datetime-local" value={adminModal.datetime} onChange={(e) => setAdminModal((s) => ({ ...s, datetime: e.target.value }))} className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]" />
               </div>
               <div>
-                <label style={styles.modalLabel}>Location</label>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <div style={{ flex: 1, padding: 8, background: '#f9fafb', borderRadius: 8, minHeight: 40 }}>{adminModal.point ? adminModal.point : <span style={{ color: '#9ca3af' }}>—</span>}</div>
+                <label className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Location</label>
+                <div className="flex gap-2 items-center">
+                  <div className="flex-1 p-2 bg-gray-50 rounded-lg min-h-[40px] text-sm flex items-center">{adminModal.point ? adminModal.point : <span className="text-gray-400">—</span>}</div>
                   <button
                     onClick={async () => {
                       try {
@@ -1612,45 +1558,50 @@ export default function PersonsTable() {
                         setLocLoading(false);
                       }
                     }}
-                    style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #e5e7eb', background: '#fff', cursor: 'pointer' }}
+                    className="px-3 py-2 rounded-md border border-gray-200 bg-white cursor-pointer hover:bg-gray-50 transition-colors text-sm"
                     disabled={locLoading}
                   >
                     {locLoading ? 'Refreshing...' : 'Refresh'}
                   </button>
                 </div>
                 {adminModal.locationMessage && adminModal.locationStatus && adminModal.locationStatus !== "ok" && (
-                  <div style={{ marginTop: 6, color: '#b45309', fontSize: 12, lineHeight: 1.4 }}>
+                  <div className="mt-1.5 text-amber-700 text-xs leading-snug">
                     {adminModal.locationMessage}
                   </div>
                 )}
               </div>
-              {/* <div>
-                <label style={styles.modalLabel}>Registered Photo</label>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {adminModal.photo && <img src={adminModal.photo} alt="preview" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8 }} />}
-                </div>
-              </div> */}
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-                <button onClick={() => setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null })} style={{ ...styles.button, ...styles.buttonSecondary }}>Cancel</button>
-                <button onClick={submitAdminAttendance} style={{ ...styles.button, ...styles.buttonPrimary }}>{actionLoading ? "Recording..." : "Record"}</button>
+              <div className="flex gap-3 justify-end mt-5">
+                <button
+                  onClick={() => setAdminModal({ visible: false, person: null, event: "time-in", datetime: "", photo: null, note: "", point: null })}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-w-[100px] rounded-lg text-sm font-semibold border border-gray-300 cursor-pointer bg-white text-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitAdminAttendance}
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2.5 min-w-[100px] rounded-lg text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
+                >
+                  {actionLoading ? "Recording..." : "Record"}
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
       {/* Photo modal for Registered Persons */}
       {photoModal.visible && (
         <div
           onClick={() => closePhotoModal()}
-          style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          className="fixed inset-0 bg-black/60 z-[10000] flex items-center justify-center p-5"
         >
-          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: 8, overflow: 'hidden', background: '#fff', padding: 12, boxShadow: '0 12px 40px rgba(2,6,23,0.4)' }}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={() => closePhotoModal()} aria-label="Close photo" style={{ background: 'transparent', border: 'none', color: '#0f172a', fontSize: 22, cursor: 'pointer' }}>×</button>
+          <div onClick={(e) => e.stopPropagation()} className="max-w-[90%] max-h-[90%] rounded-lg overflow-hidden bg-white p-3 shadow-[0_12px_40px_rgba(2,6,23,0.4)]">
+            <div className="flex justify-end">
+              <button onClick={() => closePhotoModal()} aria-label="Close photo" className="bg-transparent border-none text-slate-900 text-[22px] cursor-pointer leading-none hover:text-red-500 transition-colors">×</button>
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <img src={photoModal.src} alt={photoModal.title} style={{ maxWidth: '100%', maxHeight: '80vh', display: 'block', margin: '0 auto' }} />
-              {photoModal.title && <div style={{ marginTop: 8, color: '#0f172a' }}>{photoModal.title}</div>}
+            <div className="text-center">
+              <img src={photoModal.src} alt={photoModal.title} className="max-w-full max-h-[80vh] block mx-auto" />
+              {photoModal.title && <div className="mt-2 text-slate-900">{photoModal.title}</div>}
             </div>
           </div>
         </div>
@@ -1658,546 +1609,3 @@ export default function PersonsTable() {
     </div>
   );
 }
-
-// Light theme styles with green accent
-const styles = {
-  container: {
-    maxWidth: "1600px",
-    margin: "40px auto",
-    padding: "40px 32px",
-    background: "#ffffff",
-    borderRadius: "32px",
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.1)",
-    color: "#1f2937",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-  },
-  header: {
-    textAlign: "center",
-    marginBottom: "40px",
-  },
-  title: {
-    fontSize: "2.8rem",
-    fontWeight: 700,
-    color: "#1f2937",
-    margin: 0,
-    display: "inline-block",
-  },
-  titleUnderline: {
-    height: "4px",
-    width: "100px",
-    background: "#237227",
-    margin: "8px auto 0",
-    borderRadius: "2px",
-  },
-  filterBar: {
-    display: "flex",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "16px",
-    marginBottom: "24px",
-    padding: "20px 24px",
-    backgroundColor: "#f9fafb",
-    borderRadius: "20px",
-    border: "1px solid #e5e7eb",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-  },
-  filterGroup: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "12px",
-    alignItems: "center",
-  },
-  searchWrapper: {
-    position: "relative",
-  },
-  searchInput: {
-    padding: "12px 16px 12px 40px",
-    fontSize: "0.95rem",
-    borderRadius: "40px",
-    border: "1px solid #d1d5db",
-    backgroundColor: "#ffffff",
-    color: "#1f2937",
-    outline: "none",
-    transition: "all 0.2s",
-    backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "16px center",
-    backgroundSize: "16px",
-    minWidth: "250px",
-  },
-  select: {
-    padding: "12px 20px",
-    fontSize: "0.95rem",
-    borderRadius: "40px",
-    border: "1px solid #d1d5db",
-    backgroundColor: "#ffffff",
-    color: "#1f2937",
-    outline: "none",
-    cursor: "pointer",
-    minWidth: "160px",
-  },
-  button: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "10px 18px",
-    borderRadius: "9999px",
-    fontSize: "1rem",
-    fontWeight: 600,
-    border: "none",
-    cursor: "pointer",
-    transition: "transform 0.12s ease, box-shadow 0.12s ease",
-    boxShadow: "0 6px 18px rgba(16, 185, 129, 0.06)",
-  },
-  buttonPrimary: {
-    background: "linear-gradient(180deg,#1f8a2a,#237227)",
-    color: "#ffffff",
-    boxShadow: "0 6px 18px rgba(35,114,39,0.18)",
-  },
-  buttonSecondary: {
-    background: "#ffffff",
-    color: "#374151",
-    border: "1px solid #e6eef6",
-    boxShadow: "0 2px 8px rgba(15,23,42,0.04)",
-  },
-  buttonSuccess: {
-    background: "#237227",
-    color: "#ffffff",
-  },
-  smallButton: {
-    padding: "6px 12px",
-    borderRadius: "30px",
-    border: "none",
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    cursor: "pointer",
-    transition: "all 0.2s",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "4px",
-  },
-  tableContainer: {
-    borderRadius: "20px",
-    overflow: "hidden",
-    border: "1px solid #e5e7eb",
-    backgroundColor: "#ffffff",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-  },
-  tableWrapper: {
-    overflowX: "auto",
-    maxHeight: "600px",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: "0.95rem",
-    minWidth: "1200px",
-  },
-  th: {
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
-    backgroundColor: "#f9fafb",
-    color: "#4b5563",
-    fontWeight: 600,
-    padding: "16px 12px",
-    textAlign: "left",
-    borderBottom: "2px solid #e5e7eb",
-    letterSpacing: "0.03em",
-    textTransform: "uppercase",
-    fontSize: "0.8rem",
-    cursor: "pointer",
-  },
-  td: {
-    padding: "14px 12px",
-    borderBottom: "1px solid #e5e7eb",
-    color: "#1f2937",
-  },
-  tr: {
-    transition: "background 0.2s",
-  },
-  photo: {
-    width: "48px",
-    height: "48px",
-    objectFit: "cover",
-    borderRadius: "12px",
-    border: "2px solid #e5e7eb",
-  },
-  photoPreview: {
-    width: "88px",
-    height: "88px",
-    objectFit: "cover",
-    borderRadius: "9999px",
-    border: "2px solid rgba(34,197,94,0.12)",
-    boxShadow: "0 6px 18px rgba(16,185,129,0.08)",
-  },
-  actionCell: {
-    display: "flex",
-    gap: "8px",
-    flexWrap: "wrap",
-  },
-  cardsGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-    gap: "20px",
-    alignItems: "stretch",
-  },
-  card: {
-    background: "#ffffff",
-    borderRadius: "12px",
-    border: "1px solid #e5e7eb",
-    padding: "20px",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "space-between",
-    boxShadow: "0 8px 20px rgba(16,185,129,0.05)",
-  },
-  cardHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "12px",
-  },
-  cardAvatarWrapper: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "84px",
-    height: "84px",
-    marginRight: "12px",
-  },
-  cardAvatar: {
-    width: "84px",
-    height: "84px",
-    borderRadius: "50%",
-    objectFit: "cover",
-    border: "4px solid #fff",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-  },
-  cardAvatarPlaceholder: {
-    width: "84px",
-    height: "84px",
-    borderRadius: "50%",
-    background: "linear-gradient(135deg,#3b82f6,#06b6d4)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#fff",
-    fontWeight: 700,
-    fontSize: "1.2rem",
-  },
-  cardStatus: {
-    marginLeft: "auto",
-  },
-  badgePresent: {
-    background: "#237227",
-    color: "#fff",
-    padding: "6px 10px",
-    borderRadius: "20px",
-    fontSize: "0.8rem",
-    fontWeight: 600,
-  },
-  badgeAbsent: {
-    background: "#ef4444",
-    color: "#fff",
-    padding: "6px 10px",
-    borderRadius: "20px",
-    fontSize: "0.8rem",
-    fontWeight: 600,
-  },
-  badgeActive: {
-    background: "#237227",
-    color: "#fff",
-    padding: "6px 10px",
-    borderRadius: "20px",
-    fontSize: "0.8rem",
-    fontWeight: 600,
-  },
-  badgeArchived: {
-    background: "#ef4444",
-    color: "#fff",
-    padding: "6px 10px",
-    borderRadius: "20px",
-    fontSize: "0.8rem",
-    fontWeight: 600,
-  },
-  cardBody: {
-    paddingTop: "6px",
-    paddingBottom: "12px",
-  },
-  cardName: {
-    margin: 0,
-    fontSize: "1.05rem",
-    fontWeight: 700,
-    color: "#111827",
-  },
-  cardId: {
-    display: "inline-block",
-    marginTop: "6px",
-    padding: "6px 10px",
-    borderRadius: "12px",
-    background: "#e5e7eb",
-    color: "#374151",
-    fontSize: "0.8rem",
-    fontFamily: "monospace",
-  },
-  cardInfoRow: {
-    marginTop: "10px",
-    color: "#6b7280",
-    fontSize: "0.95rem",
-  },
-  iconAndText: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    color: "#374151",
-    flexWrap: "wrap",
-  },
-  deptIcon: {
-    color: "#06b6d4",
-    fontSize: "1.05rem",
-  },
-  phoneRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: "8px",
-  },
-  phoneIcon: {
-    color: "#3b82f6",
-    fontSize: "1rem",
-  },
-  emailIcon: {
-    color: "#6b7280",
-    fontSize: "1rem",
-    marginRight: 6,
-    marginTop: 2,
-  },
-  contactText: {
-    maxWidth: "220px",
-    overflowWrap: "anywhere",
-    wordBreak: "break-word",
-    color: "#374151",
-    display: "inline-block",
-  },
-  netPayRow: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: "8px",
-  },
-  iconAndTexts: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    fontWeight: 700,
-    color: "#237227",
-  },
-  cardActions: {
-    display: "flex",
-    gap: "8px",
-    marginTop: "12px",
-    justifyContent: "flex-start",
-  },
-  emptyState: {
-    textAlign: "center",
-    padding: "60px 20px",
-    color: "#6b7280",
-    fontSize: "1.1rem",
-  },
-  error: {
-    color: "#ef4444",
-    textAlign: "center",
-    padding: "40px",
-    background: "#ffffff",
-    borderRadius: "32px",
-    margin: "40px auto",
-    maxWidth: "800px",
-  },
-  spinnerContainer: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "300px",
-    background: "#ffffff",
-  },
-  spinner: {
-    width: "50px",
-    height: "50px",
-    border: "4px solid #e5e7eb",
-    borderTop: "4px solid #237227",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    background: "rgba(0, 0, 0, 0.5)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1000,
-    backdropFilter: "blur(4px)",
-  },
-  modalContent: {
-    background: "#fff",
-    color: "#1f2937",
-    padding: "28px",
-    borderRadius: "28px",
-    maxWidth: "900px",
-    width: "95%",
-    overflowY: "auto",
-    maxHeight: "90%",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-    border: "1px solid #e5e7eb",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-  },
-  modalClose: {
-    position: "absolute",
-    top: "14px",
-    right: "14px",
-    background: "#fff",
-    border: "none",
-    color: "#6b7280",
-    fontSize: "1.1rem",
-    cursor: "pointer",
-    lineHeight: 1,
-    width: 40,
-    height: 40,
-    borderRadius: "50%",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 6px 18px rgba(15,23,42,0.06)",
-  },
-  modalTitle: {
-    fontSize: "2rem",
-    fontWeight: 700,
-    marginBottom: "16px",
-    color: "#0f3d16",
-    textAlign: "center",
-  },
-  modalTitleIcon: {
-    color: "#237227",
-    marginRight: 8,
-    verticalAlign: "middle",
-    fontSize: "1.25rem",
-  },
-  modalField: {
-    marginBottom: "18px",
-    display: "block",
-  },
-  modalLabel: {
-    display: "block",
-    fontSize: "0.85rem",
-    fontWeight: 600,
-    color: "#374151",
-    marginBottom: "8px",
-  },
-  modalInput: {
-    width: "100%",
-    padding: "12px 14px",
-    fontSize: "1rem",
-    borderRadius: "12px",
-    border: "1px solid #e6eef6",
-    background: "#ffffff",
-    color: "#0f172a",
-    outline: "none",
-    transition: "border-color 0.12s, box-shadow 0.12s",
-    boxSizing: "border-box",
-    boxShadow: "inset 0 1px 2px rgba(15,23,42,0.03)",
-  },
-  modalSelect: {
-    width: "100%",
-    padding: "12px 14px",
-    fontSize: "1rem",
-    borderRadius: "12px",
-    border: "1px solid #e6eef6",
-    background: "#ffffff",
-    color: "#0f172a",
-    outline: "none",
-  },
-  modalCheckboxGroup: {
-    display: "flex",
-    gap: "20px",
-    flexWrap: "wrap",
-  },
-  modalCheckbox: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    color: "#374151",
-  },
-  modalActions: {
-    display: "flex",
-    justifyContent: "flex-end",
-    gap: "12px",
-    marginTop: "20px",
-  },
-  modalGrid: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 12,
-    alignItems: "start",
-  },
-};
-
-// Add global keyframes and focus styles
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  input:focus, select:focus, button:focus {
-    border-color: #237227 !important;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
-    outline: none;
-  }
-  button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-  }
-  /* SweetAlert2 light theme overrides */
-  .swal-light-popup {
-    background: #ffffff !important;
-    color: #1f2937 !important;
-    border-radius: 28px !important;
-    border: 1px solid #e5e7eb !important;
-  }
-  .swal-light-title {
-    color: #1f2937 !important;
-  }
-  .swal-light-html {
-    color: #4b5563 !important;
-  }
-  .swal-light-confirm {
-    background: #237227 !important;
-    border: none !important;
-    border-radius: 40px !important;
-    padding: 10px 24px !important;
-    font-weight: 600 !important;
-  }
-  .swal-light-cancel {
-    background: #e5e7eb !important;
-    color: #1f2937 !important;
-    border-radius: 40px !important;
-    border: 1px solid #d1d5db !important;
-  }
-`;
-document.head.appendChild(styleSheet);
-// Responsive grid for the modal form
-const extraStyles = document.createElement("style");
-extraStyles.textContent = `
-.persons-modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
-@media (max-width: 640px) {
-  .persons-modal-grid { grid-template-columns: 1fr !important; }
-}
-`;
-document.head.appendChild(extraStyles);

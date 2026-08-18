@@ -1,5 +1,4 @@
-import React from "react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FiPrinter,
   FiCalendar,
@@ -12,7 +11,6 @@ import Icon from "../../components/Icon";
 import { supabase } from "../../supabaseClient";
 import { generatePayslipPdf } from "./generatePayslipPdf";
 
-// detailedAttendance: [{ date, morningIn, morningOut, afternoonIn, afternoonOut, lateCount, lateDetails: [{session, time, status}]}]
 export default function PayslipModal({
   payroll,
   person,
@@ -22,7 +20,6 @@ export default function PayslipModal({
   period,
   released,
 }) {
-  // useState declarations (only once)
   const [holidayDetails, setHolidayDetails] = useState([]);
   const [deptHolidayRates, setDeptHolidayRates] = useState({
     regular: 0,
@@ -32,19 +29,6 @@ export default function PayslipModal({
   const [cashAdvanceTotalInPeriod, setCashAdvanceTotalInPeriod] = useState(0);
   const [cashAdvanceEntries, setCashAdvanceEntries] = useState([]);
 
-  // Debug output for troubleshooting
-  React.useEffect(() => {
-    if (!loadingHoliday) {
-      console.log("Fetched holidays:", holidayDetails);
-      console.log("Department holiday rates:", deptHolidayRates);
-      console.log(
-        "Attendance dates:",
-        detailedAttendance.map((a) => a.date),
-      );
-    }
-  }, [loadingHoliday, holidayDetails, deptHolidayRates, detailedAttendance]);
-
-  // ✅ FETCH DEPARTMENT RATES
   useEffect(() => {
     async function getDeptHolidayRates() {
       if (!person?.department) return;
@@ -66,13 +50,11 @@ export default function PayslipModal({
     getDeptHolidayRates();
   }, [person]);
 
-  // ✅ FETCH HOLIDAYS (accurate for payroll period)
   useEffect(() => {
     async function getHolidays() {
       try {
         if (!person || !period) return;
         const [start, end] = period.split("_to_");
-        // Fetch holidays for the department or global (department is null) within the period
         const { data: holidays, error } = await supabase
           .from("holidays")
           .select("*")
@@ -80,7 +62,6 @@ export default function PayslipModal({
           .gte("date", start)
           .lte("date", end);
         if (error) throw error;
-        // Sort by date
         const all = (holidays || []).sort((a, b) =>
           a.date.localeCompare(b.date),
         );
@@ -95,7 +76,6 @@ export default function PayslipModal({
     getHolidays();
   }, [person, period]);
 
-  // Fetch total cash advances for this person within the payroll period
   useEffect(() => {
     let mounted = true;
     async function fetchCashAdvanceTotal() {
@@ -123,8 +103,6 @@ export default function PayslipModal({
       } catch (err) {
         console.error("Error fetching cash advance total:", err);
         if (mounted) setCashAdvanceTotalInPeriod(0);
-      } finally {
-        // finished
       }
     }
     fetchCashAdvanceTotal();
@@ -132,10 +110,10 @@ export default function PayslipModal({
       mounted = false;
     };
   }, [person, period]);
+
   const handlePdf = async () => {
     const grossPay =
       Math.round((standardPayAmount + otPay + totalHolidayPay) * 100) / 100;
-    // compute total OT hours for the period to include in PDF (decimal hours)
     let totalOtMinutesForPdf = 0;
     try {
       const sched = payroll && payroll.settings ? payroll.settings : {};
@@ -164,7 +142,6 @@ export default function PayslipModal({
     } catch (e) {}
     const totalOtHoursForPdf =
       Math.round((totalOtMinutesForPdf / 60) * 100) / 100;
-    // ensure payroll.otHours is available for older code paths
     try {
       payroll.otHours = totalOtHoursForPdf;
     } catch (e) {}
@@ -186,7 +163,6 @@ export default function PayslipModal({
     });
   };
 
-  // Helper to display hours and minutes
   const getHourMinute = (hours) => {
     if (!hours || hours <= 0) return "-";
     const h = Math.floor(hours);
@@ -198,8 +174,6 @@ export default function PayslipModal({
     return str || "0min";
   };
 
-  // Format a period string like '2026-04-07_to_2026-04-21' into
-  // 'April 07, 2026 to April 21, 2026'. Falls back to original string.
   function formatPeriod(period) {
     if (!period) return "";
     try {
@@ -245,7 +219,6 @@ export default function PayslipModal({
     return String(period);
   }
 
-  // Format an ISO date (yyyy-mm-dd) into 'April 15, 2026 (Thursday)'
   const formatDateWithWeekday = (isoDateStr) => {
     try {
       const d = new Date(isoDateStr);
@@ -262,7 +235,6 @@ export default function PayslipModal({
     }
   };
 
-  // Helper: parse HH:MM or HH:MM:SS with optional AM/PM into minutes since midnight
   function parseTimeToMinutes(t) {
     if (!t) return null;
     const m = String(t)
@@ -283,15 +255,14 @@ export default function PayslipModal({
 
   if (!payroll || !person) return null;
 
-  // Calculate absent days in the 15-day period
-  // Get the period start and end from the period string (e.g. 2024-03-01_to_2024-03-15)
   let absentDates = [];
   if (period) {
     const [start, end] = period.split("_to_");
     const startDate = new Date(start);
     const endDate = new Date(end);
+    if (isNaN(startDate) || isNaN(endDate)) return null;
     const todayStr = new Date().toISOString().slice(0, 10);
-    // Build a set of holiday ISO dates for this period (if any)
+
     const holidaySet = new Set(
       (holidayDetails || [])
         .map((h) => {
@@ -306,29 +277,31 @@ export default function PayslipModal({
         .filter(Boolean),
     );
 
-    // Build all non-weekend, non-holiday dates in the period
     let allDates = [];
     for (
       let d = new Date(startDate);
       d <= endDate;
       d.setDate(d.getDate() + 1)
     ) {
-      // Exclude Saturday (6) and Sunday (0)
       if (d.getDay() === 0 || d.getDay() === 6) continue;
-      const dateStr = new Date(d).toISOString().slice(0, 10);
-      // Skip if this date is a holiday in the fetched holidayDetails
+      const dCopy = new Date(d);
+      if (isNaN(dCopy)) continue;
+      const dateStr = dCopy.toISOString().slice(0, 10);
       if (holidaySet.has(dateStr)) continue;
-      allDates.push(new Date(d));
+      allDates.push(dCopy);
     }
-    // Build a lookup by date for detailed attendance
+
     const attendanceByDate = Object.fromEntries(
-      (detailedAttendance || []).map((a) => {
-        const dt = new Date(a.date).toISOString().slice(0, 10);
-        return [dt, a];
-      }),
+      (detailedAttendance || [])
+        .map((a) => {
+          const parsed = new Date(a.date);
+          if (isNaN(parsed)) return null;
+          const dt = parsed.toISOString().slice(0, 10);
+          return [dt, a];
+        })
+        .filter(Boolean),
     );
 
-    // Determine expected sessions if person has shift/work_hours metadata
     const ps = String(
       person && (person.shift || person.work_hours || ""),
     ).toLowerCase();
@@ -347,14 +320,15 @@ export default function PayslipModal({
       ps === "4h" ||
       ps.includes("half");
 
-    // For each date in the period (weekdays only) that is before today, determine missing sessions
     absentDates = allDates
-      .map((d) => d.toISOString().slice(0, 10))
-      .filter((dateStr) => dateStr < todayStr)
+      .map((d) => {
+        if (isNaN(d)) return null;
+        return d.toISOString().slice(0, 10);
+      })
+      .filter((dateStr) => dateStr && dateStr < todayStr)
       .map((dateStr) => {
         const rec = attendanceByDate[dateStr] || null;
         if (!rec) {
-          // no attendance record at all -> full day absent
           return { date: dateStr, missing: "Full Day" };
         }
         const hasMorning = !!rec.morningIn;
@@ -369,12 +343,10 @@ export default function PayslipModal({
           return null;
         }
         if (expectsSingleSession) {
-          // half-day staff: missing if neither session present
           if (!hasMorning && !hasAfternoon)
             return { date: dateStr, missing: "Session" };
           return null;
         }
-        // default: if both sessions missing -> full day absent. If one session missing, mark which one
         if (!hasMorning && !hasAfternoon)
           return { date: dateStr, missing: "Full Day" };
         if (!hasMorning) return { date: dateStr, missing: "Morning" };
@@ -385,7 +357,6 @@ export default function PayslipModal({
   }
   const absentCount = absentDates.length;
 
-  // Calculate holiday pay for each holiday (accurate for payroll period)
   let holidayPayDetails = [];
   let totalHolidayPay = 0;
 
@@ -412,8 +383,6 @@ export default function PayslipModal({
       .filter(Boolean);
   }
 
-  // Calculate Standard Pay based on attendance (full/half days)
-  // Prefer stored payroll values when available so modal matches table
   let daysWorked = 0;
   let daysWorkedDisplay = "";
   const payrollDaysPresent =
@@ -434,7 +403,6 @@ export default function PayslipModal({
       }
     });
     daysWorked = fullDays + halfDays * 0.5;
-    // Display as e.g. "2 full, 1 half (2.5 days)"
     let parts = [];
     if (fullDays > 0) parts.push(`${fullDays} full`);
     if (halfDays > 0) parts.push(`${halfDays} half`);
@@ -446,15 +414,11 @@ export default function PayslipModal({
     daysWorkedDisplay = `${daysWorked} day(s)`;
   }
 
-  // Standard Pay calculation
   const standardPayAmount =
     Math.round(daysWorked * (payroll.dailyRate ?? 0) * 100) / 100;
 
-  // Overtime calculation: always use dailyRate/8 (no premium) for display and calculation, and round to 2 decimals for all math
   const hourlyRate = Math.round(((payroll.dailyRate ?? 0) / 8) * 100) / 100;
-  // Ensure otHours is rounded to 2 decimals for precision
   const otHours = Math.round((payroll.otHours ?? 0) * 100) / 100;
-  // Round OT pay to 2 decimals for display and math
   const otPay = Math.round(hourlyRate * otHours * 100) / 100;
   const deductions = [
     { label: "SSS", value: person.sss ? Number(payroll.sss) : 0 },
@@ -496,146 +460,22 @@ export default function PayslipModal({
     )
     .flat();
 
-  const styles = {
-    overlay: {
-      position: "fixed",
-      top: 0,
-      left: 0,
-      width: "100%",
-      height: "100%",
-      background: "rgba(0,0,0,0.5)",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      zIndex: 1000,
-      backdropFilter: "blur(4px)",
-    },
-    modal: {
-      background: "#fff",
-      color: "#1f2937",
-      padding: "32px",
-      borderRadius: "28px",
-      maxWidth: "900px",
-      width: "95%",
-      overflowY: "auto",
-      maxHeight: "90%",
-      boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-      border: "1px solid #e5e7eb",
-      fontFamily:
-        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    },
-    title: {
-      fontSize: "2rem",
-      fontWeight: 700,
-      color: "#237227",
-      textAlign: "center",
-      margin: "0 0 8px 0",
-    },
-    subtitle: {
-      textAlign: "center",
-      color: "#6b7280",
-      marginBottom: "32px",
-      fontSize: "1rem",
-    },
-    sectionTitle: {
-      fontSize: "1.4rem",
-      fontWeight: 600,
-      color: "#1f2937",
-      margin: "32px 0 16px 0",
-      borderBottom: "2px solid #237227",
-      paddingBottom: "8px",
-    },
-    table: {
-      width: "100%",
-      borderCollapse: "collapse",
-      marginBottom: "24px",
-      fontSize: "0.95rem",
-    },
-    th: {
-      background: "#f9fafb",
-      color: "#4b5563",
-      fontWeight: 600,
-      padding: "12px 8px",
-      textAlign: "left",
-      borderBottom: "2px solid #e5e7eb",
-      textTransform: "uppercase",
-      fontSize: "0.8rem",
-      letterSpacing: "0.03em",
-    },
-    td: {
-      padding: "10px 8px",
-      borderBottom: "1px solid #e5e7eb",
-      color: "#1f2937",
-    },
-    trEven: { backgroundColor: "#f9fafb" },
-    trOdd: { backgroundColor: "#ffffff" },
-    summaryRow: { background: "#f3f4f6", fontWeight: 600 },
-    lateText: { color: "#ef4444" },
-    netPay: {
-      textAlign: "right",
-      fontSize: "1.6rem",
-      fontWeight: 700,
-      color: "#237227",
-      margin: "16px 0 0 0",
-    },
-    buttonContainer: {
-      marginTop: "24px",
-      display: "flex",
-      justifyContent: "flex-end",
-      gap: "12px",
-    },
-    button: {
-      padding: "10px 24px",
-      borderRadius: "40px",
-      fontSize: "0.95rem",
-      fontWeight: 500,
-      border: "none",
-      cursor: "pointer",
-      transition: "all 0.2s",
-      boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    buttonPrimary: { background: "#237227", color: "#fff" },
-    buttonSecondary: {
-      background: "#e5e7eb",
-      color: "#1f2937",
-      border: "1px solid #d1d5db",
-    },
-  };
-
   return (
-    <div style={styles.overlay}>
-      <div style={styles.modal}>
-        {/* ✅ PDF ONLY CONTENT */}
+    <div className="fixed inset-0 w-full h-full bg-black/50 flex justify-center items-center z-[1000] backdrop-blur-sm">
+      <div className="bg-white text-gray-800 p-6 sm:p-8 rounded-2xl max-w-[900px] w-[95%] overflow-y-auto max-h-[90%] shadow-[0_20px_40px_rgba(0,0,0,0.2)] border border-gray-200 font-sans">
+        {/* PDF / Content Container */}
         <div className="payslip-modal-content-inner">
-          <h2 style={styles.title}>Payslip</h2>
-          <p style={styles.subtitle}>
+          <h2 className="text-3xl font-bold text-[#237227] text-center m-0 mb-2">Payslip</h2>
+          <p className="text-center text-gray-500 mb-6 text-base">
             {person.name} • {person.department} • ID: {person.id}
           </p>
           {period && (
-            <p
-              style={{
-                textAlign: "center",
-                color: "#237227",
-                fontWeight: 600,
-                marginBottom: 8,
-              }}
-            >
+            <p className="text-center text-[#237227] font-semibold mb-2">
               Period: {formatPeriod(period)}
             </p>
           )}
           {released && (
-            <p
-              style={{
-                textAlign: "center",
-                color: "#237227",
-                fontWeight: 700,
-                fontSize: "1.1rem",
-                marginBottom: 8,
-              }}
-            >
+            <p className="text-center text-[#237227] font-bold text-lg mb-2">
               Payslip Released
             </p>
           )}
@@ -643,515 +483,496 @@ export default function PayslipModal({
           {/* Holiday Table */}
           {!loadingHoliday && holidayPayDetails.length > 0 && (
             <>
-              <h3 style={styles.sectionTitle}>
+              <h3 className="text-xl font-semibold text-gray-800 mt-8 mb-4 border-b-2 border-[#237227] pb-2 flex items-center">
                 <Icon
                   as={FiCalendar}
-                  style={{ marginRight: 8 }}
+                  className="mr-2 inline text-emerald-700"
                   ariaLabel="Holidays"
                 />
                 Holidays This Month
               </h3>
-              <table style={styles.table}>
-                <thead>
-                  <tr>
-                    <th style={styles.th}>Date</th>
-                    <th style={styles.th}>Type</th>
-                    <th style={styles.th}>Rate (%)</th>
-                    {/* <th style={styles.th}>Amount</th> */}
-                  </tr>
-                </thead>
-                <tbody>
-                  {holidayPayDetails.map((h, i) => (
-                    <tr key={h.date + h.type}>
-                      <td style={styles.td}>{h.date}</td>
-                      <td style={styles.td}>
-                        {h.type === "regular"
-                          ? "Regular Holiday"
-                          : "Special Holiday"}
-                      </td>
-                      <td style={styles.td}>{h.ratePercent}</td>
-                      {/* <td style={styles.td}>₱{h.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td> */}
+              <div className="overflow-x-auto mb-6 border border-gray-200">
+                <table className="w-full border-collapse text-[0.95rem]">
+                  <thead className="bg-gray-50 text-gray-600 font-semibold uppercase text-xs tracking-wider border-b-2 border-gray-200">
+                    <tr>
+                      <th className="p-3 text-left">Date</th>
+                      <th className="p-3 text-left">Type</th>
+                      <th className="p-3 text-left">Rate (%)</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {holidayPayDetails.map((h) => (
+                      <tr key={h.date + h.type} className="hover:bg-gray-50 transition-colors">
+                        <td className="p-2.5 px-3 text-gray-800">{h.date}</td>
+                        <td className="p-2.5 px-3 text-gray-800">
+                          {h.type === "regular"
+                            ? "Regular Holiday"
+                            : "Special Holiday"}
+                        </td>
+                        <td className="p-2.5 px-3 text-gray-800">{h.ratePercent}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </>
           )}
 
           {/* Attendance Table */}
-          <h3 style={styles.sectionTitle}>
+          <h3 className="text-xl font-semibold text-gray-800 mt-8 mb-4 border-b-2 border-[#237227] pb-2 flex items-center">
             <Icon
               as={FiClipboard}
-              style={{ marginRight: 8 }}
+              className="mr-2 inline text-emerald-700"
               ariaLabel="Attendance"
             />
             Attendance Details
           </h3>
 
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Date</th>
-                <th style={styles.th}>Morning In</th>
-                <th style={styles.th}>Morning Out</th>
-                <th style={styles.th}>Afternoon In</th>
-                <th style={styles.th}>Afternoon Out</th>
-                <th style={styles.th}>OT</th>
-                <th style={styles.th}>Late Count</th>
-                <th style={styles.th}>Late Details</th>
-                {/* Removed unused OT (hrs) column */}
-              </tr>
-            </thead>
-            <tbody>
-              {detailedAttendance.length ? (
-                detailedAttendance.map((rec, i) => {
-                  const rowStyle = i % 2 === 0 ? styles.trEven : styles.trOdd;
-                  // Removed unused otDisplay variable
-
-                  // Settings for time-in/time-out
-                  const settings =
-                    payroll && payroll.settings ? payroll.settings : {};
-
-                  const morningStart = settings.morning_start || "08:00";
-                  const morningEnd = settings.morning_end || "12:00";
-                  const afternoonStart = settings.afternoon_start || "13:00";
-                  const afternoonEnd = settings.afternoon_end || "17:00";
-
-                  // Helper to check if it's not yet time for time-in/time-out
-                  function isNotYetTime(session, date, type) {
-                    // type: 'in' or 'out'
-                    const now = new Date();
-                    const dateObj = new Date(date);
-                    let sessionTime;
-                    if (session === "morning") {
-                      sessionTime = type === "in" ? morningStart : morningEnd;
-                    } else {
-                      sessionTime =
-                        type === "in" ? afternoonStart : afternoonEnd;
-                    }
-                    const [h, m] = sessionTime.split(":").map(Number);
-                    dateObj.setHours(h, m, 0, 0);
-                    return now < dateObj;
-                  }
-
-                  // Morning In
-                  let morningInDisplay = "-";
-                  if (rec.morningIn) {
-                    morningInDisplay = rec.morningIn;
-                  } else if (!isNotYetTime("morning", rec.date, "in")) {
-                    morningInDisplay = "Not time-in";
-                  }
-
-                  // Morning Out
-                  let morningOutDisplay = "-";
-                  if (rec.morningOut) {
-                    morningOutDisplay = rec.morningOut;
-                  } else if (!isNotYetTime("morning", rec.date, "out")) {
-                    morningOutDisplay = "Not time-out";
-                  }
-
-                  // Afternoon In
-                  let afternoonInDisplay = "-";
-                  if (rec.afternoonIn) {
-                    afternoonInDisplay = rec.afternoonIn;
-                  } else if (!isNotYetTime("afternoon", rec.date, "in")) {
-                    afternoonInDisplay = "Not time-in";
-                  }
-
-                  // Afternoon Out
-                  let afternoonOutDisplay = "-";
-                  if (rec.afternoonOut) {
-                    afternoonOutDisplay = rec.afternoonOut;
-                  } else if (!isNotYetTime("afternoon", rec.date, "out")) {
-                    afternoonOutDisplay = "Not time-out";
-                  }
-
-                  // Compute per-row overtime (minutes) by comparing out times to scheduled end times.
-                  let otMinutes = 0;
-                  try {
-                    const scheduledMorningEnd =
-                      (settings && settings.morning_end) || "12:00";
-                    const scheduledAfternoonEnd =
-                      (settings && settings.afternoon_end) || "17:00";
-                    const morningOutMin = parseTimeToMinutes(rec.morningOut);
-                    const afternoonOutMin = parseTimeToMinutes(
-                      rec.afternoonOut,
-                    );
-                    const schedMorningEndMin =
-                      parseTimeToMinutes(scheduledMorningEnd);
-                    const schedAfternoonEndMin = parseTimeToMinutes(
-                      scheduledAfternoonEnd,
-                    );
-                    if (
-                      typeof afternoonOutMin === "number" &&
-                      typeof schedAfternoonEndMin === "number" &&
-                      afternoonOutMin > schedAfternoonEndMin
-                    ) {
-                      otMinutes += afternoonOutMin - schedAfternoonEndMin;
-                    }
-                    // include morning overtime if present (rare)
-                    if (
-                      typeof morningOutMin === "number" &&
-                      typeof schedMorningEndMin === "number" &&
-                      morningOutMin > schedMorningEndMin
-                    ) {
-                      otMinutes += morningOutMin - schedMorningEndMin;
-                    }
-                  } catch (e) {
-                    otMinutes = 0;
-                  }
-
-                  const recOtHours = Math.round((otMinutes / 60) * 100) / 100;
-
-                  return (
-                    <tr key={i} style={rowStyle}>
-                      <td style={styles.td}>{rec.date}</td>
-                      <td
-                        style={{
-                          ...styles.td,
-                          color:
-                            rec.morningInStatus === "late"
-                              ? styles.lateText.color
-                              : undefined,
-                        }}
-                      >
-                        {morningInDisplay}
-                      </td>
-                      <td style={styles.td}>{morningOutDisplay}</td>
-                      <td
-                        style={{
-                          ...styles.td,
-                          color:
-                            rec.afternoonInStatus === "late"
-                              ? styles.lateText.color
-                              : undefined,
-                        }}
-                      >
-                        {afternoonInDisplay}
-                      </td>
-                      <td style={styles.td}>{afternoonOutDisplay}</td>
-                      <td style={styles.td}>
-                        {getHourMinute(recOtHours)} ({recOtHours.toFixed(2)})
-                      </td>
-                      <td style={styles.td}>{rec.lateCount || 0}</td>
-                      <td style={styles.td}>
-                        {rec.lateDetails && rec.lateDetails.length ? (
-                          <ul style={{ margin: 0, paddingLeft: 16 }}>
-                            {rec.lateDetails.map((d, idx) => (
-                              <li key={idx} style={styles.lateText}>
-                                {d.session}: {d.time} ({d.status})
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          "-"
-                        )}
-                      </td>
-                      {/* Removed unused otDisplay cell */}
-                    </tr>
-                  );
-                })
-              ) : (
+          <div className="overflow-x-auto mb-6 border border-gray-200">
+            <table className="w-full border-collapse text-[0.95rem]">
+              <thead className="bg-gray-50 text-gray-600 font-semibold uppercase text-xs tracking-wider border-b-2 border-gray-200">
                 <tr>
-                  <td
-                    colSpan="9"
-                    style={{
-                      ...styles.td,
-                      textAlign: "center",
-                      color: "#9ca3af",
-                    }}
-                  >
-                    No attendance records
-                  </td>
+                  <th className="p-3 text-left">Date</th>
+                  <th className="p-3 text-left">Morning In</th>
+                  <th className="p-3 text-left">Morning Out</th>
+                  <th className="p-3 text-left">Afternoon In</th>
+                  <th className="p-3 text-left">Afternoon Out</th>
+                  <th className="p-3 text-left">OT</th>
+                  <th className="p-3 text-left">Late Count</th>
+                  <th className="p-3 text-left">Late Details</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {detailedAttendance.length ? (
+                  detailedAttendance.map((rec, i) => {
+                    const settings =
+                      payroll && payroll.settings ? payroll.settings : {};
 
-          <h3 style={styles.sectionTitle}>
-            <Icon as={FiX} style={{ marginRight: 8 }} ariaLabel="Absent days" />
+                    const morningStart = settings.morning_start || "08:00";
+                    const morningEnd = settings.morning_end || "12:00";
+                    const afternoonStart = settings.afternoon_start || "13:00";
+                    const afternoonEnd = settings.afternoon_end || "17:00";
+
+                    function isNotYetTime(session, date, type) {
+                      const now = new Date();
+                      const dateObj = new Date(date);
+                      let sessionTime;
+                      if (session === "morning") {
+                        sessionTime = type === "in" ? morningStart : morningEnd;
+                      } else {
+                        sessionTime =
+                          type === "in" ? afternoonStart : afternoonEnd;
+                      }
+                      const [h, m] = sessionTime.split(":").map(Number);
+                      dateObj.setHours(h, m, 0, 0);
+                      return now < dateObj;
+                    }
+
+                    let morningInDisplay = "-";
+                    if (rec.morningIn) {
+                      morningInDisplay = rec.morningIn;
+                    } else if (!isNotYetTime("morning", rec.date, "in")) {
+                      morningInDisplay = "Not time-in";
+                    }
+
+                    let morningOutDisplay = "-";
+                    if (rec.morningOut) {
+                      morningOutDisplay = rec.morningOut;
+                    } else if (!isNotYetTime("morning", rec.date, "out")) {
+                      morningOutDisplay = "Not time-out";
+                    }
+
+                    let afternoonInDisplay = "-";
+                    if (rec.afternoonIn) {
+                      afternoonInDisplay = rec.afternoonIn;
+                    } else if (!isNotYetTime("afternoon", rec.date, "in")) {
+                      afternoonInDisplay = "Not time-in";
+                    }
+
+                    let afternoonOutDisplay = "-";
+                    if (rec.afternoonOut) {
+                      afternoonOutDisplay = rec.afternoonOut;
+                    } else if (!isNotYetTime("afternoon", rec.date, "out")) {
+                      afternoonOutDisplay = "Not time-out";
+                    }
+
+                    let otMinutes = 0;
+                    try {
+                      const scheduledMorningEnd =
+                        (settings && settings.morning_end) || "12:00";
+                      const scheduledAfternoonEnd =
+                        (settings && settings.afternoon_end) || "17:00";
+                      const morningOutMin = parseTimeToMinutes(rec.morningOut);
+                      const afternoonOutMin = parseTimeToMinutes(
+                        rec.afternoonOut,
+                      );
+                      const schedMorningEndMin =
+                        parseTimeToMinutes(scheduledMorningEnd);
+                      const schedAfternoonEndMin = parseTimeToMinutes(
+                        scheduledAfternoonEnd,
+                      );
+                      if (
+                        typeof afternoonOutMin === "number" &&
+                        typeof schedAfternoonEndMin === "number" &&
+                        afternoonOutMin > schedAfternoonEndMin
+                      ) {
+                        otMinutes += afternoonOutMin - schedAfternoonEndMin;
+                      }
+                      if (
+                        typeof morningOutMin === "number" &&
+                        typeof schedMorningEndMin === "number" &&
+                        morningOutMin > schedMorningEndMin
+                      ) {
+                        otMinutes += morningOutMin - schedMorningEndMin;
+                      }
+                    } catch (e) {
+                      otMinutes = 0;
+                    }
+
+                    const recOtHours = Math.round((otMinutes / 60) * 100) / 100;
+
+                    return (
+                      <tr
+                        key={i}
+                        className={i % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                      >
+                        <td className="p-2.5 px-3 text-gray-800 font-mono text-sm">{rec.date}</td>
+                        <td
+                          className={`p-2.5 px-3 ${
+                            rec.morningInStatus === "late"
+                              ? "text-red-500 font-medium"
+                              : "text-gray-800"
+                          }`}
+                        >
+                          {morningInDisplay}
+                        </td>
+                        <td className="p-2.5 px-3 text-gray-800">{morningOutDisplay}</td>
+                        <td
+                          className={`p-2.5 px-3 ${
+                            rec.afternoonInStatus === "late"
+                              ? "text-red-500 font-medium"
+                              : "text-gray-800"
+                          }`}
+                        >
+                          {afternoonInDisplay}
+                        </td>
+                        <td className="p-2.5 px-3 text-gray-800">{afternoonOutDisplay}</td>
+                        <td className="p-2.5 px-3 text-gray-800">
+                          {getHourMinute(recOtHours)} ({recOtHours.toFixed(2)})
+                        </td>
+                        <td className="p-2.5 px-3 text-gray-800">{rec.lateCount || 0}</td>
+                        <td className="p-2.5 px-3 text-gray-800">
+                          {rec.lateDetails && rec.lateDetails.length ? (
+                            <ul className="m-0 pl-4 list-disc">
+                              {rec.lateDetails.map((d, idx) => (
+                                <li key={idx} className="text-red-500 text-xs">
+                                  {d.session}: {d.time} ({d.status})
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            "-"
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="8"
+                      className="p-4 text-center text-gray-400"
+                    >
+                      No attendance records
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <h3 className="text-xl font-semibold text-gray-800 mt-8 mb-4 border-b-2 border-[#237227] pb-2 flex items-center">
+            <Icon as={FiX} className="mr-2 inline text-red-500" ariaLabel="Absent days" />
             Absent Days in Period
           </h3>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Absent Day</th>
-                <th style={styles.th}>Missing Session</th>
-              </tr>
-            </thead>
-            <tbody>
-              {absentCount > 0 ? (
-                absentDates.map((item, idx) => (
-                  <tr
-                    key={item.date}
-                    style={idx % 2 === 0 ? styles.trEven : styles.trOdd}
-                  >
-                    <td style={styles.td}>
-                      {formatDateWithWeekday(item.date)}
-                    </td>
-                    <td style={styles.td}>{item.missing}</td>
-                  </tr>
-                ))
-              ) : (
+          <div className="overflow-x-auto mb-6 border border-gray-200">
+            <table className="w-full border-collapse text-[0.95rem]">
+              <thead className="bg-gray-50 text-gray-600 font-semibold uppercase text-xs tracking-wider border-b-2 border-gray-200">
                 <tr>
-                  <td
-                    colSpan={2}
-                    style={{
-                      ...styles.td,
-                      color: "#237227",
-                      textAlign: "center",
-                    }}
-                  >
-                    No absences in this period
-                  </td>
+                  <th className="p-3 text-left">Absent Day</th>
+                  <th className="p-3 text-left">Missing Session</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {absentCount > 0 ? (
+                  absentDates.map((item, idx) => (
+                    <tr
+                      key={item.date}
+                      className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                    >
+                      <td className="p-2.5 px-3 text-gray-800">
+                        {formatDateWithWeekday(item.date)}
+                      </td>
+                      <td className="p-2.5 px-3 text-red-500 font-medium">{item.missing}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan={2}
+                      className="p-4 text-[#237227] text-center font-medium"
+                    >
+                      No absences in this period
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
           {/* Late Records */}
-          <h3 style={styles.sectionTitle}>
+          <h3 className="text-xl font-semibold text-gray-800 mt-8 mb-4 border-b-2 border-[#237227] pb-2 flex items-center">
             <Icon
               as={FiClock}
-              style={{ marginRight: 8 }}
+              className="mr-2 inline text-amber-600"
               ariaLabel="Late records"
             />
             All Late Records
           </h3>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Date</th>
-                <th style={styles.th}>Session</th>
-                <th style={styles.th}>Time</th>
-                <th style={styles.th}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allLateDetails.length ? (
-                allLateDetails.map((d, i) => {
-                  const rowStyle = i % 2 === 0 ? styles.trEven : styles.trOdd;
-                  return (
-                    <tr key={i} style={rowStyle}>
-                      <td style={styles.td}>{d.date}</td>
-                      <td style={styles.td}>{d.session}</td>
-                      <td style={styles.td}>{d.time}</td>
+          <div className="overflow-x-auto mb-6 border border-gray-200">
+            <table className="w-full border-collapse text-[0.95rem]">
+              <thead className="bg-gray-50 text-gray-600 font-semibold uppercase text-xs tracking-wider border-b-2 border-gray-200">
+                <tr>
+                  <th className="p-3 text-left">Date</th>
+                  <th className="p-3 text-left">Session</th>
+                  <th className="p-3 text-left">Time</th>
+                  <th className="p-3 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {allLateDetails.length ? (
+                  allLateDetails.map((d, i) => (
+                    <tr
+                      key={i}
+                      className={i % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                    >
+                      <td className="p-2.5 px-3 text-gray-800">{d.date}</td>
+                      <td className="p-2.5 px-3 text-gray-800">{d.session}</td>
+                      <td className="p-2.5 px-3 text-gray-800 font-mono">{d.time}</td>
                       <td
-                        style={{
-                          ...styles.td,
-                          color:
-                            d.status === "late"
-                              ? styles.lateText.color
-                              : undefined,
-                        }}
+                        className={`p-2.5 px-3 ${
+                          d.status === "late"
+                            ? "text-red-500 font-semibold"
+                            : "text-gray-800"
+                        }`}
                       >
                         {d.status}
                       </td>
                     </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td
-                    colSpan="4"
-                    style={{
-                      ...styles.td,
-                      textAlign: "center",
-                      color: "#9ca3af",
-                    }}
-                  >
-                    No late records
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                  ))
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="4"
+                      className="p-4 text-center text-gray-400"
+                    >
+                      No late records
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
 
           {/* Earnings */}
-
-          <h3 style={styles.sectionTitle}>
+          <h3 className="text-xl font-semibold text-gray-800 mt-8 mb-4 border-b-2 border-[#237227] pb-2 flex items-center">
             <span
               aria-label="Peso"
-              style={{ marginRight: 8, fontSize: 18, fontWeight: 700 }}
+              className="mr-2 text-lg font-bold text-[#237227]"
             >
               ₱
             </span>
             Earnings
           </h3>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Type</th>
-                <th style={styles.th}>Days/Hours</th>
-                <th style={styles.th}>Rate</th>
-                <th style={styles.th}>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style={styles.trEven}>
-                <td style={styles.td}>Standard Pay</td>
-                <td style={styles.td}>{daysWorkedDisplay}</td>
-                <td style={styles.td}>
-                  ₱{(payroll.dailyRate ?? 0).toFixed(2)}
-                </td>
-                <td style={styles.td}>
-                  ₱
-                  {standardPayAmount.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                  })}
-                </td>
-              </tr>
-              <tr style={styles.trOdd}>
-                <td style={styles.td}>Overtime Pay</td>
-                <td style={styles.td}>{getHourMinute(otHours)}</td>
-                <td style={styles.td}>
-                  (Daily Rate) ÷ 8hrs =₱{hourlyRate.toFixed(2)}
-                </td>
-                <td style={styles.td}>₱{otPay.toFixed(2)}</td>
-              </tr>
-              {/* ✅ Holiday Pay */}
-              {holidayPayDetails.length > 0 ? (
-                <>
-                  {holidayPayDetails.map((h, idx) => (
-                    <tr
-                      key={idx}
-                      style={idx % 2 === 0 ? styles.trEven : styles.trOdd}
-                    >
-                      <td style={styles.td}>Holiday Pay</td>
-                      <td style={styles.td}>
-                        {h.date} (
-                        {h.type === "regular"
-                          ? "Regular Holiday"
-                          : "Special Holiday"}
-                        )
-                      </td>
-                      <td style={styles.td}>
-                        <span style={{ color: "#237227", fontWeight: 600 }}>
-                          {" "}
-                          ({h.ratePercent}%)
-                        </span>
-                      </td>
-                      <td style={styles.td}>
-                        ₱{(h.amount ?? 0).toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-
-                  <tr style={styles.summaryRow}>
-                    <td colSpan="3" style={styles.td}>
-                      Total Holiday Pay
-                    </td>
-                    <td style={styles.td}>
-                      ₱{totalHolidayPay.toLocaleString()}
-                    </td>
-                  </tr>
-                </>
-              ) : (
+          <div className="overflow-x-auto mb-6 border border-gray-200">
+            <table className="w-full border-collapse text-[0.95rem]">
+              <thead className="bg-gray-50 text-gray-600 font-semibold uppercase text-xs tracking-wider border-b-2 border-gray-200">
                 <tr>
-                  <td
-                    colSpan="4"
-                    style={{ textAlign: "center", color: "#9ca3af" }}
-                  >
-                    No holiday pay for this period
+                  <th className="p-3 text-left">Type</th>
+                  <th className="p-3 text-left">Days/Hours</th>
+                  <th className="p-3 text-left">Rate</th>
+                  <th className="p-3 text-left">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                <tr className="bg-gray-50">
+                  <td className="p-2.5 px-3 text-gray-800 font-medium">Standard Pay</td>
+                  <td className="p-2.5 px-3 text-gray-800">{daysWorkedDisplay}</td>
+                  <td className="p-2.5 px-3 text-gray-800 font-mono">
+                    ₱{(payroll.dailyRate ?? 0).toFixed(2)}
+                  </td>
+                  <td className="p-2.5 px-3 text-gray-800 font-bold">
+                    ₱
+                    {standardPayAmount.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                    })}
                   </td>
                 </tr>
-              )}
-              <tr style={styles.summaryRow}>
-                <td colSpan="3" style={styles.td}>
-                  Gross Pay
-                </td>
-                <td style={styles.td}>
-                  ₱{(
-                    Number(
-                      payroll.gross ??
-                        Math.round((standardPayAmount + otPay + totalHolidayPay) * 100) / 100,
-                    )
-                  ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                <tr className="bg-white">
+                  <td className="p-2.5 px-3 text-gray-800 font-medium">Overtime Pay</td>
+                  <td className="p-2.5 px-3 text-gray-800">{getHourMinute(otHours)}</td>
+                  <td className="p-2.5 px-3 text-gray-800 text-xs">
+                    (Daily Rate) ÷ 8hrs = ₱{hourlyRate.toFixed(2)}
+                  </td>
+                  <td className="p-2.5 px-3 text-gray-800 font-bold">₱{otPay.toFixed(2)}</td>
+                </tr>
+                {/* Holiday Pay */}
+                {holidayPayDetails.length > 0 ? (
+                  <>
+                    {holidayPayDetails.map((h, idx) => (
+                      <tr
+                        key={idx}
+                        className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                      >
+                        <td className="p-2.5 px-3 text-gray-800">Holiday Pay</td>
+                        <td className="p-2.5 px-3 text-gray-800">
+                          {h.date} (
+                          {h.type === "regular"
+                            ? "Regular Holiday"
+                            : "Special Holiday"}
+                          )
+                        </td>
+                        <td className="p-2.5 px-3 text-gray-800">
+                          <span className="text-[#237227] font-semibold">
+                            {" "}
+                            ({h.ratePercent}%)
+                          </span>
+                        </td>
+                        <td className="p-2.5 px-3 text-gray-800 font-bold">
+                          ₱{(h.amount ?? 0).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+
+                    <tr className="bg-gray-100 font-semibold text-gray-900">
+                      <td colSpan="3" className="p-2.5 px-3">
+                        Total Holiday Pay
+                      </td>
+                      <td className="p-2.5 px-3 font-bold text-[#237227]">
+                        ₱{totalHolidayPay.toLocaleString()}
+                      </td>
+                    </tr>
+                  </>
+                ) : (
+                  <tr>
+                    <td
+                      colSpan="4"
+                      className="p-4 text-center text-gray-400"
+                    >
+                      No holiday pay for this period
+                    </td>
+                  </tr>
+                )}
+                <tr className="bg-gray-100 font-semibold text-gray-900">
+                  <td colSpan="3" className="p-2.5 px-3">
+                    Gross Pay
+                  </td>
+                  <td className="p-2.5 px-3 font-bold text-[#237227]">
+                    ₱{(
+                      Number(
+                        payroll.gross ??
+                          Math.round((standardPayAmount + otPay + totalHolidayPay) * 100) / 100,
+                      )
+                    ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
           {/* Deductions */}
-          <h3 style={styles.sectionTitle}>
+          <h3 className="text-xl font-semibold text-gray-800 mt-8 mb-4 border-b-2 border-[#237227] pb-2 flex items-center">
             <Icon
               as={FiTrendingDown}
-              style={{ marginRight: 8 }}
+              className="mr-2 inline text-rose-600"
               ariaLabel="Deductions"
             />
             Deductions
           </h3>
-          <table style={styles.table}>
-            <tbody>
-              <tr style={styles.trEven}>
-                <td style={styles.td}>Total Late Occurrences</td>
-                <td style={styles.td}>{totalLateOccurrences} occurrence(s)</td>
-              </tr>
-              <tr style={styles.trOdd}>
-                <td style={styles.td}>Late Count</td>
-                <td style={styles.td}>{payroll.lateCount} occurrence(s)</td>
-              </tr>
-              <tr style={styles.trEven}>
-                <td style={styles.td}>Late Count Limit for Deduction</td>
-                <td style={styles.td}>{lateCountLimit} occurrence(s)</td>
-              </tr>
-              <tr style={styles.trOdd}>
-                <td style={styles.td}>Total Late Deduction</td>
-                <td style={styles.td}>₱{lateDeduction.toLocaleString()}</td>
-              </tr>
-              {deductions.map((d, i) => (
-                <tr
-                  key={d.label}
-                  style={i % 2 === 0 ? styles.trEven : styles.trOdd}
-                >
-                  <td style={styles.td}>{d.label}</td>
-                  <td style={styles.td}>
-                    {d.loading ? (
-                      <span style={{ color: "#6b7280" }}>Loading...</span>
-                    ) : (
-                      `₱${Number(d.value || 0).toLocaleString()}`
-                    )}
-                  </td>
+          <div className="overflow-x-auto mb-6 border border-gray-200">
+            <table className="w-full border-collapse text-[0.95rem]">
+              <tbody className="divide-y divide-gray-200">
+                <tr className="bg-gray-50">
+                  <td className="p-2.5 px-3 text-gray-800">Total Late Occurrences</td>
+                  <td className="p-2.5 px-3 text-gray-800">{totalLateOccurrences} occurrence(s)</td>
                 </tr>
-              ))}
-              {cashAdvanceEntries && cashAdvanceEntries.length > 0 && (
-                <>
-                  <tr>
-                    <td colSpan={2} style={{ ...styles.td, fontWeight: 700 }}>
-                      Cash Advance Details
+                <tr className="bg-white">
+                  <td className="p-2.5 px-3 text-gray-800">Late Count</td>
+                  <td className="p-2.5 px-3 text-gray-800">{payroll.lateCount} occurrence(s)</td>
+                </tr>
+                <tr className="bg-gray-50">
+                  <td className="p-2.5 px-3 text-gray-800">Late Count Limit for Deduction</td>
+                  <td className="p-2.5 px-3 text-gray-800">{lateCountLimit} occurrence(s)</td>
+                </tr>
+                <tr className="bg-white">
+                  <td className="p-2.5 px-3 text-gray-800">Total Late Deduction</td>
+                  <td className="p-2.5 px-3 text-red-500 font-semibold">₱{lateDeduction.toLocaleString()}</td>
+                </tr>
+                {deductions.map((d, i) => (
+                  <tr
+                    key={d.label}
+                    className={i % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                  >
+                    <td className="p-2.5 px-3 text-gray-800">{d.label}</td>
+                    <td className="p-2.5 px-3 text-gray-800">
+                      {d.loading ? (
+                        <span className="text-gray-500">Loading...</span>
+                      ) : (
+                        `₱${Number(d.value || 0).toLocaleString()}`
+                      )}
                     </td>
                   </tr>
-                  {cashAdvanceEntries.map((h, idx) => (
-                    <tr
-                      key={h.id}
-                      style={idx % 2 === 0 ? styles.trEven : styles.trOdd}
-                    >
-                      <td style={styles.td}>
-                        {h.created_at
-                          ? new Date(h.created_at).toLocaleString()
-                          : "-"}
+                ))}
+                {cashAdvanceEntries && cashAdvanceEntries.length > 0 && (
+                  <>
+                    <tr className="bg-gray-100 font-bold text-gray-900">
+                      <td colSpan={2} className="p-2.5 px-3">
+                        Cash Advance Details
                       </td>
-                      <td style={styles.td}>₱{Number(h.amount).toFixed(2)}</td>
                     </tr>
-                  ))}
-                  <tr style={styles.tr}>
-                    <td style={{ ...styles.td, fontWeight: 700 }}>
-                      Cash Advance Total
-                    </td>
-                    <td style={{ ...styles.td, fontWeight: 700 }}>
-                      ₱{Number(cashAdvanceTotalInPeriod || 0).toFixed(2)}
-                    </td>
-                  </tr>
-                </>
-              )}
-              <tr style={styles.summaryRow}>
-                <td style={styles.td}>Total Deductions</td>
-                <td style={styles.td}>₱{totalDeductions.toLocaleString()}</td>
-              </tr>
-            </tbody>
-          </table>
+                    {cashAdvanceEntries.map((h, idx) => (
+                      <tr
+                        key={h.id}
+                        className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                      >
+                        <td className="p-2.5 px-3 text-gray-700 text-xs">
+                          {h.created_at
+                            ? new Date(h.created_at).toLocaleString()
+                            : "-"}
+                        </td>
+                        <td className="p-2.5 px-3 text-gray-800 font-mono">₱{Number(h.amount).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                    <tr className="bg-gray-50 font-semibold text-gray-900">
+                      <td className="p-2.5 px-3">
+                        Cash Advance Total
+                      </td>
+                      <td className="p-2.5 px-3 text-red-500 font-bold">
+                        ₱{Number(cashAdvanceTotalInPeriod || 0).toFixed(2)}
+                      </td>
+                    </tr>
+                  </>
+                )}
+                <tr className="bg-gray-100 font-bold text-gray-900">
+                  <td className="p-2.5 px-3">Total Deductions</td>
+                  <td className="p-2.5 px-3 text-red-600 font-bold">₱{totalDeductions.toLocaleString()}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
-          {/* Net Pay: use rounded OT pay in gross calculation */}
-          <h3 style={styles.netPay}>
+          {/* Net Pay */}
+          <h3 className="text-right text-2xl sm:text-3xl font-bold text-[#237227] mt-4 mb-2">
             Net Pay: ₱{(
               Number(
                 payroll.net ??
@@ -1167,26 +988,22 @@ export default function PayslipModal({
           </h3>
         </div>
 
-        {/* ✅ BUTTONS OUTSIDE PDF */}
-        <div style={styles.buttonContainer}>
+        {/* Buttons */}
+        <div className="mt-6 flex justify-end gap-3 flex-wrap">
           {showPrintButton && (
             <button
               onClick={handlePdf}
-              style={{ ...styles.button, ...styles.buttonPrimary }}
+              className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
             >
-              <Icon
-                as={FiPrinter}
-                style={{ marginRight: 8, color: "#ffff" }}
-                ariaLabel="Print PDF"
-              />
+              <FiPrinter className="text-base text-white" />
               PDF
             </button>
           )}
           <button
             onClick={onClose}
-            style={{ ...styles.button, ...styles.buttonSecondary }}
+            className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold border border-[#DF301C] cursor-pointer bg-white text-[#DF301C]"
           >
-            <Icon as={FiX} style={{ marginRight: 8 }} ariaLabel="Close" />
+            <FiX className="text-base" />
             Close
           </button>
         </div>

@@ -6,10 +6,15 @@ const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 export const SUPABASE_CONFIGURED = Boolean(supabaseUrl && supabaseAnonKey);
 // Debug: show whether env vars are present in the bundled app
-console.log('Supabase env:', { supabaseUrl, supabaseAnonKey: Boolean(supabaseAnonKey), SUPABASE_CONFIGURED });
-export const supabase = SUPABASE_CONFIGURED
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null;
+let supabaseClient = null;
+if (SUPABASE_CONFIGURED) {
+  try {
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+  } catch (err) {
+    console.error("Failed to initialize Supabase client:", err);
+  }
+}
+export const supabase = supabaseClient;
 
 // Helper to subscribe to table changes. Returns the subscription object.
 export function subscribeToTable({ table = 'attendance', schema = 'public', event = '*', callback }) {

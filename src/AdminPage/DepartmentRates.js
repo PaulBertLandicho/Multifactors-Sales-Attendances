@@ -8,13 +8,13 @@ import Icon from "../components/Icon";
 
 export default function DepartmentRates() {
   const [rates, setRates] = useState([]);
-  // Track original department names for rename
   const [originalNames, setOriginalNames] = useState([]);
   const [saving, setSaving] = useState(false);
-  // Removed unused navigate
+
   const Icons = {
     circlePlus: <Icon as={FiPlusCircle} ariaLabel="Add" color="#ffffff" />,
   };
+
   useEffect(() => {
     fetchRates();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -35,29 +35,64 @@ export default function DepartmentRates() {
     }
   };
 
-  // Add Department (modal version)
   const handleAddDepartment = async () => {
     const { value: deptName } = await Swal.fire({
       title: "Add Department",
-      input: "text",
-      inputLabel: "Department Name",
-      inputPlaceholder: "Enter department name",
+      html: `
+        <div style="text-align: left; margin-top: 1.25rem;">
+          <div style="margin-bottom: 0.5rem;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #374151; margin-bottom: 0.35rem;">
+              Department Name
+            </label>
+            <input 
+              id="swal-dept-name" 
+              type="text"
+              placeholder="Enter department name" 
+              style="display: block; width: 100%; padding: 0.65rem 0.85rem; font-size: 0.95rem; border: 1px solid #d1d5db; border-radius: 0.75rem; outline: none; box-sizing: border-box; background: #ffffff; color: #1f2937;"
+            />
+          </div>
+        </div>
+      `,
       showCancelButton: true,
+      confirmButtonText: "Add Department",
+      confirmButtonColor: "#237227",
+      cancelButtonColor: "#E5E7EB",
+      buttonsStyling: false,
+      customClass: {
+        popup: "!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.15)] !px-8 !py-8 !max-w-[420px] font-sans",
+        title: "!text-gray-800 !text-[1.4rem] !font-bold !mt-1 !mb-0",
+        actions: "!flex !items-center !justify-center !gap-3 !mt-6 !w-full",
+        confirmButton: "!bg-[#237227] !text-white !font-semibold !rounded-lg !px-5 !py-2.5 !text-sm cursor-pointer !m-0 !min-w-[130px] border-none",
+        cancelButton: "!bg-white !border !border-gray-300 !text-gray-700 !font-semibold !rounded-lg !px-5 !py-2.5 !text-sm cursor-pointer !m-0 !min-w-[90px]",
+      },
+      didOpen: () => {
+        const input = document.getElementById("swal-dept-name");
+        if (input) input.focus();
+      },
+      preConfirm: () => {
+        const input = document.getElementById("swal-dept-name");
+        const trimmed = (input ? input.value : "").trim();
+        if (!trimmed) {
+          Swal.showValidationMessage("Department name is required!");
+          return false;
+        }
+        const exists = rates.find(
+          (r) => r.department.toLowerCase() === trimmed.toLowerCase()
+        );
+        if (exists) {
+          Swal.showValidationMessage("Department name already exists!");
+          return false;
+        }
+        return trimmed;
+      },
     });
 
-    if (!deptName) return;
+    if (!deptName || !deptName.trim()) return;
 
-    // Check duplicate
-    const exists = rates.find(
-      (r) => r.department.toLowerCase() === deptName.toLowerCase(),
-    );
-
-    if (exists) {
-      return Swal.fire("Error", "Department already exists", "error");
-    }
+    const trimmedDept = deptName.trim();
 
     const { error } = await supabase.from("department_rates").insert({
-      department: deptName,
+      department: trimmedDept,
       daily_rate: 0,
       late_penalty: 0,
       sss: 0,
@@ -69,9 +104,35 @@ export default function DepartmentRates() {
     });
 
     if (error) {
-      Swal.fire("Error", error.message, "error");
+      Swal.fire({
+        title: "Error",
+        text: error.message,
+        icon: "error",
+        width: "360px",
+        padding: "1.25rem",
+        confirmButtonColor: "#237227",
+        customClass: {
+          popup: "rounded-[24px] shadow-2xl border border-gray-100",
+          title: "text-lg font-bold text-gray-800",
+        },
+      });
     } else {
-      Swal.fire("Success", "Department added", "success");
+      Swal.fire({
+        title: "Success",
+        text: `Department "${trimmedDept}" added!`,
+        icon: "success",
+        width: "360px",
+        padding: "1.25rem",
+        timer: 1800,
+        showConfirmButton: false,
+        iconColor: "#237227",
+        customClass: {
+          popup: "rounded-[24px] shadow-2xl border border-gray-100",
+          title: "text-lg font-bold text-gray-800",
+          htmlContainer: "text-xs text-gray-500",
+          icon: "scale-75 my-2",
+        },
+      });
       fetchRates();
     }
   };
@@ -86,25 +147,18 @@ export default function DepartmentRates() {
     setRates(updated);
   };
 
-  // Handle holiday type checkbox
-  // Removed unused handleHolidayTypeChange
-
-  // Handle holiday date change
-  // Removed unused handleHolidayDateChange
-
   const handleSave = async (index) => {
     setSaving(true);
     const item = rates[index];
     const originalName = originalNames[index];
     let error = null;
-    // If department name changed, update by filtering on original name
+
     if (item.department !== originalName) {
-      // Check for duplicate
       if (
         rates.some(
           (r, i) =>
             i !== index &&
-            r.department.toLowerCase() === item.department.toLowerCase(),
+            r.department.toLowerCase() === item.department.toLowerCase()
         )
       ) {
         Swal.fire("Error", "Department name already exists", "error");
@@ -144,67 +198,90 @@ export default function DepartmentRates() {
         .eq("department", item.department);
       error = updateError;
     }
-    if (error) Swal.fire("Error", error.message, "error");
-    else Swal.fire("Saved", "", "success");
+
+    if (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Error Saving",
+        text: error.message,
+        width: "360px",
+        padding: "1.25rem",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#237227",
+        customClass: {
+          popup: "rounded-[24px] shadow-2xl border border-gray-100",
+          title: "text-lg font-bold text-gray-800",
+          htmlContainer: "text-xs text-gray-500",
+          icon: "scale-75 my-2",
+          confirmButton: "px-10 py-2.5 min-w-[120px] rounded-full font-semibold text-sm cursor-pointer",
+        },
+      });
+    } else {
+      Swal.fire({
+        icon: "success",
+        title: "Saved Successfully!",
+        text: "Department rates have been updated.",
+        width: "360px",
+        padding: "1.25rem",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#237227",
+        iconColor: "#237227",
+        customClass: {
+          popup: "rounded-[24px] shadow-2xl border border-gray-100",
+          title: "text-lg font-bold text-gray-800",
+          htmlContainer: "text-xs text-gray-500",
+          icon: "scale-75 my-2",
+          confirmButton: "px-10 py-2.5 min-w-[120px] rounded-full font-semibold text-sm cursor-pointer shadow-[0_4px_10px_rgba(16,185,129,0.3)] hover:opacity-90",
+        },
+      });
+    }
     setSaving(false);
     fetchRates();
   };
 
   return (
-    <div style={styles.container}>
+    <div className="max-w-[1600px] mx-auto mt-2 mb-10 px-6 sm:px-8 py-10 bg-white rounded-[32px] shadow-[0_10px_30px_rgba(0,0,0,0.1)] text-gray-800 font-sans">
+
       {/* Header */}
-      <div style={styles.header}>
-        <h1 style={styles.title}>Employee Rates</h1>
-        <div style={styles.titleUnderline} />
+      <div className="text-center mb-8">
+        <h1 className="text-[2.8rem] font-bold text-gray-800 m-0 inline-block">Employee Rates</h1>
+        <div className="h-1 w-24 bg-[#237227] mx-auto mt-2 rounded-sm" />
       </div>
 
-      {/* Add Department Button (modal) */}
-      <div style={{ marginBottom: 24 }}>
+      {/* Add Department Button */}
+      <div className="mb-6">
         <button
           onClick={handleAddDepartment}
-          style={{ ...styles.saveButton, minWidth: 180 }}
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border-none bg-[#237227] text-white font-semibold text-base cursor-pointer   transition-all min-w-[180px] justify-center"
         >
           {Icons.circlePlus} Add Department
         </button>
       </div>
 
-      {/* Horizontal scrollable cards */}
-      <div style={styles.cardsContainer}>
+      {/* Department Cards Grid (3 Columns / Vertical Scroll) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
         {rates.map((row, idx) => (
-          <div key={row.department} style={styles.card}>
-            <div style={styles.cardHeader}>
-              <span style={styles.cardIcon}>
-                <Icon as={FiHome} size={28} ariaLabel="Department" />
+          <div
+            key={row.department}
+            className="w-full bg-gray-50 rounded-3xl p-6 sm:p-7 border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col transition-all"
+          >
+            {/* Card Header */}
+            <div className="flex items-center gap-2.5 mb-6 flex-wrap sm:flex-nowrap">
+              <span className="text-[1.8rem] flex-shrink-0">
+                <Icon as={FiHome} size={26} ariaLabel="Department" />
               </span>
               <input
                 type="text"
                 id={`department-name-${row.department || idx}`}
                 name={`department-name-${row.department || idx}`}
                 value={row.department}
-                onChange={(e) =>
-                  handleChange(idx, "department", e.target.value)
-                }
-                style={{
-                  ...styles.departmentName,
-                  border: "1px solid #d1d5db",
-                  borderRadius: 8,
-                  padding: "2px 8px",
-                  minWidth: 120,
-                }}
+                onChange={(e) => handleChange(idx, "department", e.target.value)}
+                className="text-xl font-semibold text-gray-800 border border-gray-300 rounded-lg px-2.5 py-1 flex-1 min-w-[100px] outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
               />
               <button
                 onClick={() => handleSave(idx)}
                 disabled={saving}
-                style={{
-                  marginLeft: 8,
-                  background: "#237227",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  padding: "4px 12px",
-                  cursor: saving ? "not-allowed" : "pointer",
-                  fontWeight: 600,
-                }}
+                className={`bg-[#237227] text-white border-none rounded-lg px-3 py-1.5 font-semibold text-sm transition-all flex-shrink-0 ${saving ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:bg-[#1a5a1d]"}`}
                 title="Save Department Name"
               >
                 Save
@@ -215,138 +292,170 @@ export default function DepartmentRates() {
                     title: `Delete ${row.department}?`,
                     text: "This will remove the department and all its rates.",
                     icon: "warning",
+                    width: "360px",
+                    padding: "1.25rem",
                     showCancelButton: true,
-                    confirmButtonText: "Delete",
-                    cancelButtonText: "Cancel",
+                    confirmButtonText: "Yes, delete it",
+                    confirmButtonColor: "#ef4444",
+                    cancelButtonColor: "#6b7280",
+                    customClass: {
+                      popup: "rounded-[24px] shadow-2xl border border-gray-100",
+                      title: "text-lg font-bold text-gray-800",
+                      htmlContainer: "text-xs text-gray-500",
+                      icon: "scale-75 my-2",
+                      confirmButton: "px-6 py-2.5 rounded-full font-semibold text-sm cursor-pointer",
+                      cancelButton: "px-6 py-2.5 rounded-full font-semibold text-sm cursor-pointer",
+                    },
                   });
                   if (confirm.isConfirmed) {
-                    setSaving(true);
                     const { error } = await supabase
                       .from("department_rates")
                       .delete()
                       .eq("department", row.department);
-                    if (error) Swal.fire("Error", error.message, "error");
-                    else {
-                      Swal.fire("Deleted", "", "success");
+                    if (error) {
+                      Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: error.message,
+                        width: "360px",
+                        padding: "1.25rem",
+                        confirmButtonColor: "#237227",
+                        customClass: {
+                          popup: "rounded-[24px] shadow-2xl border border-gray-100",
+                          title: "text-lg font-bold text-gray-800",
+                        },
+                      });
+                    } else {
+                      Swal.fire({
+                        icon: "success",
+                        title: "Deleted!",
+                        text: `${row.department} has been removed.`,
+                        width: "360px",
+                        padding: "1.25rem",
+                        confirmButtonText: "OK",
+                        confirmButtonColor: "#237227",
+                        iconColor: "#237227",
+                        customClass: {
+                          popup: "rounded-[24px] shadow-2xl border border-gray-100",
+                          title: "text-lg font-bold text-gray-800",
+                          htmlContainer: "text-xs text-gray-500",
+                          icon: "scale-75 my-2",
+                          confirmButton: "px-10 py-2.5 min-w-[120px] rounded-full font-semibold text-sm cursor-pointer shadow-[0_4px_10px_rgba(16,185,129,0.3)]",
+                        },
+                      });
                       fetchRates();
                     }
-                    setSaving(false);
                   }
                 }}
-                style={{
-                  marginLeft: 8,
-                  background: "#ef4444",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  padding: "4px 12px",
-                  cursor: "pointer",
-                  fontWeight: 600,
-                }}
-                disabled={saving}
+                className="bg-[#ef4444] text-white border-none rounded-lg px-3 py-1 font-semibold cursor-pointer hover:bg-[#dc2626] transition-all ml-1"
                 title="Delete Department"
               >
                 Delete
               </button>
             </div>
 
-            {/* Rates Section */}
-            <div style={styles.section}>
-              <h3 style={styles.sectionTitle}>
-                <span
-                  aria-label="Peso"
-                  style={{ marginRight: 8, fontSize: 18, fontWeight: 700 }}
-                >
-                  ₱
-                </span>
-                Rates
-              </h3>
-              <div style={styles.inputGrid}>
-                <div style={styles.inputGroup}>
-                  <label htmlFor={`daily-rate-${row.department || idx}`} style={styles.label}>Daily Rate (₱)</label>
+            {/* Rates Form */}
+            <div className="flex flex-col gap-5 mb-6">
+              {/* Daily Rate & Late Penalty */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor={`daily-rate-${row.department || idx}`}
+                    className="text-[0.85rem] font-medium text-gray-600 uppercase tracking-wide"
+                  >
+                    Daily Rate (₱)
+                  </label>
                   <input
                     id={`daily-rate-${row.department || idx}`}
                     name={`daily-rate-${row.department || idx}`}
                     type="number"
                     step="0.01"
                     min="0"
-                    value={row.daily_rate}
-                    onChange={(e) =>
-                      handleChange(idx, "daily_rate", e.target.value)
-                    }
-                    style={styles.input}
+                    value={row.daily_rate || 0}
+                    onChange={(e) => handleChange(idx, "daily_rate", e.target.value)}
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
                   />
                 </div>
-                <div style={styles.inputGroup}>
-                  <label htmlFor={`late-penalty-${row.department || idx}`} style={styles.label}>Late Penalty (₱)</label>
+
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor={`late-penalty-${row.department || idx}`}
+                    className="text-[0.85rem] font-medium text-gray-600 uppercase tracking-wide"
+                  >
+                    Late Penalty (₱)
+                  </label>
                   <input
                     id={`late-penalty-${row.department || idx}`}
                     name={`late-penalty-${row.department || idx}`}
                     type="number"
                     step="0.01"
                     min="0"
-                    value={row.late_penalty}
-                    onChange={(e) =>
-                      handleChange(idx, "late_penalty", e.target.value)
-                    }
-                    style={styles.input}
+                    value={row.late_penalty || 0}
+                    onChange={(e) => handleChange(idx, "late_penalty", e.target.value)}
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
                   />
                 </div>
-                {/* <div style={styles.inputGroup}>
-                  <label style={styles.label}>OT Rate (Hrs of Work)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={row.ot_rate || 0}
-                    onChange={(e) => handleChange(idx, 'ot_rate', e.target.value)}
-                    style={styles.input}
-                  />
-                </div> */}
-                <div style={styles.inputGroup}>
-                  <label htmlFor={`regular-holiday-rate-${row.department || idx}`} style={styles.label}>Regular Holiday Rate (%)</label>
+              </div>
+
+              {/* Regular & Special Holiday Rates */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor={`regular-holiday-rate-${row.department || idx}`}
+                    className="text-[0.85rem] font-medium text-gray-600 uppercase tracking-wide"
+                  >
+                    Regular Holiday Rate (%)
+                  </label>
                   <input
                     id={`regular-holiday-rate-${row.department || idx}`}
                     name={`regular-holiday-rate-${row.department || idx}`}
                     type="number"
-                    step="0.01"
+                    step="1"
                     min="0"
                     value={row.regular_holiday_rate || 100}
-                    onChange={(e) =>
-                      handleChange(idx, "regular_holiday_rate", e.target.value)
-                    }
-                    style={styles.input}
+                    onChange={(e) => handleChange(idx, "regular_holiday_rate", e.target.value)}
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
                   />
-                  <label htmlFor={`special-holiday-rate-${row.department || idx}`} style={styles.label}>Special Holiday Rate (%)</label>
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor={`special-holiday-rate-${row.department || idx}`}
+                    className="text-[0.85rem] font-medium text-gray-600 uppercase tracking-wide"
+                  >
+                    Special Holiday Rate (%)
+                  </label>
                   <input
                     id={`special-holiday-rate-${row.department || idx}`}
                     name={`special-holiday-rate-${row.department || idx}`}
                     type="number"
-                    step="0.01"
+                    step="1"
                     min="0"
                     value={row.special_holiday_rate || 30}
-                    onChange={(e) =>
-                      handleChange(idx, "special_holiday_rate", e.target.value)
-                    }
-                    style={styles.input}
+                    onChange={(e) => handleChange(idx, "special_holiday_rate", e.target.value)}
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
                   />
                 </div>
               </div>
-            </div>
 
-            {/* Deductions Section */}
-            <div style={styles.section}>
-              <h3 style={styles.sectionTitle}>
-                <Icon
-                  as={FiTrendingDown}
-                  style={{ marginRight: 8 }}
-                  ariaLabel="Deductions"
-                />
-                Deductions
-              </h3>
-              <div style={styles.inputGrid}>
-                <div style={styles.inputGroup}>
-                  <label htmlFor={`sss-${row.department || idx}`} style={styles.label}>SSS (₱)</label>
+              {/* Deductions Header */}
+              <div className="flex items-center gap-2 pt-2 border-t border-gray-200">
+                <span className="text-xl">
+                  <Icon as={FiTrendingDown} size={20} ariaLabel="Deductions" />
+                </span>
+                <span className="font-semibold text-base text-gray-800">Deductions</span>
+              </div>
+
+              {/* SSS, Pag-IBIG, PhilHealth */}
+              <div className="grid grid-cols-3 gap-3">
+                {/* SSS */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor={`sss-${row.department || idx}`}
+                    className="text-[0.85rem] font-medium text-gray-600 uppercase tracking-wide"
+                  >
+                    SSS (₱)
+                  </label>
                   <input
                     id={`sss-${row.department || idx}`}
                     name={`sss-${row.department || idx}`}
@@ -355,11 +464,18 @@ export default function DepartmentRates() {
                     min="0"
                     value={row.sss || 0}
                     onChange={(e) => handleChange(idx, "sss", e.target.value)}
-                    style={styles.input}
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
                   />
                 </div>
-                <div style={styles.inputGroup}>
-                  <label htmlFor={`pag-ibig-${row.department || idx}`} style={styles.label}>Pag-ibig (₱)</label>
+
+                {/* Pag-IBIG */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor={`pag-ibig-${row.department || idx}`}
+                    className="text-[0.85rem] font-medium text-gray-600 uppercase tracking-wide"
+                  >
+                    Pag-IBIG (₱)
+                  </label>
                   <input
                     id={`pag-ibig-${row.department || idx}`}
                     name={`pag-ibig-${row.department || idx}`}
@@ -367,14 +483,19 @@ export default function DepartmentRates() {
                     step="0.01"
                     min="0"
                     value={row.pag_ibig || 0}
-                    onChange={(e) =>
-                      handleChange(idx, "pag_ibig", e.target.value)
-                    }
-                    style={styles.input}
+                    onChange={(e) => handleChange(idx, "pag_ibig", e.target.value)}
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
                   />
                 </div>
-                <div style={styles.inputGroup}>
-                  <label htmlFor={`philhealth-${row.department || idx}`} style={styles.label}>PhilHealth (₱)</label>
+
+                {/* PhilHealth */}
+                <div className="flex flex-col gap-1.5">
+                  <label
+                    htmlFor={`philhealth-${row.department || idx}`}
+                    className="text-[0.85rem] font-medium text-gray-600 uppercase tracking-wide"
+                  >
+                    PhilHealth (₱)
+                  </label>
                   <input
                     id={`philhealth-${row.department || idx}`}
                     name={`philhealth-${row.department || idx}`}
@@ -382,258 +503,30 @@ export default function DepartmentRates() {
                     step="0.01"
                     min="0"
                     value={row.philhealth || 0}
-                    onChange={(e) =>
-                      handleChange(idx, "philhealth", e.target.value)
-                    }
-                    style={styles.input}
+                    onChange={(e) => handleChange(idx, "philhealth", e.target.value)}
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
                   />
                 </div>
               </div>
             </div>
 
             {/* Save Button */}
-            <div style={styles.action}>
+            <div className="mt-auto text-center">
               <button
                 onClick={() => handleSave(idx)}
                 disabled={saving}
-                style={{
-                  ...styles.saveButton,
-                  opacity: saving ? 0.7 : 1,
-                  cursor: saving ? "not-allowed" : "pointer",
-                }}
+                className={`px-6 py-3 text-base font-semibold rounded-lg border-none transition-all bg-[#237227] text-white w-full max-w-[200px] ${
+                  saving
+                    ? "opacity-70 cursor-not-allowed"
+                    : "cursor-pointer hover:bg-[#1a5a1d]"
+                }`}
               >
                 {saving ? "Saving..." : "Save Changes"}
               </button>
             </div>
-
-            {/* Holiday Manager Integration */}
-            {/* <HolidayManager
-              department={row.department}
-              regularRate={row.regular_holiday_rate || 100}
-              specialRate={row.special_holiday_rate || 30}
-              onSave={holidayData => {
-                // You can handle saving holidayData to your database here
-                // Example: console.log('Holiday Data:', holidayData);
-                Swal.fire('Saved holidays for ' + row.department, JSON.stringify(holidayData, null, 2), 'success');
-              }}
-            /> */}
           </div>
         ))}
       </div>
     </div>
   );
 }
-
-// Light theme styles with green accent
-const styles = {
-  container: {
-    maxWidth: "1400px",
-    margin: "40px auto",
-    padding: "40px 32px",
-    background: "#ffffff",
-    borderRadius: "32px",
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.1)",
-    color: "#1f2937",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-  },
-  header: {
-    textAlign: "center",
-    marginBottom: "32px",
-  },
-  title: {
-    fontSize: "2.8rem",
-    fontWeight: 700,
-    color: "#1f2937",
-    margin: 0,
-    display: "inline-block",
-  },
-  titleUnderline: {
-    height: "4px",
-    width: "100px",
-    background: "#237227",
-    margin: "8px auto 0",
-    borderRadius: "2px",
-  },
-  tabContainer: {
-    display: "flex",
-    justifyContent: "center",
-    gap: "8px",
-    marginBottom: "32px",
-    borderBottom: "2px solid #e5e7eb",
-    paddingBottom: "8px",
-  },
-  tab: {
-    padding: "10px 24px",
-    fontSize: "1rem",
-    fontWeight: 600,
-    borderRadius: "30px 30px 0 0",
-    border: "none",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    backgroundColor: "transparent",
-    color: "#6b7280",
-    borderBottom: "3px solid transparent",
-  },
-  activeTab: {
-    color: "#237227",
-    borderBottom: "3px solid #237227",
-    backgroundColor: "transparent",
-  },
-  inactiveTab: {
-    color: "#6b7280",
-    "&:hover": {
-      color: "#1f2937",
-      borderBottom: "3px solid #d1d5db",
-    },
-  },
-  cardsContainer: {
-    display: "flex",
-    flexDirection: "row",
-    overflowX: "auto",
-    gap: "24px",
-    paddingBottom: "8px",
-    scrollbarWidth: "thin",
-    scrollbarColor: "#cbd5e0 #f1f5f9",
-  },
-  card: {
-    flex: "0 0 auto",
-    width: "400px",
-    background: "#f9fafb",
-    borderRadius: "24px",
-    padding: "28px 24px",
-    border: "1px solid #e5e7eb",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-    transition: "transform 0.2s, box-shadow 0.2s",
-    display: "flex",
-    flexDirection: "column",
-  },
-  cardHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "12px",
-    marginBottom: "24px",
-  },
-  cardIcon: {
-    fontSize: "2rem",
-  },
-  departmentName: {
-    fontSize: "1.8rem",
-    fontWeight: 600,
-    margin: 0,
-    color: "#1f2937",
-  },
-  section: {
-    marginBottom: "24px",
-  },
-  sectionTitle: {
-    fontSize: "1.2rem",
-    fontWeight: 500,
-    color: "#4b5563",
-    marginBottom: "16px",
-    borderBottom: "1px solid #e5e7eb",
-    paddingBottom: "8px",
-  },
-  inputGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-    gap: "16px",
-  },
-  inputGroup: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "6px",
-  },
-  label: {
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    color: "#4b5563",
-    textTransform: "uppercase",
-    letterSpacing: "0.5px",
-  },
-  input: {
-    padding: "10px 12px",
-    fontSize: "1rem",
-    borderRadius: "12px",
-    border: "1px solid #d1d5db",
-    background: "#ffffff",
-    color: "#1f2937",
-    outline: "none",
-    transition: "border-color 0.2s, box-shadow 0.2s",
-    width: "100%",
-    boxSizing: "border-box",
-  },
-  action: {
-    marginTop: "auto",
-    textAlign: "center",
-  },
-  saveButton: {
-    padding: "12px 24px",
-    fontSize: "1rem",
-    fontWeight: 600,
-    borderRadius: "30px",
-    border: "none",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    background: "#237227",
-    color: "#ffffff",
-    boxShadow: "0 4px 10px rgba(16, 185, 129, 0.3)",
-    width: "100%",
-    maxWidth: "200px",
-  },
-  spinnerContainer: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "300px",
-    background: "#ffffff",
-  },
-  spinner: {
-    width: "50px",
-    height: "50px",
-    border: "4px solid #e5e7eb",
-    borderTop: "4px solid #237227",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-};
-
-// Add global keyframes and focus styles
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  input:focus {
-    border-color: #237227 !important;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
-  }
-  button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-  }
-  .saveButton:hover {
-    background: #0f9e6e !important;
-  }
-  .inactiveTab:hover {
-    color: #1f2937 !important;
-    border-bottom: 3px solid #d1d5db !important;
-  }
-  /* Custom scrollbar for light theme */
-  .cardsContainer::-webkit-scrollbar {
-    height: 8px;
-  }
-  .cardsContainer::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 10px;
-  }
-  .cardsContainer::-webkit-scrollbar-thumb {
-    background: #cbd5e0;
-    border-radius: 10px;
-  }
-  .cardsContainer::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
-  }
-`;
-document.head.appendChild(styleSheet);

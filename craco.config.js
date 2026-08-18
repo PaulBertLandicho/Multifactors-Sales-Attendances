@@ -1,4 +1,9 @@
 module.exports = {
+  style: {
+    postcss: {
+      mode: 'file',
+    },
+  },
   webpack: {
     configure: (webpackConfig) => {
       webpackConfig.module.rules = webpackConfig.module.rules.map((rule) => {

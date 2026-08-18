@@ -10,16 +10,13 @@ import {
 } from "../utils/faceUtils";
 import { recordAttendanceForPerson } from "../AdminPage/attendanceUtils";
 
-// Face recognition threshold – adjust based on your model
 const FACE_MATCH_THRESHOLD = 0.35;
-
 
 export default function PersonDetails({
   scanPayload,
   onComplete,
   hidePersonTable = false,
 }) {
-  // Ensure SweetAlert2 renders above any modals by increasing z-index
   useEffect(() => {
     const styleId = "swal2-zindex-fix";
     if (document.getElementById(styleId)) return;
@@ -36,6 +33,7 @@ export default function PersonDetails({
       if (el) el.remove();
     };
   }, []);
+
   const rawDescriptor = scanPayload?.descriptor || null;
   const descriptor = rawDescriptor
     ? normalizeDescriptor(toFloat32Array(rawDescriptor))
@@ -69,10 +67,8 @@ export default function PersonDetails({
     selectedPerson?.descriptor && selectedPerson.descriptor.length
   );
   
-  // Derive department list from deptRates
   const departmentList = deptRates.map((d) => d.department).filter(Boolean);
 
-  // Guard refs to avoid overlapping fetches
   const fetchInProgressRef = useRef(false);
   const lastFetchAtRef = useRef(0);
   const rejectedMatchRef = useRef(false);
@@ -89,7 +85,7 @@ export default function PersonDetails({
 
       const now = Date.now();
       if (!opts.force && fetchInProgressRef.current) return;
-      if (!opts.force && now - lastFetchAtRef.current < 2000) return; // rate-limit
+      if (!opts.force && now - lastFetchAtRef.current < 2000) return;
 
       fetchInProgressRef.current = true;
       setError(null);
@@ -114,17 +110,16 @@ export default function PersonDetails({
         }));
         setPersons(mapped);
 
-        // Auto-select first person if appropriate (only when NOT in registration mode)
-          if (!selectedId && mapped.length && !descriptor) {
+        if (!selectedId && mapped.length && !descriptor) {
           const first = mapped[0];
           setSelectedId(first.id);
           setForm({
-              id: first.id || "",
-              name: first.name || "",
-              phone_number: first.phone_number || "",
-              email: first.email || "",
-              address: first.address || "",
-              sex: first.sex || "",
+            id: first.id || "",
+            name: first.name || "",
+            phone_number: first.phone_number || "",
+            email: first.email || "",
+            address: first.address || "",
+            sex: first.sex || "",
           });
           if (
             first.department &&
@@ -138,7 +133,6 @@ export default function PersonDetails({
           }
         }
 
-        // If we have a live descriptor (registration scan), try to find a confident match and pre-select it
         if (descriptor && mapped.length) {
           if (rejectedMatchRef.current) {
             setMatchedCandidate(null);
@@ -154,7 +148,6 @@ export default function PersonDetails({
             const second = candidates.length > 1 ? candidates[1] : null;
             const margin = second ? second.dist - best.dist : Infinity;
             if (best && best.dist < FACE_MATCH_THRESHOLD && margin >= 0.05) {
-              // pre-select the matched person but allow user to change
               setSelectedId(best.p.id);
               setMatchedCandidate({
                 id: best.p.id,
@@ -198,10 +191,8 @@ export default function PersonDetails({
   );
 
   useEffect(() => {
-    // initial load
     loadPersons();
 
-    // fetch department rates and settings once
     async function fetchDeptRates() {
       if (!SUPABASE_CONFIGURED || !supabase) return;
       try {
@@ -287,7 +278,6 @@ export default function PersonDetails({
   }
 
   useEffect(() => {
-    // When a new scan payload arrives, clear any previous "reject" state so matching can run again
     rejectedMatchRef.current = false;
   }, [scanPayload]);
 
@@ -303,8 +293,6 @@ export default function PersonDetails({
     let personId = form.id;
     const isNew = !personId;
     if (isNew) {
-      // Generate a readable incremental employee ID like EMP001, EMP002, ...
-      // We look for existing IDs starting with 'EMP' and pick the next number.
       try {
         const { data: empRows, error: empErr } = await supabase
           .from("persons")
@@ -322,18 +310,15 @@ export default function PersonDetails({
         const next = max + 1;
         personId = `EMP${String(next).padStart(3, "0")}`;
       } catch (e) {
-        // Fallback to UUID if anything goes wrong with the ID generation
         personId = uuidv4();
       }
     }
 
-    // Determine final department value
     let finalDepartment = form.department;
     if (customDepartment) {
       finalDepartment = customDeptValue.trim() || null;
     }
 
-    // Get department rate
     let daily_rate = null;
     let late_penalty = null;
     if (finalDepartment) {
@@ -356,11 +341,10 @@ export default function PersonDetails({
         isLinkingExistingRecord &&
         !existingPersonForSave?.descriptor;
 
-      // --- FACE DUPLICATE VALIDATION ---
       if (descriptor) {
-        const newDesc = descriptor; // already normalized Float32Array
+        const newDesc = descriptor;
         const duplicateFace = persons.find((p) => {
-          if (p.id === personId) return false; // skip current person
+          if (p.id === personId) return false;
           if (!p.descriptor) return false;
           const dist = euclideanDistance(newDesc, p.descriptor);
           return dist < FACE_MATCH_THRESHOLD;
@@ -380,11 +364,10 @@ export default function PersonDetails({
         }
       }
 
-      // --- NAME DUPLICATE VALIDATION (optional) ---
       if (form.name && form.name.trim() !== "") {
         const newName = form.name.trim();
         const duplicateName = persons.find((p) => {
-          if (p.id === personId) return false; // skip current person
+          if (p.id === personId) return false;
           return (
             p.name && p.name.trim().toLowerCase() === newName.toLowerCase()
           );
@@ -402,12 +385,6 @@ export default function PersonDetails({
         }
       }
 
-      // --- END VALIDATION ---
-
-      // Decide whether to store a registration photo.
-      // To avoid unexpected image changes, we only ever set
-      // registration_photo when creating a brand-new person here.
-      // Existing persons keep whatever registration_photo they already have.
       const registrationPhoto =
         isNew && scanPayload && scanPayload.photoDataUrl
           ? scanPayload.photoDataUrl
@@ -433,7 +410,6 @@ export default function PersonDetails({
 
       if (err) throw err;
 
-      // Refresh list
       const { data } = await supabase
         .from("persons")
         .select("*")
@@ -452,7 +428,6 @@ export default function PersonDetails({
         sex: form.sex,
       });
 
-      // Reset custom department state
       if (finalDepartment && !departmentList.includes(finalDepartment)) {
         setCustomDepartment(true);
         setCustomDeptValue(finalDepartment);
@@ -467,7 +442,6 @@ export default function PersonDetails({
         department: finalDepartment,
       };
 
-      // Only record attendance if linking a face to an existing person (not for new registration)
       if (
         isRegistrationMode &&
         scanPayload &&
@@ -526,74 +500,46 @@ export default function PersonDetails({
   }
 
   return (
-    <div style={{ marginTop: "24px", width: "100%", maxWidth: "100%" }}>
-      <h2>Person Details Registration</h2>
+    <div className="mt-6 w-full max-w-full font-sans text-gray-800">
+      <h2 className="text-2xl font-bold mb-4 text-gray-800">Person Details Registration</h2>
       {isRegistrationMode &&
         (matchedCandidate ? (
-          <div
-            style={{
-              marginBottom: "16px",
-              padding: "12px 16px",
-              borderRadius: "6px",
-              background: "#1e3a8a",
-              border: "1px solid #1e40af",
-              color: "#e6f0ff",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
-          >
+          <div className="mb-4 p-3.5 px-4 rounded-xl bg-blue-950/80 border border-blue-800 text-blue-100 flex justify-between items-center text-sm shadow-sm">
             <div>
               Face appears to match{" "}
-              <strong>{matchedCandidate.name || matchedCandidate.id}</strong>{" "}
+              <strong className="font-semibold text-white">{matchedCandidate.name || matchedCandidate.id}</strong>{" "}
               (distance {matchedCandidate.dist.toFixed(3)}). You can confirm or
               choose another person.
             </div>
-            <div style={{ marginLeft: "12px" }}>
+            <div className="ml-3">
               <button
                 type="button"
                 onClick={handleRejectMatch}
-                style={{
-                  padding: "6px 10px",
-                  background: "#f97316",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 4,
-                  cursor: "pointer",
-                }}
+                className="px-3 py-1.5 bg-amber-600 text-white border-none rounded-lg text-xs font-semibold cursor-pointer hover:bg-amber-700 transition-colors"
               >
                 Not my face
               </button>
             </div>
           </div>
         ) : (
-          <div
-            style={{
-              marginBottom: "16px",
-              padding: "12px 16px",
-              borderRadius: "6px",
-              background: "#1f3b2f",
-              border: "1px solid #2f855a",
-              color: "#e6fffa",
-            }}
-          >
+          <div className="mb-4 p-3.5 px-4 rounded-xl bg-emerald-950/80 border border-emerald-700 text-emerald-100 text-sm shadow-sm">
             Face not enrolled yet. Complete registration first, or select an
             existing person without a saved face to link this scan before
             attendance can be logged.
           </div>
         ))}
 
-      {!hidePersonTable && loading && <p>Loading persons...</p>}
+      {!hidePersonTable && loading && <p className="text-gray-500 my-2 text-sm">Loading persons...</p>}
       {!hidePersonTable && error && (
-        <div style={{ marginBottom: 12 }}>
-          <p style={{ color: "red", margin: 0 }}>{error}</p>
-          <div style={{ marginTop: 8 }}>
+        <div className="mb-3">
+          <p className="text-red-500 m-0 text-sm">{error}</p>
+          <div className="mt-2">
             <button
               onClick={() => {
                 setError(null);
                 loadPersons({ force: true });
               }}
-              style={{ padding: "6px 10px" }}
+              className="px-3 py-1.5 bg-gray-100 text-gray-800 rounded-lg text-xs font-medium hover:bg-gray-200 transition-colors"
             >
               Retry
             </button>
@@ -601,127 +547,40 @@ export default function PersonDetails({
         </div>
       )}
 
-      <div
-        style={{
-          display: "flex",
-          gap: "24px",
-          alignItems: "flex-start",
-          width: "100%",
-        }}
-      >
+      <div className="flex gap-6 items-start w-full">
         {!hidePersonTable && (
-          <div style={{ flex: 1, maxHeight: "360px", overflowY: "auto" }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "collapse",
-                fontSize: "14px",
-              }}
-            >
-              <thead>
+          <div className="flex-1 max-h-[360px] overflow-y-auto rounded-xl border border-gray-200 shadow-sm">
+            <table className="w-full border-collapse text-sm">
+              <thead className="sticky top-0 bg-gray-50 border-b border-gray-200 text-gray-600 text-xs uppercase tracking-wider font-semibold">
                 <tr>
-                  <th
-                    style={{
-                      borderBottom: "1px solid #444",
-                      padding: "8px",
-                      textAlign: "left",
-                    }}
-                  >
-                    ID
-                  </th>
-                  <th
-                    style={{
-                      borderBottom: "1px solid #444",
-                      padding: "8px",
-                      textAlign: "left",
-                    }}
-                  >
-                    Name
-                  </th>
-                  <th
-                    style={{
-                      borderBottom: "1px solid #444",
-                      padding: "8px",
-                      textAlign: "left",
-                    }}
-                  >
-                    Department
-                  </th>
-                  <th
-                    style={{
-                      borderBottom: "1px solid #444",
-                      padding: "8px",
-                      textAlign: "left",
-                    }}
-                  >
-                    Phone
-                  </th>
-                  <th
-                    style={{
-                      borderBottom: "1px solid #444",
-                      padding: "8px",
-                      textAlign: "left",
-                    }}
-                  >
-                    Address
-                  </th>
-                  <th
-                    style={{
-                      borderBottom: "1px solid #444",
-                      padding: "8px",
-                      textAlign: "left",
-                    }}
-                  >
-                    Gender
-                  </th>
+                  <th className="p-2.5 text-left">ID</th>
+                  <th className="p-2.5 text-left">Name</th>
+                  <th className="p-2.5 text-left">Department</th>
+                  <th className="p-2.5 text-left">Phone</th>
+                  <th className="p-2.5 text-left">Address</th>
+                  <th className="p-2.5 text-left">Gender</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-200">
                 {persons.map((p) => (
                   <tr
                     key={p.id}
                     onClick={() => onSelect(p)}
-                    style={{
-                      cursor: "pointer",
-                      backgroundColor:
-                        selectedId === p.id ? "#333" : "transparent",
-                    }}
+                    className={`cursor-pointer transition-colors ${
+                      selectedId === p.id ? "bg-green-100 text-[#237227] font-medium" : "hover:bg-gray-50 text-gray-800"
+                    }`}
                   >
-                    <td
-                      style={{ borderBottom: "1px solid #333", padding: "6px" }}
-                    >
-                      {p.id}
-                    </td>
-                    <td
-                      style={{ borderBottom: "1px solid #333", padding: "6px" }}
-                    >
-                      {p.name || ""}
-                    </td>
-                    <td
-                      style={{ borderBottom: "1px solid #333", padding: "6px" }}
-                    >
-                      {p.department || ""}
-                    </td>
-                    <td
-                      style={{ borderBottom: "1px solid #333", padding: "6px" }}
-                    >
-                      {p.phone_number || ""}
-                    </td>
-                    <td
-                      style={{ borderBottom: "1px solid #333", padding: "6px" }}
-                    >
-                      {p.address || ""}
-                    </td>
-                    <td
-                      style={{ borderBottom: "1px solid #333", padding: "6px" }}
-                    >
-                      {p.sex || ""}
-                    </td>
+                    <td className="p-2">{p.id}</td>
+                    <td className="p-2">{p.name || ""}</td>
+                    <td className="p-2">{p.department || ""}</td>
+                    <td className="p-2">{p.phone_number || ""}</td>
+                    <td className="p-2">{p.address || ""}</td>
+                    <td className="p-2">{p.sex || ""}</td>
                   </tr>
                 ))}
                 {!persons.length && !loading && (
                   <tr>
-                    <td colSpan={6} style={{ padding: "8px" }}>
+                    <td colSpan={6} className="p-4 text-center text-gray-500">
                       No persons yet. They will appear after the first scan or
                       you can add one manually.
                     </td>
@@ -734,12 +593,9 @@ export default function PersonDetails({
 
         <form
           onSubmit={onSave}
-          style={{
-            flexBasis: hidePersonTable ? "100%" : "280px",
-            flex: hidePersonTable ? 1 : undefined,
-          }}
+          className={hidePersonTable ? "w-full" : "w-[280px] flex-shrink-0"}
         >
-          <h3>
+          <h3 className="text-lg font-bold mb-2 text-gray-800">
             {isLinkingExistingPerson
               ? "Link Face To Existing Person"
               : selectedId
@@ -747,15 +603,7 @@ export default function PersonDetails({
               : "Add Person"}
           </h3>
           {isRegistrationMode && !selectedId && (
-            <p
-              style={{
-                marginTop: 0,
-                marginBottom: "12px",
-                color: "#cbd5e1",
-                fontSize: "13px",
-                lineHeight: 1.4,
-              }}
-            >
+            <p className="mt-0 mb-3 text-gray-600 text-xs leading-relaxed">
               This face is not enrolled yet. Save a new profile or select an
               existing person without a saved face, and the current scan will be
               used right away unless the work-hours rules block attendance for
@@ -763,137 +611,123 @@ export default function PersonDetails({
             </p>
           )}
           {isLinkingExistingPerson && !selectedPersonHasFace && (
-            <p
-              style={{
-                marginTop: 0,
-                marginBottom: "12px",
-                color: "#cbd5e1",
-                fontSize: "13px",
-                lineHeight: 1.4,
-              }}
-            >
+            <p className="mt-0 mb-3 text-gray-600 text-xs leading-relaxed">
               You are linking this scanned face to the selected existing person
               record.
             </p>
           )}
 
-          {/* Person ID - only show when editing, read-only */}
+          {/* Person ID */}
           {selectedId && (
-            <div style={{ marginBottom: "8px", textAlign: "left" }}>
-              <label>
+            <div className="mb-3 text-left">
+              <label className="block text-xs font-semibold text-gray-700 mb-1">
                 Person ID
-                <input
-                  name="id"
-                  value={form.id}
-                  readOnly
-                  style={{
-                    width: "100%",
-                    padding: "6px",
-                    marginTop: "4px",
-                    backgroundColor: "#444",
-                    color: "#ccc",
-                  }}
-                />
               </label>
+              <input
+                name="id"
+                value={form.id}
+                readOnly
+                className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-gray-100 text-gray-500 font-mono outline-none cursor-not-allowed"
+              />
             </div>
           )}
 
           {/* Name field */}
-          <div style={{ marginBottom: "8px", textAlign: "left" }}>
-            <label>
+          <div className="mb-3 text-left">
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
               Name
-              <input
-                name="name"
-                value={form.name}
-                onChange={onChange}
-                style={{ width: "100%", padding: "6px", marginTop: "4px" }}
-              />
             </label>
+            <input
+              name="name"
+              value={form.name}
+              onChange={onChange}
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+            />
           </div>
 
           {/* Phone number field */}
-          <div style={{ marginBottom: "8px", textAlign: "left" }}>
-            <label>
+          <div className="mb-3 text-left">
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
               Phone Number
-              <input
-                name="phone_number"
-                value={form.phone_number}
-                onChange={onChange}
-                style={{ width: "100%", padding: "6px", marginTop: "4px" }}
-              />
             </label>
+            <input
+              name="phone_number"
+              value={form.phone_number}
+              onChange={onChange}
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+            />
           </div>
 
           {/* Email field */}
-          <div style={{ marginBottom: "8px", textAlign: "left" }}>
-            <label>
+          <div className="mb-3 text-left">
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
               Email
-              <input
-                name="email"
-                type="email"
-                value={form.email}
-                onChange={onChange}
-                style={{ width: "100%", padding: "6px", marginTop: "4px" }}
-              />
             </label>
+            <input
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={onChange}
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+            />
           </div>
 
           {/* Address field */}
-          <div style={{ marginBottom: "8px", textAlign: "left" }}>
-            <label>
+          <div className="mb-3 text-left">
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
               Address
-              <input
-                name="address"
-                value={form.address}
-                onChange={onChange}
-                style={{ width: "100%", padding: "6px", marginTop: "4px" }}
-              />
             </label>
+            <input
+              name="address"
+              value={form.address}
+              onChange={onChange}
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+            />
           </div>
 
           {/* Sex field */}
-          <div style={{ marginBottom: "8px", textAlign: "left" }}>
-            <label>
+          <div className="mb-3 text-left">
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
               Sex
-              <select
-                name="sex"
-                value={form.sex}
-                onChange={onChange}
-                style={{ width: "100%", padding: "6px", marginTop: "4px" }}
-              >
-                <option value="">Select sex</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
-              </select>
             </label>
+            <select
+              name="sex"
+              value={form.sex}
+              onChange={onChange}
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+            >
+              <option value="">Select sex</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+            </select>
           </div>
 
           {/* Department dropdown */}
-          <div style={{ marginBottom: "12px", textAlign: "left" }}>
-            <label>
+          <div className="mb-4 text-left">
+            <label className="block text-xs font-semibold text-gray-700 mb-1">
               Department
-              <select
-                value={customDepartment ? "" : form.department}
-                onChange={handleDepartmentChange}
-                style={{ width: "100%", padding: "6px", marginTop: "4px" }}
-              >
-                <option value="">Select department</option>
-                {departmentList.map((dept) => (
-                  <option key={dept} value={dept}>
-                    {dept}
-                  </option>
-                ))}
-              </select>
             </label>
+            <select
+              value={customDepartment ? "" : form.department}
+              onChange={handleDepartmentChange}
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+            >
+              <option value="">Select department</option>
+              {departmentList.map((dept) => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
             {customDepartment && (
-              <div style={{ marginTop: "4px" }}>
+              <div className="mt-2">
                 <input
                   type="text"
                   placeholder="Enter department"
                   value={customDeptValue}
                   onChange={handleCustomDeptChange}
-                  style={{ width: "100%", padding: "6px", marginTop: "4px" }}
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
                 />
               </div>
             )}
@@ -902,7 +736,7 @@ export default function PersonDetails({
           <button
             type="submit"
             disabled={saving}
-            style={{ padding: "8px 16px" }}
+            className="inline-flex items-center justify-center px-6 py-2.5 rounded-full text-base font-semibold border-none cursor-pointer transition-all shadow-[0_4px_10px_rgba(0,0,0,0.1)] bg-[#237227] text-white hover:bg-[#1a5a1d] disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Save"}
           </button>

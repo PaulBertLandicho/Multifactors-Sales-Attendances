@@ -14,8 +14,7 @@ import { supabase } from "./supabaseClient";
 
 import CameraPlayer from "./CameraAttendance/CameraPlayer";
 import AdminLogin from "./AdminPage/AdminLogin";
-import { FiLogIn } from "react-icons/fi";
-import { FiCamera } from "react-icons/fi";
+import { FiLogIn, FiCamera, FiShield } from "react-icons/fi";
 import Dashboard from "./AdminPage/Dashboard";
 import ReleasedHistoryPayroll from "./AdminPage/ReleasedHistoryPayroll";
 import ReleasedPayrollLogs from "./AdminPage/ReleasedPayrollLogs";
@@ -45,11 +44,18 @@ function App() {
 
   // Check for active session on mount and listen for changes
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) localStorage.setItem("sb-session", JSON.stringify(session));
-      else localStorage.removeItem("sb-session");
-    });
+    if (!supabase || !supabase.auth) return;
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        if (session) localStorage.setItem("sb-session", JSON.stringify(session));
+        else localStorage.removeItem("sb-session");
+      })
+      .catch((err) => {
+        console.warn("Session check error:", err);
+      });
+
     const { data: listener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
@@ -58,7 +64,7 @@ function App() {
         else localStorage.removeItem("sb-session");
       },
     );
-    return () => listener?.subscription.unsubscribe();
+    return () => listener?.subscription?.unsubscribe();
   }, []);
 
   // detect mobile viewport to conditionally hide the header
@@ -88,12 +94,29 @@ function App() {
   useEffect(() => {
     if (!session) return;
     if (!hasStaffAccess) {
-      supabase.auth.signOut().finally(() => {
+      if (supabase && supabase.auth) {
+        supabase.auth.signOut().finally(() => {
+          localStorage.removeItem("sb-session");
+          setSession(null);
+        });
+      } else {
         localStorage.removeItem("sb-session");
         setSession(null);
-      });
+      }
     }
   }, [hasStaffAccess, session]);
+
+  const handleAdminLogout = async () => {
+    if (supabase && supabase.auth) {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn("Sign out error:", err);
+      }
+    }
+    localStorage.removeItem("sb-session");
+    window.location.href = "/admin";
+  };
 
   const ProtectedRoute = ({ allowedRoles = STAFF_ROLES, children }) =>
     hasAllowedRole(session, allowedRoles) ? (
@@ -112,7 +135,6 @@ function App() {
 
   useEffect(() => {
     const timer = modalTimerRef.current;
-
     return () => {
       if (timer) {
         clearTimeout(timer);
@@ -122,169 +144,139 @@ function App() {
 
   // Removed unused: handleFaceScan, closeModal
 
+  /* ── Reusable admin layout wrapper ── */
+  const AdminLayout = ({ children }) => (
+    <div className="flex min-h-screen bg-white">
+      <AdminSidebar role={currentRole} onLogout={handleAdminLogout} />
+      <div className={`flex-1 p-10 bg-white ${isMobile ? "ml-0" : "ml-[280px]"}`}>
+        {children}
+      </div>
+    </div>
+  );
+
   return (
     <div className="App">
       <header className="App-header">
+        {/* Top header bar — only on camera / admin-login paths, desktop only */}
         {(isCameraPath || isAdminLoginPath) && !isMobile && (
-          <div style={styles.headerContainer}>
-            <div style={styles.headerBar}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  position: "absolute",
-                  left: 5,
-                }}
-              >
+          <div className="w-full bg-[#f9fafc] border-b border-[#eef2f6] py-4 shadow-[0_6px_18px_rgba(0,0,0,0.03)]">
+            <div className="flex items-center justify-between w-full px-6 py-2">
+
+              {/* LEFT — Logo + Text */}
+              <div className="flex items-center gap-3">
                 <img
-                  src="/image/logo512.png"
+                  src="/image/logo-final.jpg"
                   alt="Multifactors Sales Logo"
-                  style={{
-                    ...styles.logoIcon,
-                    objectFit: "cover",
-                    padding: 5,
-                    width: 100,
-                    height: 100,
-                  }}
+                  className="w-40 h-auto bg-white"
                 />
-                <h1
-                  style={{
-                    ...styles.headerTitle,
-                    margin: -20,
-                    padding: "8px 0",
-                  }}
-                >
-                  Multifactors Sales -{" "}
-                  <span style={{ ...styles.headerSubtitle }}>
-                    Facial Recognition for Attendances
-                  </span>
-                </h1>
+                <div className="flex flex-col">
+                  <h2 className="text-[#000000] text-xl font-bold leading-tight m-0">
+                    Face Recognition Time and Attendance
+                  </h2>
+                </div>
               </div>
+
+              {/* RIGHT — Button */}
               {isAdminLoginPath ? (
                 <button
                   type="button"
                   onClick={() => navigate("/")}
-                  style={styles.adminButton}
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-full border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer  transition-colors"
                 >
-                  <span
-                    style={{ display: "inline-flex", alignItems: "center" }}
-                  >
-                    <FiCamera
-                      style={{ marginRight: 8, verticalAlign: "middle" }}
-                    />
-                    Attendance Camera
-                  </span>
+                  <FiCamera className="align-middle" />
+                  Attendance Camera
                 </button>
               ) : (
-                <div style={styles.headerActions}>
-                  {/* <button
-                    type="button"
-                    onClick={() => setShowStaffLogin(true)}
-                    style={styles.staffButton}
-                  >
-                    <span
-                      style={{ display: "inline-flex", alignItems: "center" }}
-                    >
-                      <FiLogIn
-                        style={{ marginRight: 8, verticalAlign: "middle" }}
-                      />
-                      Staff Login
-                    </span>
-                  </button> */}
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
                     onClick={() => navigate("/admin")}
-                    style={styles.adminButton}
+                    className="flex items-center gap-2 px-3.5 py-2 rounded-full border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer transition-colors"
                   >
-                    <span
-                      style={{ display: "inline-flex", alignItems: "center" }}
-                    >
-                      <FiLogIn
-                        style={{ marginRight: 8, verticalAlign: "middle" }}
-                      />
-                      Admin Login
-                    </span>
+                    <FiLogIn className="align-middle" />
+                    Admin Login
                   </button>
                 </div>
               )}
+
             </div>
           </div>
         )}
+
+
         <Routes>
+          {/* Camera / Home route */}
           <Route
             path="/"
             element={
-              <div style={{ maxWidth: 900, margin: "0 auto" }}>
+              <div className="max-w-[900px] mx-auto">
                 {hasStaffAccess ? (
                   cameraActive ? (
                     <CameraPlayer />
                   ) : (
-                    <div
-                      style={{
-                        marginTop: 24,
-                        padding: "40px 24px",
-                        borderRadius: 24,
-                        background: "#0b1120",
-                        color: "#e5e7eb",
-                        textAlign: "center",
-                      }}
-                    >
-                      <p style={{ marginBottom: 12, fontSize: 15 }}>
-                        Camera is currently off. Click below to open the camera.
+                    <div className="mt-6 px-6 py-16 rounded-3xl bg-white border border-gray-200 shadow-sm text-center">
+                      {/* Camera Icon */}
+                      <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#237227] shadow-sm mb-6">
+                        <FiCamera className="text-white" size={34} />
+                      </div>
+
+                      {/* Heading */}
+                      <h2 className="text-[1.45rem] font-bold text-gray-800 m-0 mb-2">
+                        Camera is Off
+                      </h2>
+
+                      {/* Subtext */}
+                      <p className="text-gray-500 text-[0.95rem] font-normal max-w-[320px] mx-auto mb-8 leading-relaxed">
+                        The camera is currently inactive. Open it to start recording attendance via face recognition.
                       </p>
+
+                      {/* CTA Button */}
                       <button
                         type="button"
                         onClick={() => setCameraActive(true)}
-                        style={{
-                          padding: "10px 24px",
-                          borderRadius: 999,
-                          border: "1px solid #237227",
-                          background: "#237227",
-                          color: "#ffffff",
-                          cursor: "pointer",
-                          fontSize: 14,
-                          fontWeight: 600,
-                        }}
+                        className="inline-flex items-center gap-2.5 px-8 py-3 rounded-full bg-[#237227] text-white text-sm font-semibold cursor-pointer border-none"
                       >
+                        <FiCamera size={16} />
                         Open Camera
                       </button>
                     </div>
                   )
                 ) : (
-                  <div style={styles.staffGateCard}>
-                    <div style={styles.staffGatePill}>
-                      Attendance login required
+                  /* Staff Gate Card */
+                  <div className="mt-6 px-6 py-16 rounded-3xl bg-white border border-gray-200 shadow-sm text-center">
+                    {/* Shield Icon */}
+                    <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#237227] shadow-sm mb-6">
+                      <FiShield className="text-white" size={34} />
                     </div>
-                    <h2 style={styles.staffGateTitle}>
-                      Sign in to record attendance
+
+                    {/* Heading */}
+                    <h2 className="text-[1.45rem] font-bold text-gray-800 m-0 mb-2">
+                      Sign in to Record Attendance
                     </h2>
-                    <p style={styles.staffGateText}>
-                      Log in to record attendance.
+
+                    {/* Subtext */}
+                    <p className="text-gray-500 text-[0.95rem] font-normal max-w-[320px] mx-auto mb-8 leading-relaxed">
+                      Please log in with your staff account to start recording attendance.
                     </p>
+
+                    {/* CTA Button */}
                     <button
                       type="button"
                       onClick={() => setShowStaffLogin(true)}
-                      style={styles.staffGateButton}
+                      className="inline-flex items-center gap-2.5 px-8 py-3 rounded-full bg-[#237227] text-white text-sm font-semibold cursor-pointer border-none"
                     >
+                      <FiLogIn size={16} />
                       Open Attendance Login
                     </button>
                   </div>
                 )}
+
                 {cameraActive && hasStaffAccess && (
-                  <div style={{ marginTop: 12, textAlign: "right" }}>
+                  <div className="mt-3 text-right">
                     <button
                       type="button"
                       onClick={() => setCameraActive(false)}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: 999,
-                        border: "1px solid #d1d5db",
-                        background: "#f9fafb",
-                        color: "#4b5563",
-                        cursor: "pointer",
-                        fontSize: 12,
-                      }}
+                      className="px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50 text-gray-600 cursor-pointer text-xs hover:bg-gray-100 transition-colors"
                     >
                       Close Camera
                     </button>
@@ -293,23 +285,26 @@ function App() {
               </div>
             }
           />
+
+          {/* Staff Login route */}
           <Route
             path="/staff-login"
             element={
-              <div style={{ maxWidth: 900, margin: "0 auto" }}>
-                <div style={styles.staffGateCard}>
-                  <div style={styles.staffGatePill}>Staff login</div>
-                  <h2 style={styles.staffGateTitle}>
+              <div className="max-w-[900px] mx-auto">
+                <div className="mt-6 px-7 py-10 rounded-3xl bg-gradient-to-b from-[#0f172a] to-[#111827] text-[#e5e7eb] text-center border border-white/[0.08] shadow-sm">
+                  <div className="inline-flex items-center justify-center px-3 py-1.5 rounded-full bg-[rgba(35,114,39,0.16)] text-[#86efac] text-xs font-bold tracking-wide uppercase mb-3.5">
+                    Staff login
+                  </div>
+                  <h2 className="m-0 text-[26px] leading-snug text-white">
                     Open the secretary account
                   </h2>
-                  <p style={styles.staffGateText}>
-                    Use the popup login to sign in with the staff email and
-                    password.
+                  <p className="max-w-[560px] mx-auto mt-3.5 mb-6 text-[15px] leading-relaxed text-slate-300">
+                    Use the popup login to sign in with the staff email and password.
                   </p>
                   <button
                     type="button"
                     onClick={() => setShowStaffLogin(true)}
-                    style={styles.staffGateButton}
+                    className="px-5 py-3 rounded-full border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer shadow-sm transition-colors"
                   >
                     Open Staff Login
                   </button>
@@ -317,56 +312,8 @@ function App() {
               </div>
             }
           />
-          <Route
-            path="/admin/register-person"
-            element={
-              <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
-                <div style={styles.adminLayout}>
-                  <AdminSidebar
-                    role={currentRole}
-                    onLogout={async () => {
-                      await supabase.auth.signOut();
-                      localStorage.removeItem("sb-session");
-                      window.location.href = "/admin";
-                    }}
-                  />
-                  <div
-                    style={{
-                      ...styles.adminContent,
-                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
-                    }}
-                  >
-                    <PersonRegistration />
-                  </div>
-                </div>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin/dashboard"
-            element={
-              <ProtectedRoute allowedRoles={STAFF_ROLES}>
-                <div style={styles.adminLayout}>
-                  <AdminSidebar
-                    role={currentRole}
-                    onLogout={async () => {
-                      await supabase.auth.signOut();
-                      localStorage.removeItem("sb-session");
-                      window.location.href = "/admin";
-                    }}
-                  />
-                  <div
-                    style={{
-                      ...styles.adminContent,
-                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
-                    }}
-                  >
-                    <Dashboard />
-                  </div>
-                </div>
-              </ProtectedRoute>
-            }
-          />
+
+          {/* Admin Login */}
           <Route
             path="/admin"
             element={
@@ -377,28 +324,29 @@ function App() {
               )
             }
           />
+
+          {/* Protected Admin Routes */}
+          <Route
+            path="/admin/register-person"
+            element={
+              <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
+                <AdminLayout><PersonRegistration /></AdminLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={STAFF_ROLES}>
+                <AdminLayout><Dashboard /></AdminLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin/settings"
             element={
               <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
-                <div style={styles.adminLayout}>
-                  <AdminSidebar
-                    role={currentRole}
-                    onLogout={async () => {
-                      await supabase.auth.signOut();
-                      localStorage.removeItem("sb-session");
-                      window.location.href = "/admin";
-                    }}
-                  />
-                  <div
-                    style={{
-                      ...styles.adminContent,
-                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
-                    }}
-                  >
-                    <AdminSettings />
-                  </div>
-                </div>
+                <AdminLayout><AdminSettings /></AdminLayout>
               </ProtectedRoute>
             }
           />
@@ -406,24 +354,7 @@ function App() {
             path="/admin/attendance"
             element={
               <ProtectedRoute allowedRoles={STAFF_ROLES}>
-                <div style={styles.adminLayout}>
-                  <AdminSidebar
-                    role={currentRole}
-                    onLogout={async () => {
-                      await supabase.auth.signOut();
-                      localStorage.removeItem("sb-session");
-                      window.location.href = "/admin";
-                    }}
-                  />
-                  <div
-                    style={{
-                      ...styles.adminContent,
-                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
-                    }}
-                  >
-                    <AttendanceTable />
-                  </div>
-                </div>
+                <AdminLayout><AttendanceTable /></AdminLayout>
               </ProtectedRoute>
             }
           />
@@ -431,24 +362,7 @@ function App() {
             path="/admin/department-rates"
             element={
               <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
-                <div style={styles.adminLayout}>
-                  <AdminSidebar
-                    role={currentRole}
-                    onLogout={async () => {
-                      await supabase.auth.signOut();
-                      localStorage.removeItem("sb-session");
-                      window.location.href = "/admin";
-                    }}
-                  />
-                  <div
-                    style={{
-                      ...styles.adminContent,
-                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
-                    }}
-                  >
-                    <DepartmentRates />
-                  </div>
-                </div>
+                <AdminLayout><DepartmentRates /></AdminLayout>
               </ProtectedRoute>
             }
           />
@@ -456,24 +370,7 @@ function App() {
             path="/admin/persons"
             element={
               <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
-                <div style={styles.adminLayout}>
-                  <AdminSidebar
-                    role={currentRole}
-                    onLogout={async () => {
-                      await supabase.auth.signOut();
-                      localStorage.removeItem("sb-session");
-                      window.location.href = "/admin";
-                    }}
-                  />
-                  <div
-                    style={{
-                      ...styles.adminContent,
-                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
-                    }}
-                  >
-                    <PersonsTable />
-                  </div>
-                </div>
+                <AdminLayout><PersonsTable /></AdminLayout>
               </ProtectedRoute>
             }
           />
@@ -481,24 +378,7 @@ function App() {
             path="/admin/payroll"
             element={
               <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
-                <div style={styles.adminLayout}>
-                  <AdminSidebar
-                    role={currentRole}
-                    onLogout={async () => {
-                      await supabase.auth.signOut();
-                      localStorage.removeItem("sb-session");
-                      window.location.href = "/admin";
-                    }}
-                  />
-                  <div
-                    style={{
-                      ...styles.adminContent,
-                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
-                    }}
-                  >
-                    <PayrollPage />
-                  </div>
-                </div>
+                <AdminLayout><PayrollPage /></AdminLayout>
               </ProtectedRoute>
             }
           />
@@ -506,24 +386,7 @@ function App() {
             path="/admin/released-history"
             element={
               <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
-                <div style={styles.adminLayout}>
-                  <AdminSidebar
-                    role={currentRole}
-                    onLogout={async () => {
-                      await supabase.auth.signOut();
-                      localStorage.removeItem("sb-session");
-                      window.location.href = "/admin";
-                    }}
-                  />
-                  <div
-                    style={{
-                      ...styles.adminContent,
-                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
-                    }}
-                  >
-                    <ReleasedHistoryPayroll />
-                  </div>
-                </div>
+                <AdminLayout><ReleasedHistoryPayroll /></AdminLayout>
               </ProtectedRoute>
             }
           />
@@ -531,196 +394,32 @@ function App() {
             path="/admin/ReleasedPayrollLogs"
             element={
               <ProtectedRoute allowedRoles={[ADMIN_ROLE]}>
-                <div style={styles.adminLayout}>
-                  <AdminSidebar
-                    role={currentRole}
-                    onLogout={async () => {
-                      await supabase.auth.signOut();
-                      localStorage.removeItem("sb-session");
-                      window.location.href = "/admin";
-                    }}
-                  />
-                  <div
-                    style={{
-                      ...styles.adminContent,
-                      marginLeft: isMobile ? 0 : styles.adminContent.marginLeft,
-                    }}
-                  >
-                    <ReleasedPayrollLogs />
-                  </div>
-                </div>
+                <AdminLayout><ReleasedPayrollLogs /></AdminLayout>
               </ProtectedRoute>
             }
           />
         </Routes>
+
         <StaffLoginModal
           open={showStaffLogin}
           onClose={() => setShowStaffLogin(false)}
           onStaffLoggedIn={() => setShowStaffLogin(false)}
         />
+
+        {/* Footer */}
+        {(isCameraPath || isAdminLoginPath) && !isMobile && (
+          <footer className="fixed bottom-0 left-0 right-0 z-50 bg-[#f9fafc] border-t border-[#eef2f6] py-4 shadow-[0_-4px_12px_rgba(0,0,0,0.02)]">
+            <div className="flex items-center justify-between w-full px-6">
+              {/* Copyright */}
+              <div className="text-[#8a96a3] text-xs">
+                &copy; {new Date().getFullYear()} Multifactors Sales Corporation. All rights reserved.
+              </div>
+            </div>
+          </footer>
+        )}
       </header>
     </div>
   );
 }
-
-// Light theme styles with green accent
-const styles = {
-  headerTitle: {
-    color: "#237227",
-    fontSize: "2rem",
-    fontWeight: "bold",
-    textAlign: "center",
-    margin: "20px 0",
-  },
-  headerSubtitle: {
-    color: "#6b7280",
-    fontSize: "1.10rem",
-    fontWeight: "bold",
-  },
-  modalOverlay: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100vw",
-    height: "100vh",
-    background: "rgba(0, 0, 0, 0.5)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 1000,
-    backdropFilter: "blur(4px)",
-  },
-  modalContent: {
-    background: "#ffffff",
-    padding: "32px",
-    borderRadius: "28px",
-    minWidth: "340px",
-    maxWidth: "500px",
-    width: "90%",
-    boxShadow: "0 20px 40px rgba(0, 0, 0, 0.2)",
-    border: "1px solid #e5e7eb",
-    position: "relative",
-  },
-  modalClose: {
-    position: "absolute",
-    top: "12px",
-    right: "16px",
-    background: "transparent",
-    border: "none",
-    color: "#6b7280",
-    fontSize: "1.8rem",
-    cursor: "pointer",
-    lineHeight: 1,
-    transition: "color 0.2s",
-  },
-  adminLayout: {
-    display: "flex",
-    minHeight: "100vh",
-    background: "#ffffff",
-  },
-  adminContent: {
-    marginLeft: "280px", // matches sidebar width
-    flex: 1,
-    padding: "40px",
-    background: "#ffffff",
-  },
-  logoIcon: {
-    marginTop: 20,
-    borderRadius: 999,
-    background: "#ffffff",
-  },
-  headerBar: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    width: "100%",
-    maxWidth: 900,
-    margin: "0 auto",
-    padding: "8px 0",
-  },
-  adminButton: {
-    padding: "8px 14px",
-    borderRadius: 999,
-    border: "1px solid #237227",
-    background: "#237227",
-    color: "#ffffff",
-    cursor: "pointer",
-    fontSize: 14,
-    fontWeight: 700,
-    position: "absolute",
-    right: 16,
-    top: "50%",
-    transform: "translateY(-50%)",
-    zIndex: 10,
-  },
-  staffButton: {
-    padding: "8px 14px",
-    borderRadius: 999,
-    border: "1px solid #0f172a",
-    background: "#0f172a",
-    color: "#ffffff",
-    cursor: "pointer",
-    fontSize: 14,
-    fontWeight: 700,
-    position: "relative",
-    zIndex: 10,
-  },
-  headerContainer: {
-    width: "100%",
-    background: "#f9fafc",
-    borderBottom: "1px solid #eef2f6",
-    padding: "30px 0",
-    boxShadow: "0 6px 18px rgba(0,0,0,0.03)",
-    position: "relative",
-  },
-  staffGateCard: {
-    marginTop: 24,
-    padding: "40px 28px",
-    borderRadius: 24,
-    background: "linear-gradient(180deg, #0f172a 0%, #111827 100%)",
-    color: "#e5e7eb",
-    textAlign: "center",
-    border: "1px solid rgba(255,255,255,0.08)",
-    boxShadow: "0 24px 60px rgba(15,23,42,0.25)",
-  },
-  staffGatePill: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "6px 12px",
-    borderRadius: 999,
-    background: "rgba(35,114,39,0.16)",
-    color: "#86efac",
-    fontSize: 12,
-    fontWeight: 700,
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
-    marginBottom: 14,
-  },
-  staffGateTitle: {
-    margin: 0,
-    fontSize: 26,
-    lineHeight: 1.2,
-    color: "#ffffff",
-  },
-  staffGateText: {
-    maxWidth: 560,
-    margin: "14px auto 24px",
-    fontSize: 15,
-    lineHeight: 1.7,
-    color: "#cbd5e1",
-  },
-  staffGateButton: {
-    padding: "12px 22px",
-    borderRadius: 999,
-    border: "1px solid #237227",
-    background: "#237227",
-    color: "#ffffff",
-    cursor: "pointer",
-    fontSize: 14,
-    fontWeight: 700,
-    boxShadow: "0 12px 30px rgba(35,114,39,0.25)",
-  },
-};
 
 export default App;

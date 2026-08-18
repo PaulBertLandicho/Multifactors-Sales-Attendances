@@ -829,6 +829,7 @@ if (uniqueParts.length) {
     })();
 
     loadPersons();
+    if (!supabase) return;
     const subscription = supabase
       .channel("persons-changes")
       .on(
@@ -1532,84 +1533,87 @@ if (uniqueParts.length) {
     }
   };
   return (
-    <div ref={fullscreenRef} style={isFullscreen ? styles.containerFull : styles.container}>
+    <div
+      ref={fullscreenRef}
+      className={isFullscreen
+        ? "fixed top-0 left-0 w-screen h-screen p-0 flex justify-center items-center bg-black z-[9999]"
+        : "flex justify-center p-5 font-sans"}
+    >
       {/* Camera card */}
-      <div style={isFullscreen ? { ...styles.cameraCard, ...styles.cameraCardFull } : (isMobile ? styles.cameraCardMobile : styles.cameraCard)}>
-        <div style={styles.cameraHeader}>
-          <span style={styles.cameraTitle}><Icon as={FiCamera} style={{ marginRight: 8 }} ariaLabel="Camera" />Live Feed</span>
-          <span style={{ marginLeft: 12, color: '#475569', fontWeight: 600 }}>{currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-          <div style={isMobile ? styles.statusBadgesMobile : styles.statusBadges}>
+      <div className={[
+        "w-full h-full bg-white overflow-hidden transition-shadow duration-300",
+        isFullscreen
+          ? "max-w-full rounded-none shadow-none"
+          : "max-w-[900px] rounded-3xl shadow-[0_20px_40px_rgba(0,0,0,0.08),0_6px_12px_rgba(0,0,0,0.05)]"
+      ].join(" ")}>
+
+        {/* Header */}
+        <div className="flex justify-between items-center px-6 py-4 bg-[#f9fafc] border-b border-[#eef2f6]">
+          <span className="flex items-center gap-2 text-[1.2rem] font-semibold text-[#1e293b] tracking-tight">
+            <Icon as={FiCamera} ariaLabel="Camera" />
+            Live Feed
+          </span>
+          <span className="text-[#475569] font-semibold text-sm">
+            {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+          </span>
+          <div className="flex gap-2 flex-wrap justify-end items-center">
             {cameraStatus === CAMERA_STATUS.CONNECTING && (
-              <span style={{ ...styles.badge, ...styles.badgeConnecting }}>
-                <Icon as={FiLoader} style={{ marginRight: 8 }} ariaLabel="Connecting" />Connecting...
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-[#e9f0ff] text-[#2563eb] whitespace-nowrap">
+                <Icon as={FiLoader} ariaLabel="Connecting" />Connecting...
               </span>
             )}
             {cameraStatus === CAMERA_STATUS.LIVE && (
-              <span style={{ ...styles.badge, ...styles.badgeLive }}>
-                <Icon as={FiCircle} style={{ marginRight: 8 }} ariaLabel="Live" />Live
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-[#e6f7e6] text-[#16a34a] whitespace-nowrap">
+                <Icon as={FiCircle} ariaLabel="Live" />Live
               </span>
             )}
-            {/* <button
-              onClick={() => setDebugMode((d) => !d)}
-              style={{
-                marginLeft: 8,
-                padding: "6px 10px",
-                borderRadius: 8,
-                border: "none",
-                cursor: "pointer",
-                background: "#eef2ff",
-                color: "#2563eb",
-              }}
-            >
-              {debugMode ? "Hide" : "Debug"}
-            </button> */}
             <button
               onClick={toggleFullScreen}
-              style={{
-                marginLeft: 8,
-                padding: "6px 10px",
-                borderRadius: 8,
-                border: "none",
-                cursor: "pointer",
-                background: isFullscreen ? "#f3f4f6" : "#237227",
-                color: isFullscreen ? "#111827" : "#ffffff",
-                fontWeight: 700,
-              }}
+              className={[
+                "ml-2 px-3 py-1.5 rounded-lg border-none cursor-pointer font-bold text-sm",
+                isFullscreen
+                  ? "bg-[#f3f4f6] text-[#111827]"
+                  : "bg-[#237227] text-white"
+              ].join(" ")}
             >
               {isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
             </button>
             {cameraStatus === CAMERA_STATUS.ERROR && (
-              <span style={{ ...styles.badge, ...styles.badgeError }}>
-                <Icon as={FiAlertTriangle} style={{ marginRight: 8 }} ariaLabel="Error" />Error
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-[#fee9e7] text-[#dc2626] whitespace-nowrap">
+                <Icon as={FiAlertTriangle} ariaLabel="Error" />Error
               </span>
             )}
             {!modelsLoaded && (
-              <span style={{ ...styles.badge, ...styles.badgeLoading }}>
-                <Icon as={FiRefreshCw} style={{ marginRight: 8 }} ariaLabel="Loading models" />Loading models
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-[#fff3cd] text-[#b45309] whitespace-nowrap">
+                <Icon as={FiRefreshCw} ariaLabel="Loading models" />Loading models
               </span>
             )}
             {modelsLoaded && scanning && !verifying && validSettings && (
-              <span style={{ ...styles.badge, ...styles.badgeScanning }}>
-                <Icon as={FiUser} style={{ marginRight: 8 }} ariaLabel="Scanning" />Scanning
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-gray-50 text-[#237227] border border-[#237227] whitespace-nowrap">
+                <Icon as={FiUser} ariaLabel="Scanning" color="#237227" />Scanning
               </span>
             )}
             {verifying && validSettings && (
-              <span style={{ ...styles.badge, ...styles.badgeVerifying }}>
-                <Icon as={FiSearch} style={{ marginRight: 8 }} ariaLabel="Verifying" />Verifying<span style={styles.dots}>...</span>
+              <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-[#fef3c7] text-[#d97706] whitespace-nowrap">
+                <Icon as={FiSearch} ariaLabel="Verifying" />Verifying
+                <span className="inline-block w-6 text-left animate-[blink_1.4s_infinite]">...</span>
               </span>
             )}
           </div>
         </div>
 
         {/* Camera feed area */}
-        <div style={isFullscreen ? { ...styles.feedWrapper, ...styles.feedWrapperFull } : (isMobile ? styles.feedWrapperMobile : styles.feedWrapper)}>
+        <div className={[
+          "relative w-full bg-[#0b1120]",
+          isFullscreen ? "h-[calc(100vh-72px)]" : "aspect-video"
+        ].join(" ")}>
           {useLocalCamera ? (
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
-              style={styles.feed}
+              className="w-full h-full object-cover block"
             />
           ) : (
             <img
@@ -1621,125 +1625,115 @@ if (uniqueParts.length) {
                     imgRef.current?.naturalHeight > 0
                 )
               }
-              style={styles.feed}
+              className="w-full h-full object-cover block"
             />
           )}
-          <canvas ref={overlayCanvasRef} style={isFullscreen ? { ...styles.overlayCanvas, ...styles.overlayCanvasFull } : styles.overlayCanvas} />
+          <canvas
+            ref={overlayCanvasRef}
+            className="absolute top-0 left-0 w-full h-full pointer-events-none"
+          />
         </div>
 
         {/* Settings info card */}
-        {/* Hide settings info card if hideSettingsCard is true */}
         {!hideSettingsCard && settings && validSettings && (
-            <div style={isMobile ? styles.settingsCardMobile : styles.settingsCard}>
-            <div style={styles.settingRow}>
-              <span style={styles.settingIcon}><Icon as={FiSun} ariaLabel="Sun" /></span>
-              <span style={styles.settingLabel}>Morning:</span>
-              <span style={styles.settingValue}>
+          <div className="mx-6 my-4 p-5 bg-gradient-to-br from-[#f8fafc] to-[#f1f5f9] rounded-[20px] border border-[#e2e8f0]">
+            {/* Morning row */}
+            <div className="flex items-center gap-2.5 flex-wrap py-2 border-b border-dashed border-[#cbd5e1]">
+              <span className="text-[1.3rem]"><Icon as={FiSun} ariaLabel="Sun" /></span>
+              <span className="font-semibold text-[#334155] min-w-[75px]">Morning:</span>
+              <span className=" font-medium bg-[#237227] text-[#ffffff] px-3.5 py-1 rounded-lg shadow-sm text-sm">
                 {settings.morning_start} – {settings.morning_end}
               </span>
-              <span style={styles.graceBadge}>
-                <Icon as={FiClock} style={{ marginRight: 6 }} ariaLabel="Morning grace" />{settings.morning_grace_minutes} min grace
+              <span className="ml-auto inline-flex items-center gap-1.5 bg-[#50] border border-[#237227] text-[#000000] px-3.5 py-1 rounded-full text-xs font-medium">
+                <FiClock className="inline" />{settings.morning_grace_minutes} min grace
               </span>
             </div>
 
-            <div style={styles.settingRow}>
-              <span style={styles.settingIcon}><Icon as={FiMoon} ariaLabel="Moon small" /></span>
-              <span style={styles.settingLabel}>Afternoon:</span>
-              <span style={styles.settingValue}>
+            {/* Afternoon row */}
+            <div className="flex items-center gap-2.5 flex-wrap py-2 border-b border-dashed border-[#cbd5e1]">
+              <span className="text-[1.3rem]"><Icon as={FiMoon} ariaLabel="Moon" /></span>
+              <span className="font-semibold text-[#334155] min-w-[75px]">Afternoon:</span>
+              <span className=" font-medium bg-[#237227] text-[#ffffff] px-3.5 py-1 rounded-lg shadow-sm text-sm">
                 {settings.afternoon_start} – {settings.afternoon_end}
               </span>
-              <span style={styles.graceBadge}>
-                <FiClock style={{ marginRight: 6 }} />{settings.afternoon_grace_minutes} min grace
+              <span className="ml-auto inline-flex items-center gap-1.5 bg-[#50] border border-[#237227] text-[#000000] px-3.5 py-1 rounded-full text-xs font-medium">
+                <FiClock className="inline" />{settings.afternoon_grace_minutes} min grace
               </span>
             </div>
-            <div style={{ ...styles.settingRow, borderBottom: "none" }}>
-              <span style={styles.settingIcon}><Icon as={FiUser} ariaLabel="Location" /></span>
-              <span style={styles.settingLabel}>Location:</span>
-              <span style={styles.settingValue}>
-    {locationInfo.point || "Detecting location..."}
-</span>
 
-{locationInfo.status === "ok" ? (
-    <span
-        style={{
-            ...styles.graceBadge,
-            background: "#dcfce7",
-            color: "#166534",
-        }}
-    >
-        Location detected.
-    </span>
-) : (
-    <span
-        style={{
-            ...styles.graceBadge,
-            background: "#fee2e2",
-            color: "#b91c1c",
-        }}
-    >
-        {locationInfo.message}
-    </span>
-)}
+            {/* Location row */}
+            <div className="flex items-center gap-2.5 flex-wrap py-2">
+              <span className="text-[1.3rem]"><Icon as={FiUser} ariaLabel="Location" /></span>
+              <span className="font-semibold text-[#334155] min-w-[75px]">Location:</span>
+              <span className=" font-medium bg-[#237227] text-[#ffffff] px-3.5 py-1 rounded-lg shadow-sm text-sm">
+                {locationInfo.point || "Detecting location..."}
+              </span>
+              {locationInfo.status === "ok" ? (
+                <span className="ml-auto inline-flex items-center gap-1.5 bg-gray-50 border border-[#237227] text-[#000000] px-4 py-1 rounded-full text-xs font-medium">
+                  Location detected.
+                </span>
+              ) : (
+                <span className="ml-auto inline-flex items-center gap-1.5 bg-[#fee2e2] text-[#b91c1c] px-2.5 py-1 rounded-full text-xs font-medium">
+                  {locationInfo.message}
+                </span>
+              )}
             </div>
-            <div style={styles.settingsActions}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+
+            {/* Actions row */}
+            <div className="flex justify-between items-center pt-3 pb-3 gap-3">
+              <div className="flex items-center gap-2">
                 {queueCount > 0 && (
-                  <span style={{ ...styles.badge, backgroundColor: "#fff4e6", color: "#92400e" }}>
-                    <Icon as={FiAlertTriangle} style={{ marginRight: 8 }} ariaLabel="Offline queued" />Offline: {queueCount}
+                  <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-[#fff4e6] text-[#92400e] whitespace-nowrap">
+                    <Icon as={FiAlertTriangle} ariaLabel="Offline queued" />Offline: {queueCount}
                   </span>
                 )}
               </div>
-
-              <div style={{ display: "flex", gap: 8 }}>
+              <div className="flex gap-2">
                 {!isOnline && (
                   <>
                     <button
-                  onClick={async () => {
-                    if (!offlineQueue || !supabase) {
-                      try {
-                        showSwal({ icon: "info", title: "Sync Unavailable", text: "Offline sync not configured." });
-                      } catch (e) {}
-                      return;
-                    }
-
-                    // Disabled guard
-                    if (!queueCount) return;
-
-                    // If queue is large, confirm with the user before syncing
-                    if (queueCount >= 5) {
-                      try {
-                        const confirm = await showSwal({
-                          title: `Sync ${queueCount} queued items?`,
-                          text: "This will attempt to send all queued attendance records to the server.",
-                          icon: "question",
-                          showCancelButton: true,
-                          confirmButtonText: "Yes, sync now",
-                        });
-                        if (!confirm || !confirm.isConfirmed) return;
-                      } catch (e) {}
-                    }
-
-                    try {
-                      setSyncingOffline(true);
-                      const res = await offlineQueue.syncQueue(supabase);
-                      try { showSwal({ icon: "success", title: "Sync Complete", text: `Processed ${res.length} item(s).` }); } catch (e) {}
-                    } catch (e) {
-                      try { showSwal({ icon: "error", title: "Sync Failed", text: String(e) }); } catch (ee) {}
-                    } finally {
-                      setSyncingOffline(false);
-                      try {
-                        const q = await offlineQueue.getAllQueue();
-                        setQueueCount(Array.isArray(q) ? q.length : 0);
-                      } catch (e) {}
-                    }
-                  }}
-                  style={{ ...styles.syncBtn, opacity: !queueCount || syncingOffline ? 0.6 : 1 }}
-                  disabled={!queueCount || syncingOffline}
-                  title={!queueCount ? "No queued items to sync" : "Synchronize queued attendance"}
-                >
-                  {syncingOffline ? "Syncing..." : "Sync"}
+                      onClick={async () => {
+                        if (!offlineQueue || !supabase) {
+                          try { showSwal({ icon: "info", title: "Sync Unavailable", text: "Offline sync not configured." }); } catch (e) {}
+                          return;
+                        }
+                        if (!queueCount) return;
+                        if (queueCount >= 5) {
+                          try {
+                            const confirm = await showSwal({
+                              title: `Sync ${queueCount} queued items?`,
+                              text: "This will attempt to send all queued attendance records to the server.",
+                              icon: "question",
+                              showCancelButton: true,
+                              confirmButtonText: "Yes, sync now",
+                            });
+                            if (!confirm || !confirm.isConfirmed) return;
+                          } catch (e) {}
+                        }
+                        try {
+                          setSyncingOffline(true);
+                          const res = await offlineQueue.syncQueue(supabase);
+                          try { showSwal({ icon: "success", title: "Sync Complete", text: `Processed ${res.length} item(s).` }); } catch (e) {}
+                        } catch (e) {
+                          try { showSwal({ icon: "error", title: "Sync Failed", text: String(e) }); } catch (ee) {}
+                        } finally {
+                          setSyncingOffline(false);
+                          try { const q = await offlineQueue.getAllQueue(); setQueueCount(Array.isArray(q) ? q.length : 0); } catch (e) {}
+                        }
+                      }}
+                      disabled={!queueCount || syncingOffline}
+                      className={[
+                        "px-2.5 py-1.5 rounded-lg border-none cursor-pointer bg-emerald-500 text-white font-bold text-sm",
+                        (!queueCount || syncingOffline) ? "opacity-60" : ""
+                      ].join(" ")}
+                      title={!queueCount ? "No queued items to sync" : "Synchronize queued attendance"}
+                    >
+                      {syncingOffline ? "Syncing..." : "Sync"}
                     </button>
-                    <button onClick={() => setShowQueuePanel((s) => !s)} style={styles.queueBtn}>
+                    <button
+                      onClick={() => setShowQueuePanel((s) => !s)}
+                      className="px-2.5 py-1.5 rounded-lg border-none cursor-pointer bg-[#eef2ff] text-[#2563eb] font-bold text-sm"
+                    >
                       {showQueuePanel ? "Hide Queue" : "Show Queue"}
                     </button>
                   </>
@@ -1749,42 +1743,40 @@ if (uniqueParts.length) {
           </div>
         )}
 
-        {/* Compact fullscreen settings overlay (visible in fullscreen) */}
+        {/* Compact fullscreen settings overlay */}
         {isFullscreen && !hideSettingsCard && settings && validSettings && (
-            <div style={styles.settingsOverlayFull}>
-            <div style={styles.settingRowSmall}>
-              <span style={{ marginRight: 6 }}><FiSun /></span>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <div style={{ fontWeight: 700, color: "#f8fafc" }}>Morning</div>
-                <div style={{ color: "#e5e7eb", fontSize: 13 }}>{settings.morning_start} – {settings.morning_end} <span style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center' }}><Icon as={FiClock} style={{ marginRight: 6 }} ariaLabel="Morning grace" />{settings.morning_grace_minutes}m</span></div>
+          <div className="fixed top-3 left-3 bg-[rgba(16,185,129,0.12)] border border-white/[0.08] px-3 py-2.5 rounded-xl z-[2147483646] backdrop-blur-md shadow-[0_6px_18px_rgba(0,0,0,0.4)] min-w-[220px]">
+            <div className="flex items-center gap-2.5 py-1.5">
+              <span className="mr-1.5"><FiSun /></span>
+              <div className="flex flex-col">
+                <div className="font-bold text-[#f8fafc]">Morning</div>
+                <div className="text-[#e5e7eb] text-[13px]">
+                  {settings.morning_start} – {settings.morning_end}
+                  <span className="ml-2 inline-flex items-center gap-1.5">
+                    <Icon as={FiClock} ariaLabel="Morning grace" />{settings.morning_grace_minutes}m
+                  </span>
+                </div>
               </div>
             </div>
-            <div style={styles.settingRowSmall}>
-              <span style={{ marginRight: 6 }}><Icon as={FiMoon} ariaLabel="Moon small" /></span>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <div style={{ fontWeight: 700, color: "#f8fafc" }}>Afternoon</div>
-                <div style={{ color: "#e5e7eb", fontSize: 13 }}>{settings.afternoon_start} – {settings.afternoon_end} <span style={{ marginLeft: 8, display: 'inline-flex', alignItems: 'center' }}><Icon as={FiClock} style={{ marginRight: 6 }} ariaLabel="Afternoon grace" />{settings.afternoon_grace_minutes}m</span></div>
+            <div className="flex items-center gap-2.5 py-1.5">
+              <span className="mr-1.5"><Icon as={FiMoon} ariaLabel="Moon" /></span>
+              <div className="flex flex-col">
+                <div className="font-bold text-[#f8fafc]">Afternoon</div>
+                <div className="text-[#e5e7eb] text-[13px]">
+                  {settings.afternoon_start} – {settings.afternoon_end}
+                  <span className="ml-2 inline-flex items-center gap-1.5">
+                    <Icon as={FiClock} ariaLabel="Afternoon grace" />{settings.afternoon_grace_minutes}m
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {debugMode && (
-          <div
-            style={{ padding: "8px 16px", fontSize: "12px", color: "#062b6d" }}
-          >
-            <div>
-              <strong>DEBUG — Top candidates</strong>
-            </div>
-            <pre
-              style={{
-                whiteSpace: "pre-wrap",
-                maxHeight: 120,
-                overflow: "auto",
-                margin: 0,
-              }}
-              id="face-debug-pre"
-            >
+          <div className="px-4 py-2 text-xs text-[#062b6d]">
+            <div><strong>DEBUG — Top candidates</strong></div>
+            <pre className="whitespace-pre-wrap max-h-[120px] overflow-auto m-0" id="face-debug-pre">
               (waiting...)
             </pre>
           </div>
@@ -1799,262 +1791,33 @@ if (uniqueParts.length) {
 
         {/* Error or missing settings messages */}
         {!validSettings && (
-          <div style={styles.errorMessage}>
-            <Icon as={FiAlertTriangle} style={{ marginRight: 8 }} ariaLabel="Work hour warning" />Work hour settings are missing or invalid
+          <div className="mx-6 my-4 px-4 py-3 bg-[#fee2e2] text-[#b91c1c] rounded-xl border border-[#fecaca] text-[0.95rem] flex items-center gap-2">
+            <Icon as={FiAlertTriangle} ariaLabel="Work hour warning" />Work hour settings are missing or invalid
           </div>
         )}
         {cameraStatus === CAMERA_STATUS.ERROR && (
-          <div style={styles.errorMessage}>{cameraError}</div>
+          <div className="mx-6 my-4 px-4 py-3 bg-[#fee2e2] text-[#b91c1c] rounded-xl border border-[#fecaca] text-[0.95rem] flex items-center gap-2">
+            {cameraError}
+          </div>
         )}
       </div>
     </div>
   );
 }
 
-// Modern inline styles
-const styles = {
-  container: {
-    display: "flex",
-    justifyContent: "center",
-    padding: "20px",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-  },
-  cameraCard: {
-    width: "100%",
-    height: "100%",
-    maxWidth: "900px",
-    backgroundColor: "#ffffff",
-    borderRadius: "24px",
-    boxShadow: "0 20px 40px rgba(0,0,0,0.08), 0 6px 12px rgba(0,0,0,0.05)",
-    overflow: "hidden",
-    transition: "box-shadow 0.3s ease",
-  },
-  cameraHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "16px 24px",
-    backgroundColor: "#f9fafc",
-    borderBottom: "1px solid #eef2f6",
-  },
-  cameraTitle: {
-    fontSize: "1.2rem",
-    fontWeight: 600,
-    color: "#1e293b",
-    letterSpacing: "-0.01em",
-  },
-  statusBadges: {
-    display: "flex",
-    gap: "8px",
-    flexWrap: "wrap",
-    justifyContent: "flex-end",
-  },
-  badge: {
-    display: "inline-flex",
-    alignItems: "center",
-    padding: "6px 12px",
-    borderRadius: "30px",
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    lineHeight: 1,
-    whiteSpace: "nowrap",
-  },
-  badgeConnecting: {
-    backgroundColor: "#e9f0ff",
-    color: "#2563eb",
-  },
-  badgeLive: {
-    backgroundColor: "#e6f7e6",
-    color: "#16a34a",
-  },
-  badgeError: {
-    backgroundColor: "#fee9e7",
-    color: "#dc2626",
-  },
-  badgeLoading: {
-    backgroundColor: "#fff3cd",
-    color: "#b45309",
-  },
-  badgeScanning: {
-    backgroundColor: "#e0f2fe",
-    color: "#0284c7",
-  },
-  badgeVerifying: {
-    backgroundColor: "#fef3c7",
-    color: "#d97706",
-  },
-  clockBadge: {
-    display: 'inline-flex',
-    alignItems: 'center',
-    padding: '6px 10px',
-    borderRadius: '12px',
-    backgroundColor: '#f1f5f9',
-    color: '#0f172a',
-    fontWeight: 600,
-    marginRight: '6px',
-  },
-  dots: {
-    animation: "blink 1.4s infinite",
-    display: "inline-block",
-    width: "1.5em",
-    textAlign: "left",
-  },
-  feedWrapper: {
-    position: "relative",
-    width: "100%",
-    aspectRatio: "16/9",
-    backgroundColor: "#0b1120",
-  },
-  containerFull: {
-    position: "fixed",
-    top: 0,
-    left: 0,
-    width: "100vw",
-    height: "100vh",
-    padding: 0,
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#000000",
-    zIndex: 9999,
-  },
-  cameraCardFull: {
-    width: "100%",
-    height: "100%",
-    maxWidth: "100%",
-    borderRadius: 0,
-    boxShadow: "none",
-  },
-  feedWrapperFull: {
-    position: "relative",
-    width: "100%",
-    height: "calc(100vh - 72px)",
-    backgroundColor: "#000000",
-  },
-  settingsOverlayFull: {
-    position: "fixed",
-    top: 12,
-    left: 12,
-    background: "rgba(16, 185, 129, 0.12)",
-    border: "1px solid rgba(255,255,255,0.08)",
-    padding: "10px 12px",
-    borderRadius: 12,
-    zIndex: 2147483646,
-    backdropFilter: "blur(6px)",
-    boxShadow: "0 6px 18px rgba(0,0,0,0.4)",
-    minWidth: 220,
-  },
-  settingRowSmall: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "6px 0",
-  },
-  feed: {
-    width: "100%",
-    height: "100%",
-    objectFit: "cover",
-    display: "block",
-  },
-  overlayCanvas: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    pointerEvents: "none",
-  },
-  overlayCanvasFull: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-    pointerEvents: "none",
-  },
-  settingsCard: {
-    margin: "16px 24px 24px",
-    padding: "18px 20px",
-    background: "linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)",
-    borderRadius: "20px",
-    border: "1px solid #e2e8f0",
-  },
-  settingRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    flexWrap: "wrap",
-    padding: "8px 0",
-    borderBottom: "1px dashed #cbd5e1",
-  },
-  settingRowLast: {
-    borderBottom: "none",
-  },
-  settingIcon: {
-    fontSize: "1.3rem",
-  },
-  settingLabel: {
-    fontWeight: 600,
-    color: "#334155",
-    minWidth: "75px",
-  },
-  settingValue: {
-    color: "#0f172a",
-    fontWeight: 500,
-    background: "#ffffff",
-    padding: "4px 12px",
-    borderRadius: "30px",
-    boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-  },
-  graceBadge: {
-    background: "#dbeafe",
-    color: "#1e40af",
-    padding: "4px 10px",
-    borderRadius: "30px",
-    fontSize: "0.8rem",
-    fontWeight: 500,
-    marginLeft: "auto",
-  },
-  settingsActions: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingTop: 12,
-    paddingBottom: 12,
-    gap: 12,
-  },
-  syncBtn: {
-    padding: "6px 10px",
-    borderRadius: 8,
-    border: "none",
-    cursor: "pointer",
-    background: "#10b981",
-    color: "#ffffff",
-    fontWeight: 700,
-  },
-  queueBtn: {
-    padding: "6px 10px",
-    borderRadius: 8,
-    border: "none",
-    cursor: "pointer",
-    background: "#eef2ff",
-    color: "#2563eb",
-    fontWeight: 700,
-  },
-  errorMessage: {
-    margin: "16px 24px 24px",
-    padding: "12px 16px",
-    backgroundColor: "#fee2e2",
-    color: "#b91c1c",
-    borderRadius: "12px",
-    border: "1px solid #fecaca",
-    fontSize: "0.95rem",
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-  },
-};
+// Blink keyframe animation for Tailwind
+const _blinkStyle = (() => {
+  if (typeof document === 'undefined') return;
+  const id = 'camera-blink-kf';
+  if (!document.getElementById(id)) {
+    const s = document.createElement('style');
+    s.id = id;
+    s.textContent = '@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }';
+    document.head.appendChild(s);
+  }
+})();
+
+
 
 // Add keyframes for blinking dots (injected via style tag)
 const styleSheet = document.createElement("style");

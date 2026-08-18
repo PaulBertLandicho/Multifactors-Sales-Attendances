@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mf-attendance-v1';
+const CACHE_NAME = 'mf-attendance-v3';
 const OFFLINE_URL = '/offline.html';
 
 const ASSETS_TO_CACHE = [
@@ -42,27 +42,13 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Navigation: network-first, fallback to offline page
+// Network-First strategy to ensure latest UI updates always appear on all network devices
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
-  // Network-first for navigation
-  if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req)
-        .then((res) => {
-          // Update cache in background
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy)).catch(() => {});
-          return res;
-        })
-        .catch(() => caches.match(OFFLINE_URL))
-    );
-    return;
-  }
 
-  // Cache-first for models and static assets to support offline face models
-  if (url.pathname.startsWith('/models') || url.pathname.startsWith('/static') || url.pathname.startsWith('/image') || url.pathname.endsWith('.wasm')) {
+  // Cache-first ONLY for face recognition models and wasm
+  if (url.pathname.startsWith('/models') || url.pathname.endsWith('.wasm')) {
     event.respondWith(
       caches.match(req).then((cacheRes) => {
         if (cacheRes) return cacheRes;
@@ -77,9 +63,13 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Default: try cache, then network, then offline fallback
+  // Network-first for everything else (UI components, scripts, CSS, navigation)
   event.respondWith(
-    caches.match(req).then((cacheRes) => cacheRes || fetch(req).catch(() => caches.match(OFFLINE_URL)))
+    fetch(req)
+      .then((res) => {
+        return res;
+      })
+      .catch(() => caches.match(req).then((cRes) => cRes || caches.match(OFFLINE_URL)))
   );
 });
 

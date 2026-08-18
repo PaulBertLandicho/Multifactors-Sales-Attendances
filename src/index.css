@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -10,4 +14,210 @@ body {
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+input:focus,
+input:focus-visible,
+input:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ==========================================================================
+   Global SweetAlert2 Modern Brand Theme
+   ========================================================================== */
+/* Modal Backdrop only (never apply to toasts) */
+.swal2-container.swal2-backdrop-show:not(:has(.swal2-toast)):not(.swal2-toast-shown) {
+  backdrop-filter: blur(4px) !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+}
+
+/* Toast Container: Pure transparent, no overlay/backdrop */
+.swal2-container:has(.swal2-toast),
+.swal2-container.swal2-toast-shown,
+body.swal2-toast-shown .swal2-container {
+  background: transparent !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  pointer-events: none !important;
+}
+
+.swal2-container:has(.swal2-toast) .swal2-popup.swal2-toast,
+body.swal2-toast-shown .swal2-popup.swal2-toast {
+  pointer-events: auto !important;
+}
+
+/* Modal Popups only (not toasts) */
+.swal2-popup:not(.swal2-toast) {
+  border-radius: 28px !important;
+  padding: 2rem 1.75rem !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.15) !important;
+  border: 1px solid #f3f4f6 !important;
+  font-family: inherit !important;
+  max-width: 400px !important;
+  width: 90% !important;
+}
+
+/* Compact Top-Right Toasts */
+.swal2-popup.swal2-toast {
+  width: auto !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  padding: 0.65rem 1.15rem !important;
+  border-radius: 14px !important;
+  background: #ffffff !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid #e5e7eb !important;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 0.65rem !important;
+  white-space: nowrap !important;
+  box-sizing: border-box !important;
+}
+
+.swal2-popup.swal2-toast .swal2-title {
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  color: #1f2937 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.2 !important;
+  text-align: left !important;
+  white-space: nowrap !important;
+  display: inline-block !important;
+  flex-shrink: 0 !important;
+}
+
+.swal2-popup.swal2-toast .swal2-icon {
+  margin: 0 !important;
+  font-size: 11px !important;
+  flex-shrink: 0 !important;
+  align-self: center !important;
+}
+
+.swal2-popup.swal2-toast .swal2-icon.swal2-success {
+  border-color: #237227 !important;
+  color: #237227 !important;
+}
+
+.swal2-popup.swal2-toast .swal2-icon.swal2-success [class^='swal2-success-line'] {
+  background-color: #237227 !important;
+}
+
+.swal2-popup.swal2-toast .swal2-icon.swal2-success .swal2-success-ring {
+  border-color: #237227 !important;
+}
+
+.swal2-popup.swal2-toast .swal2-icon.swal2-success .swal2-success-fix,
+.swal2-popup.swal2-toast .swal2-icon.swal2-success [class*='circular-line'] {
+  background-color: #ffffff !important;
+}
+
+.swal2-title {
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+  color: #1f2937 !important;
+  margin-top: 0.5rem !important;
+  margin-bottom: 0.25rem !important;
+}
+
+.swal2-html-container {
+  font-size: 0.95rem !important;
+  color: #4b5563 !important;
+  margin-top: 0.5rem !important;
+  line-height: 1.5 !important;
+}
+
+.swal2-popup:not(.swal2-toast) .swal2-icon {
+  transform: scale(0.85);
+  margin: 0.5rem auto 0.75rem auto !important;
+}
+
+.swal2-popup:not(.swal2-toast) .swal2-icon.swal2-success {
+  border-color: #237227 !important;
+  color: #237227 !important;
+}
+
+.swal2-popup:not(.swal2-toast) .swal2-icon.swal2-success [class^='swal2-success-line'] {
+  background-color: #237227 !important;
+}
+
+.swal2-popup:not(.swal2-toast) .swal2-icon.swal2-success .swal2-success-ring {
+  border-color: rgba(35, 114, 39, 0.35) !important;
+}
+
+.swal2-icon.swal2-warning {
+  border-color: #f59e0b !important;
+  color: #f59e0b !important;
+}
+
+.swal2-icon.swal2-error {
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+}
+
+.swal2-icon.swal2-error [class^='swal2-x-mark-line'] {
+  background-color: #ef4444 !important;
+}
+
+.swal2-actions {
+  margin-top: 1.5rem !important;
+  gap: 0.75rem !important;
+  width: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.swal2-confirm.swal2-styled {
+  background-color: #237227 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  border-radius: 9999px !important;
+  padding: 0.65rem 2rem !important;
+  font-size: 0.9rem !important;
+  min-width: 110px !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease-in-out !important;
+}
+
+.swal2-confirm.swal2-styled:hover,
+.swal2-confirm.swal2-styled:focus,
+.swal2-confirm.swal2-styled:active {
+  background-color: #1a5a1d !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.swal2-cancel.swal2-styled {
+  background-color: #ffffff !important;
+  color: #374151 !important;
+  font-weight: 600 !important;
+  border-radius: 9999px !important;
+  padding: 0.65rem 2rem !important;
+  font-size: 0.9rem !important;
+  min-width: 110px !important;
+  border: 1px solid #d1d5db !important;
+  box-shadow: none !important;
+  outline: none !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease-in-out !important;
+}
+
+.swal2-cancel.swal2-styled:hover,
+.swal2-cancel.swal2-styled:focus,
+.swal2-cancel.swal2-styled:active {
+  background-color: #ffffff !important;
+  border-color: #9ca3af !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.swal2-styled:focus {
+  box-shadow: none !important;
+  outline: none !important;
 }
