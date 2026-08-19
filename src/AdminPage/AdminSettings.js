@@ -128,7 +128,7 @@ export default function AdminSettings() {
             "!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.15)] !px-8 !py-8 !max-w-[380px]",
           title: "!text-gray-800 !text-[1.35rem] !font-bold !mt-2",
           confirmButton:
-            "!bg-red-500 hover:!bg-red-600 !text-white !font-semibold !rounded-full !px-8 !py-2.5 !text-sm !shadow-none !border-none",
+            "!bg-red-500 hover:!bg-red-600 !text-white !font-semibold !rounded-lg !px-8 !py-2.5 !text-sm !shadow-none !border-none",
         },
         buttonsStyling: false,
       });
@@ -148,7 +148,7 @@ export default function AdminSettings() {
           htmlContainer: "!mt-1 !mb-4",
           icon: "!border-none !bg-transparent !mb-0",
           confirmButton:
-            "!bg-[#237227] !text-white !font-semibold !rounded-full !px-10 !py-2.5 !text-sm !shadow-none !border-none cursor-pointer",
+            "!bg-[#237227] !text-white !font-semibold !rounded-lg !px-10 !py-2.5 !text-sm !shadow-none !border-none cursor-pointer",
         },
         buttonsStyling: false,
       });
@@ -378,7 +378,7 @@ export default function AdminSettings() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-10 py-3.5 text-base font-semibold rounded-full border-none cursor-pointer transition-all shadow-[0_4px_10px_rgba(0,0,0,0.1)] bg-[#237227] text-white inline-flex items-center justify-center min-w-[200px] disabled:opacity-70 disabled:cursor-not-allowed"
+              className="px-10 py-3.5 text-base font-semibold rounded-lg border-none cursor-pointer transition-all shadow-[0_4px_10px_rgba(0,0,0,0.1)] bg-[#237227] text-white inline-flex items-center justify-center min-w-[200px] disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {saving ? "Saving..." : "Save Settings"}
             </button>

@@ -164,7 +164,7 @@ export default function HolidayManagerGlobal({
                 </span>
                 <button
                   onClick={() => handleDeleteSavedHoliday(h)}
-                  className="ml-4 bg-rose-600 text-white border-none rounded-md px-2.5 py-1 cursor-pointer text-sm hover:bg-rose-700 transition-colors inline-flex items-center"
+                  className="ml-4 bg-rose-600 text-white border-none rounded-md px-2.5 py-1 cursor-pointer text-sm inline-flex items-center"
                   title="Delete holiday"
                 >
                   <Icon
@@ -227,16 +227,16 @@ export default function HolidayManagerGlobal({
               />
               <button
                 onClick={() => removeHoliday("regular", idx)}
-                className="ml-2 bg-rose-600 text-white border-none rounded-md px-2.5 py-2 cursor-pointer hover:bg-rose-700 transition-colors"
+                className="ml-2 bg-rose-600 text-white border-none rounded-md px-2.5 py-2 cursor-pointer"
                 title="Remove date"
               >
-                <Icon as={FiX} ariaLabel="Remove date" />
+                <Icon as={FiX} ariaLabel="Remove date" color="#ffffff" />
               </button>
             </div>
           ))}
           <button
             onClick={() => addHoliday("regular")}
-            className="mt-2 bg-[#237227] text-white border-none rounded-lg py-2 font-semibold text-base cursor-pointer hover:bg-[#1a5a1d] transition-colors"
+            className="mt-2 bg-[#237227] text-white border-none rounded-lg py-2 font-semibold text-base cursor-pointer"
           >
             + Add Regular Holiday
           </button>
@@ -262,16 +262,16 @@ export default function HolidayManagerGlobal({
               />
               <button
                 onClick={() => removeHoliday("special", idx)}
-                className="ml-2 bg-rose-600 text-white border-none rounded-md px-2.5 py-2 cursor-pointer hover:bg-rose-700 transition-colors"
+                className="ml-2 bg-rose-600 text-white border-none rounded-md px-2.5 py-2 cursor-pointer"
                 title="Remove date"
               >
-                <Icon as={FiX} ariaLabel="Remove date" />
+                <Icon as={FiX} ariaLabel="Remove date" color="#ffffff" />
               </button>
             </div>
           ))}
           <button
             onClick={() => addHoliday("special")}
-            className="mt-2 bg-[#237227] text-white border-none rounded-lg py-2 font-semibold text-base cursor-pointer hover:bg-[#1a5a1d] transition-colors"
+            className="mt-2 bg-[#237227] text-white border-none rounded-lg py-2 font-semibold text-base cursor-pointer"
           >
             + Add Special Holiday
           </button>
@@ -283,7 +283,7 @@ export default function HolidayManagerGlobal({
         <button
           onClick={handleSave}
           disabled={saving}
-          className="bg-[#237227] text-white border-none rounded-full px-9 py-3 font-bold text-base cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          className="bg-[#237227] text-white border-none rounded-lg px-9 py-3 font-bold text-base cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {saving ? "Saving..." : "Save Holidays"}
         </button>

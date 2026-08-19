@@ -213,7 +213,7 @@ export default function DepartmentRates() {
           title: "text-lg font-bold text-gray-800",
           htmlContainer: "text-xs text-gray-500",
           icon: "scale-75 my-2",
-          confirmButton: "px-10 py-2.5 min-w-[120px] rounded-full font-semibold text-sm cursor-pointer",
+          confirmButton: "px-10 py-2.5 min-w-[120px] rounded-lg font-semibold text-sm cursor-pointer",
         },
       });
     } else {
@@ -231,7 +231,7 @@ export default function DepartmentRates() {
           title: "text-lg font-bold text-gray-800",
           htmlContainer: "text-xs text-gray-500",
           icon: "scale-75 my-2",
-          confirmButton: "px-10 py-2.5 min-w-[120px] rounded-full font-semibold text-sm cursor-pointer shadow-[0_4px_10px_rgba(16,185,129,0.3)] hover:opacity-90",
+          confirmButton: "px-10 py-2.5 min-w-[120px] rounded-lg font-semibold text-sm cursor-pointer shadow-[0_4px_10px_rgba(16,185,129,0.3)] hover:opacity-90",
         },
       });
     }
@@ -281,7 +281,7 @@ export default function DepartmentRates() {
               <button
                 onClick={() => handleSave(idx)}
                 disabled={saving}
-                className={`bg-[#237227] text-white border-none rounded-lg px-3 py-1.5 font-semibold text-sm transition-all flex-shrink-0 ${saving ? "cursor-not-allowed opacity-70" : "cursor-pointer hover:bg-[#1a5a1d]"}`}
+                className={`bg-[#237227] text-white border-none rounded-lg px-3 py-1.5 font-semibold text-sm transition-all flex-shrink-0 ${saving ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
                 title="Save Department Name"
               >
                 Save
@@ -303,8 +303,8 @@ export default function DepartmentRates() {
                       title: "text-lg font-bold text-gray-800",
                       htmlContainer: "text-xs text-gray-500",
                       icon: "scale-75 my-2",
-                      confirmButton: "px-6 py-2.5 rounded-full font-semibold text-sm cursor-pointer",
-                      cancelButton: "px-6 py-2.5 rounded-full font-semibold text-sm cursor-pointer",
+                      confirmButton: "!px-6 !py-2.5 !rounded-lg !font-semibold !text-sm cursor-pointer",
+                      cancelButton: "!px-6 !py-2.5 !rounded-lg !font-semibold !text-sm cursor-pointer",
                     },
                   });
                   if (confirm.isConfirmed) {
@@ -340,14 +340,14 @@ export default function DepartmentRates() {
                           title: "text-lg font-bold text-gray-800",
                           htmlContainer: "text-xs text-gray-500",
                           icon: "scale-75 my-2",
-                          confirmButton: "px-10 py-2.5 min-w-[120px] rounded-full font-semibold text-sm cursor-pointer shadow-[0_4px_10px_rgba(16,185,129,0.3)]",
+                          confirmButton: "px-10 py-2.5 min-w-[120px] rounded-lg font-semibold text-sm cursor-pointer shadow-[0_4px_10px_rgba(16,185,129,0.3)]",
                         },
                       });
                       fetchRates();
                     }
                   }
                 }}
-                className="bg-[#ef4444] text-white border-none rounded-lg px-3 py-1 font-semibold cursor-pointer hover:bg-[#dc2626] transition-all ml-1"
+                className="bg-[#ef4444] text-white border-none rounded-lg px-3 py-1 font-semibold cursor-pointer transition-all ml-1"
                 title="Delete Department"
               >
                 Delete
@@ -518,7 +518,7 @@ export default function DepartmentRates() {
                 className={`px-6 py-3 text-base font-semibold rounded-lg border-none transition-all bg-[#237227] text-white w-full max-w-[200px] ${
                   saving
                     ? "opacity-70 cursor-not-allowed"
-                    : "cursor-pointer hover:bg-[#1a5a1d]"
+                    : "cursor-pointer"
                 }`}
               >
                 {saving ? "Saving..." : "Save Changes"}

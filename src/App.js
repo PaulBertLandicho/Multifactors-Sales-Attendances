@@ -181,7 +181,7 @@ function App() {
                 <button
                   type="button"
                   onClick={() => navigate("/")}
-                  className="flex items-center gap-2 px-3.5 py-2 rounded-full border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer  transition-colors"
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer transition-colors"
                 >
                   <FiCamera className="align-middle" />
                   Attendance Camera
@@ -191,7 +191,7 @@ function App() {
                   <button
                     type="button"
                     onClick={() => navigate("/admin")}
-                    className="flex items-center gap-2 px-3.5 py-2 rounded-full border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer transition-colors"
+                    className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer transition-colors"
                   >
                     <FiLogIn className="align-middle" />
                     Admin Login
@@ -234,7 +234,7 @@ function App() {
                       <button
                         type="button"
                         onClick={() => setCameraActive(true)}
-                        className="inline-flex items-center gap-2.5 px-8 py-3 rounded-full bg-[#237227] text-white text-sm font-semibold cursor-pointer border-none"
+                        className="inline-flex items-center gap-2.5 px-8 py-3 rounded-lg bg-[#237227] text-white text-sm font-semibold cursor-pointer border-none"
                       >
                         <FiCamera size={16} />
                         Open Camera
@@ -263,7 +263,7 @@ function App() {
                     <button
                       type="button"
                       onClick={() => setShowStaffLogin(true)}
-                      className="inline-flex items-center gap-2.5 px-8 py-3 rounded-full bg-[#237227] text-white text-sm font-semibold cursor-pointer border-none"
+                      className="inline-flex items-center gap-2.5 px-8 py-3 rounded-lg bg-[#237227] text-white text-sm font-semibold cursor-pointer border-none"
                     >
                       <FiLogIn size={16} />
                       Open Attendance Login
@@ -292,7 +292,7 @@ function App() {
             element={
               <div className="max-w-[900px] mx-auto">
                 <div className="mt-6 px-7 py-10 rounded-3xl bg-gradient-to-b from-[#0f172a] to-[#111827] text-[#e5e7eb] text-center border border-white/[0.08] shadow-sm">
-                  <div className="inline-flex items-center justify-center px-3 py-1.5 rounded-full bg-[rgba(35,114,39,0.16)] text-[#86efac] text-xs font-bold tracking-wide uppercase mb-3.5">
+                  <div className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-[rgba(35,114,39,0.16)] text-[#86efac] text-xs font-bold tracking-wide uppercase mb-3.5">
                     Staff login
                   </div>
                   <h2 className="m-0 text-[26px] leading-snug text-white">
@@ -304,7 +304,7 @@ function App() {
                   <button
                     type="button"
                     onClick={() => setShowStaffLogin(true)}
-                    className="px-5 py-3 rounded-full border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer shadow-sm transition-colors"
+                    className="px-5 py-3 rounded-lg border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer shadow-sm transition-colors"
                   >
                     Open Staff Login
                   </button>

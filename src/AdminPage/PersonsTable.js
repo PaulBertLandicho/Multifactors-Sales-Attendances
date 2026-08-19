@@ -282,7 +282,7 @@ export default function PersonsTable() {
         title: "!text-lg !font-bold !text-gray-800 !mt-2",
         htmlContainer: "!text-xs !text-gray-500 !mt-1",
         icon: "!scale-75 !my-2",
-        confirmButton: "!px-8 !py-2.5 !min-w-[110px] !rounded-full !font-semibold !text-sm cursor-pointer !shadow-[0_4px_10px_rgba(35,114,39,0.3)] !bg-[#237227] hover:!bg-[#1a5a1d] !text-white !border-none",
+        confirmButton: "!px-8 !py-2.5 !min-w-[110px] !rounded-lg !font-semibold !text-sm cursor-pointer !shadow-[0_4px_10px_rgba(35,114,39,0.3)] !bg-[#237227] hover:!bg-[#1a5a1d] !text-white !border-none",
       },
       buttonsStyling: false,
     });
@@ -540,8 +540,8 @@ export default function PersonsTable() {
       customClass: {
         popup: "!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.15)] !px-8 !py-8 !max-w-[380px] font-sans",
         title: "!text-gray-800 !text-[1.35rem] !font-bold !mt-2",
-        confirmButton: "!bg-[#ef4444] hover:!bg-[#dc2626] !text-white !font-semibold !rounded-full !px-8 !py-2.5 !text-sm !border-none cursor-pointer",
-        cancelButton: "!bg-white hover:!bg-gray-50 !text-gray-700 !font-semibold !rounded-full !px-8 !py-2.5 !text-sm !border !border-gray-300 cursor-pointer",
+        confirmButton: "!bg-[#ef4444] hover:!bg-[#dc2626] !text-white !font-semibold !rounded-lg !px-8 !py-2.5 !text-sm !border-none cursor-pointer",
+        cancelButton: "!bg-white !text-gray-700 !font-semibold !rounded-lg !px-8 !py-2.5 !text-sm !border !border-gray-300 cursor-pointer",
       },
       buttonsStyling: false,
     });

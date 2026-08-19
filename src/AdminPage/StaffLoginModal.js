@@ -108,7 +108,7 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
         </button>
 
         {/* Badge */}
-        <div className="inline-flex items-center gap-1 px-3.5 py-2 rounded-full bg-[#237227] text-white text-xs font-extrabold tracking-wide uppercase mb-3.5">
+        <div className="inline-flex items-center gap-1 px-3.5 py-2 rounded-lg bg-[#237227] text-white text-xs font-extrabold tracking-wide uppercase mb-3.5">
           <FaUserShield className="mr-2" />
           Secretary Login
         </div>

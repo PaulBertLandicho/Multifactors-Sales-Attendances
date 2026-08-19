@@ -818,7 +818,7 @@ export default function Dashboard() {
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
-                  className={`px-2.5 py-1.5 rounded-full text-xs cursor-pointer border transition-colors ${
+                  className={`px-2.5 py-1.5 rounded-lg text-xs cursor-pointer border transition-colors ${
                     viewMode === mode
                       ? "border-[#237227] bg-[#237227] text-white"
                       : "border-[#e6eef6] bg-white text-gray-500 "
@@ -841,12 +841,12 @@ export default function Dashboard() {
                 placeholder="Search name.."
                 value={payrollSearch}
                 onChange={(e) => setPayrollSearch(e.target.value)}
-                className="px-2.5 py-2 rounded-full border border-[#237227] outline-none min-w-[110px] text-sm"
+                className="px-2.5 py-2 rounded-lg border border-[#237227] outline-none min-w-[110px] text-sm"
                 style={{ border: "1px solid #e6eef6", outline: "none", boxShadow: "none" }}
               />
               <button
                 onClick={() => setPayrollShowAll((s) => !s)}
-                className="px-2.5 py-2 rounded-full bg-[#237227] text-[#ffffff] cursor-pointer text-sm"
+                className="px-2.5 py-2 rounded-lg bg-[#237227] text-[#ffffff] cursor-pointer text-sm"
                 title="Toggle show all pending payrolls"
               >
                 {payrollShowAll ? 'All' : 'Today'}
@@ -884,7 +884,7 @@ export default function Dashboard() {
                     <button
                       onClick={() => releasePayroll(p.id, false)}
                       disabled={!ready}
-                      className={`px-3 py-1.5 rounded-lg border-none text-sm ${ready ? "bg-[#237227] text-white cursor-pointer hover:bg-[#1a5a1d]" : "bg-[#e6eef6] text-gray-400 cursor-not-allowed"}`}
+                      className={`px-3 py-1.5 rounded-lg border-none text-sm ${ready ? "bg-[#237227] text-white cursor-pointer" : "bg-[#e6eef6] text-gray-400 cursor-not-allowed"}`}
                     >
                       {ready ? 'Release' : 'Release (disabled)'}
                     </button>
@@ -896,7 +896,7 @@ export default function Dashboard() {
                             try { await releasePayroll(p.id, true); } catch (e) {}
                           }
                         }}
-                        className="px-2.5 py-1.5 rounded-lg bg-white text-gray-700 border border-[#e6eef6] cursor-pointer text-sm hover:bg-gray-50"
+                        className="px-2.5 py-1.5 rounded-lg bg-white text-gray-700 border border-[#e6eef6] cursor-pointer text-sm"
                       >
                         Advance Release
                       </button>
@@ -928,13 +928,13 @@ export default function Dashboard() {
             placeholder="Search name or ID"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
-            className="flex-1 px-3 py-2.5 rounded-full border border-[#e6eef6] outline-none text-sm"
+            className="flex-1 px-3 py-2.5 rounded-lg border border-[#e6eef6] outline-none text-sm"
             style={{ border: "1px solid #e6eef6", outline: "none", boxShadow: "none" }}
           />
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-2.5 py-2 rounded-full border border-[#e6eef6] bg-white text-sm"
+            className="px-2.5 py-2 rounded-lg border border-[#e6eef6] bg-white text-sm"
           >
             <option value="all">All Status</option>
             <option value="on-time">On-time</option>
@@ -944,7 +944,7 @@ export default function Dashboard() {
           <select
             value={deptFilter}
             onChange={(e) => setDeptFilter(e.target.value)}
-            className="px-2.5 py-2 rounded-full border border-[#e6eef6] bg-white text-sm"
+            className="px-2.5 py-2 rounded-lg border border-[#e6eef6] bg-white text-sm"
           >
             <option value="all">All Departments</option>
             {departments.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -952,7 +952,7 @@ export default function Dashboard() {
           <button
             aria-label="Toggle sort order"
             onClick={() => setSortOrder((s) => (s === "ascending" ? "descending" : "ascending"))}
-            className="px-4 py-2 rounded-[22px] text-[#ffffff] bg-[#237227] border border-[#e6eef6] text-[0.95rem] cursor-pointer shadow-sm min-w-[72px] text-center font-semibold transition-colors hover:bg-[#1a5a1d]"
+            className="px-4 py-2 rounded-lg text-[#ffffff] bg-[#237227] border border-[#e6eef6] text-[0.95rem] cursor-pointer shadow-sm min-w-[72px] text-center font-semibold transition-colors"
           >
             {sortOrder === "ascending" ? "Asc" : "Desc"}
           </button>
@@ -978,7 +978,7 @@ export default function Dashboard() {
                 URL.revokeObjectURL(url);
               } catch (e) { console.error(e); }
             }}
-            className="flex items-center gap-2 px-3 py-2 rounded-full border-none bg-[#237227] text-white text-sm cursor-pointer hover:bg-[#1a5a1d] transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border-none bg-[#237227] text-white text-sm cursor-pointer transition-colors"
           >
             <FiDownload color="#ffffff" />
             Export Excel

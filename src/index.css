@@ -174,7 +174,7 @@ body.swal2-toast-shown .swal2-popup.swal2-toast {
   background-color: #237227 !important;
   color: #ffffff !important;
   font-weight: 600 !important;
-  border-radius: 9999px !important;
+  border-radius: 0.5rem !important;
   padding: 0.65rem 2rem !important;
   font-size: 0.9rem !important;
   min-width: 110px !important;
@@ -188,7 +188,7 @@ body.swal2-toast-shown .swal2-popup.swal2-toast {
 .swal2-confirm.swal2-styled:hover,
 .swal2-confirm.swal2-styled:focus,
 .swal2-confirm.swal2-styled:active {
-  background-color: #1a5a1d !important;
+  background-color: #237227 !important;
   box-shadow: none !important;
   outline: none !important;
 }
@@ -197,7 +197,7 @@ body.swal2-toast-shown .swal2-popup.swal2-toast {
   background-color: #ffffff !important;
   color: #374151 !important;
   font-weight: 600 !important;
-  border-radius: 9999px !important;
+  border-radius: 0.5rem !important;
   padding: 0.65rem 2rem !important;
   font-size: 0.9rem !important;
   min-width: 110px !important;
@@ -212,7 +212,7 @@ body.swal2-toast-shown .swal2-popup.swal2-toast {
 .swal2-cancel.swal2-styled:focus,
 .swal2-cancel.swal2-styled:active {
   background-color: #ffffff !important;
-  border-color: #9ca3af !important;
+  border-color: #d1d5db !important;
   box-shadow: none !important;
   outline: none !important;
 }
