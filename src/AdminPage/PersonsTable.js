@@ -965,8 +965,10 @@ export default function PersonsTable() {
               placeholder="Search name or ID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none min-w-[250px] transition-all focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+              className="pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none min-w-[250px] transition-all focus:border-[#237227] focus:outline-none focus:ring-0 focus:shadow-none"
               style={{
+                outline: "none",
+                boxShadow: "none",
                 backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
                 backgroundRepeat: "no-repeat",
                 backgroundPosition: "16px center",
@@ -981,7 +983,8 @@ export default function PersonsTable() {
               name="persons-department-filter"
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
-              className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer min-w-[160px] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+              className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer min-w-[160px] focus:outline-none focus:ring-0 focus:shadow-none"
+              style={{ outline: "none", boxShadow: "none" }}
             >
               <option value="">All Departments</option>
               {[...new Set(persons.map((p) => p.department).filter(Boolean))].map(
