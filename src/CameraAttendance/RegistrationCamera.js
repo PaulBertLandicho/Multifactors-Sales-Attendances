@@ -265,42 +265,88 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
     }
 
     setUseLocalCamera(false);
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
+    let reconnectTimeout = null;
+
+    function connectWs() {
+      if (disposed) return;
+      try {
+        if (wsRef.current) {
+          try { wsRef.current.close(); } catch (e) {}
+        }
+        const ws = new window.WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {};
+        ws.onerror = () => {
+          if (!disposed) {
+            scheduleReconnect();
+          }
+        };
+        ws.onclose = () => {
+          if (!disposed) {
+            scheduleReconnect();
+          }
+        };
+        ws.onmessage = (event) => {
+          if (!disposed && imgRef.current) {
+            imgRef.current.src = event.data;
+          }
+        };
+      } catch (e) {
+        scheduleReconnect();
+      }
     }
-    const ws = new window.WebSocket(wsUrl);
-    wsRef.current = ws;
-    ws.onopen = () => {};
-    ws.onerror = () => {
-      if (!disposed) {
-        setUseLocalCamera(true);
-      }
-    };
-    ws.onclose = () => {
-      if (!disposed) {
-        setUseLocalCamera(true);
-      }
-    };
-    ws.onmessage = (event) => {
-      if (!disposed && imgRef.current) {
-        imgRef.current.src = event.data;
-      }
-    };
+
+    function scheduleReconnect() {
+      if (disposed || reconnectTimeout) return;
+      reconnectTimeout = setTimeout(() => {
+        reconnectTimeout = null;
+        connectWs();
+      }, 2000);
+    }
+
+    connectWs();
+
     return () => {
       disposed = true;
-      if (wsRef.current) wsRef.current.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (wsRef.current) {
+        try { wsRef.current.close(); } catch (e) {}
+      }
     };
   }, [wsUrl]);
 
-  // Fallback: Use local webcam if Dahua stream fails
+  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+
+  useEffect(() => {
+    async function pickBestCamera() {
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          const videoDevs = devs.filter((d) => d.kind === "videoinput");
+          if (videoDevs.length > 0) {
+            const obsCam = videoDevs.find((d) => /obs|virtual|dahua/i.test(d.label));
+            if (obsCam) {
+              setSelectedDeviceId(obsCam.deviceId);
+            }
+          }
+        }
+      } catch (e) {}
+    }
+    pickBestCamera();
+  }, [useLocalCamera]);
+
+  // Fallback: Use local webcam only if explicitly set
   useEffect(() => {
     if (!useLocalCamera) return;
     let stream = null;
     const initialVideoRef = videoRef.current;
     async function startLocalCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const constraints = {
+          video: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true,
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
         if (initialVideoRef) {
           initialVideoRef.srcObject = stream;
           initialVideoRef.onloadedmetadata = () => {
@@ -308,11 +354,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
           };
         }
       } catch (err) {
-        Swal.fire({
-          icon: "error",
-          title: "Camera Not Found",
-          text: "No camera device was found or access was denied. Please connect a camera and allow browser access.",
-        });
+        console.warn("Local webcam access failed:", err);
       }
     }
     startLocalCamera();
@@ -320,7 +362,7 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
       if (initialVideoRef) initialVideoRef.srcObject = null;
       if (stream) stream.getTracks().forEach((track) => track.stop());
     };
-  }, [useLocalCamera]);
+  }, [useLocalCamera, selectedDeviceId]);
 
   // Face detection loop
   useEffect(() => {

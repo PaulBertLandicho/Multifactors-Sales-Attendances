@@ -14,7 +14,7 @@ import { supabase } from "./supabaseClient";
 
 import CameraPlayer from "./CameraAttendance/CameraPlayer";
 import AdminLogin from "./AdminPage/AdminLogin";
-import { FiLogIn } from "react-icons/fi";
+import { FiLogIn, FiLogOut } from "react-icons/fi";
 import { FiCamera } from "react-icons/fi";
 import Dashboard from "./AdminPage/Dashboard";
 import ReleasedHistoryPayroll from "./AdminPage/ReleasedHistoryPayroll";
@@ -35,7 +35,6 @@ import {
 
 function App() {
   const modalTimerRef = useRef(null);
-  const [cameraActive, setCameraActive] = useState(false);
   const [showStaffLogin, setShowStaffLogin] = useState(false);
   const [session, setSession] = useState(() => {
     // Try to get session from localStorage if available
@@ -85,15 +84,8 @@ function App() {
   const currentRole = getSessionRole(session);
   const hasStaffAccess = hasAllowedRole(session, STAFF_ROLES);
 
-  useEffect(() => {
-    if (!session) return;
-    if (!hasStaffAccess) {
-      supabase.auth.signOut().finally(() => {
-        localStorage.removeItem("sb-session");
-        setSession(null);
-      });
-    }
-  }, [hasStaffAccess, session]);
+  // No auto-logout: the attendance account stays logged in until the user
+  // explicitly clicks the Logout button. This prevents camera stream loss.
 
   const ProtectedRoute = ({ allowedRoles = STAFF_ROLES, children }) =>
     hasAllowedRole(session, allowedRoles) ? (
@@ -121,6 +113,13 @@ function App() {
   }, []);
 
   // Removed unused: handleFaceScan, closeModal
+
+  // Manual logout handler for attendance account
+  const handleAttendanceLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem("sb-session");
+    setSession(null);
+  };
 
   return (
     <div className="App">
@@ -217,40 +216,31 @@ function App() {
             element={
               <div style={{ maxWidth: 900, margin: "0 auto" }}>
                 {hasStaffAccess ? (
-                  cameraActive ? (
+                  <>
                     <CameraPlayer />
-                  ) : (
-                    <div
-                      style={{
-                        marginTop: 24,
-                        padding: "40px 24px",
-                        borderRadius: 24,
-                        background: "#0b1120",
-                        color: "#e5e7eb",
-                        textAlign: "center",
-                      }}
-                    >
-                      <p style={{ marginBottom: 12, fontSize: 15 }}>
-                        Camera is currently off. Click below to open the camera.
-                      </p>
+                    <div style={{ marginTop: 12, textAlign: "right" }}>
                       <button
                         type="button"
-                        onClick={() => setCameraActive(true)}
+                        onClick={handleAttendanceLogout}
                         style={{
-                          padding: "10px 24px",
+                          padding: "8px 16px",
                           borderRadius: 999,
-                          border: "1px solid #237227",
-                          background: "#237227",
+                          border: "1px solid #dc2626",
+                          background: "#dc2626",
                           color: "#ffffff",
                           cursor: "pointer",
-                          fontSize: 14,
+                          fontSize: 13,
                           fontWeight: 600,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 6,
                         }}
                       >
-                        Open Camera
+                        <FiLogOut style={{ fontSize: 14 }} />
+                        Logout Attendance
                       </button>
                     </div>
-                  )
+                  </>
                 ) : (
                   <div style={styles.staffGateCard}>
                     <div style={styles.staffGatePill}>
@@ -268,25 +258,6 @@ function App() {
                       style={styles.staffGateButton}
                     >
                       Open Attendance Login
-                    </button>
-                  </div>
-                )}
-                {cameraActive && hasStaffAccess && (
-                  <div style={{ marginTop: 12, textAlign: "right" }}>
-                    <button
-                      type="button"
-                      onClick={() => setCameraActive(false)}
-                      style={{
-                        padding: "6px 12px",
-                        borderRadius: 999,
-                        border: "1px solid #d1d5db",
-                        background: "#f9fafb",
-                        color: "#4b5563",
-                        cursor: "pointer",
-                        fontSize: 12,
-                      }}
-                    >
-                      Close Camera
                     </button>
                   </div>
                 )}

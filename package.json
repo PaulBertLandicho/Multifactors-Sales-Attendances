@@ -39,7 +39,10 @@
     "@craco/craco": "^7.1.0"
   },
   "scripts": {
-    "start": "craco start",
+    "start": "node scripts/start-all.js",
+    "start:react": "craco start",
+    "stream": "node server-websocket.js",
+    "server": "node server.js",
     "build": "craco build",
     "test": "craco test",
     "eject": "react-scripts eject",

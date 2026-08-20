@@ -1,3 +1,4 @@
+require("dotenv").config({ path: ".env.local" });
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -17,7 +18,7 @@ const MAX_RESTART_DELAY_MS = 10000;
 // If this path is wrong for your model, the log in this terminal will show 401/404 errors.
 const RTSP_URL =
   process.env.DAHUA_RTSP_URL ||
-  "rtsp://admin:12a34s56d@192.168.111.227:554/cam/realmonitor?channel=1&subtype=0";
+  "rtsp://admin:12a34s56d@192.168.111.222:554/cam/realmonitor?channel=1&subtype=0";
 
 const hlsDir = path.join(__dirname, "hls");
 if (!fs.existsSync(hlsDir)) {

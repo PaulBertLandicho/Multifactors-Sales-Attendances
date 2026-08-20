@@ -1054,72 +1054,134 @@ if (uniqueParts.length) {
 
     setUseLocalCamera(false);
     setCameraStatus(CAMERA_STATUS.CONNECTING);
-    const ws = new window.WebSocket(wsUrl);
-    wsRef.current = ws;
-    // If WS doesn't connect within timeout, fallback to local camera
-    const connectTimeout = setTimeout(() => {
-      try {
-        if (wsRef.current && wsRef.current.readyState !== 1) {
-          setCameraError('WebSocket connection timed out. Switching to local camera...');
-          setUseLocalCamera(true);
-          setCameraStatus(CAMERA_STATUS.CONNECTING);
-          try { wsRef.current.close(); } catch (e) {}
-        }
-      } catch (e) {}
-    }, 3000);
+    let reconnectTimer = null;
+    let connected = false;
+    let fallbackTimer = null;
 
-    ws.onopen = () => {
-      if (!disposed) setCameraStatus(CAMERA_STATUS.LIVE);
-    };
-    ws.onerror = () => {
-      if (!disposed) {
-        setCameraStatus(CAMERA_STATUS.ERROR);
-        setCameraError(
-          "WebSocket connection error. Switching to local camera..."
-        );
+    // Fallback: if WebSocket doesn't connect within timeout, use local camera.
+    // This handles Vercel (HTTPS) deployments where ws:// is blocked by mixed
+    // content, or the WebSocket server is unreachable from the deployed domain.
+    const WS_FALLBACK_TIMEOUT_MS = 8000;
+    fallbackTimer = setTimeout(() => {
+      if (!disposed && !connected) {
+        console.warn("[CameraPlayer] WebSocket connection timed out after " + WS_FALLBACK_TIMEOUT_MS + "ms. Falling back to local camera (OBS Virtual Camera / device webcam).");
+        setCameraError("");
+        cleanupWs();
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
         setUseLocalCamera(true);
+        setCameraStatus(CAMERA_STATUS.CONNECTING);
       }
-    };
-    ws.onclose = () => {
-      if (!disposed) {
-        setCameraStatus(CAMERA_STATUS.ERROR);
-        setCameraError("WebSocket closed. Switching to local camera...");
-        setUseLocalCamera(true);
+    }, WS_FALLBACK_TIMEOUT_MS);
+
+    function connectWs() {
+      if (disposed) return;
+      // If we already fell back to local camera, stop trying WebSocket
+      if (!connected && fallbackTimer === null) return;
+      setCameraStatus(CAMERA_STATUS.CONNECTING);
+      try {
+        const ws = new window.WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          if (!disposed) {
+            connected = true;
+            // WebSocket connected — cancel fallback timer
+            if (fallbackTimer) {
+              clearTimeout(fallbackTimer);
+              fallbackTimer = null;
+            }
+            setCameraStatus(CAMERA_STATUS.LIVE);
+            setCameraError("");
+          }
+        };
+        ws.onerror = () => {
+          if (!disposed) {
+            setCameraStatus(CAMERA_STATUS.CONNECTING);
+            setCameraError("Connecting to Dahua Camera stream...");
+            scheduleReconnect();
+          }
+        };
+        ws.onclose = () => {
+          if (!disposed) {
+            connected = false;
+            setCameraStatus(CAMERA_STATUS.CONNECTING);
+            scheduleReconnect();
+          }
+        };
+        ws.onmessage = (event) => {
+          if (!disposed && imgRef.current) {
+            setFrameReady(false);
+            imgRef.current.src = event.data;
+          }
+        };
+      } catch (e) {
+        scheduleReconnect();
       }
-    };
-    ws.onmessage = (event) => {
-      if (!disposed && imgRef.current) {
-        setFrameReady(false);
-        imgRef.current.src = event.data;
-      }
-    };
+    }
+
+    function scheduleReconnect() {
+      if (disposed || reconnectTimer) return;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        connectWs();
+      }, 2000);
+    }
+
+    connectWs();
 
     return () => {
       disposed = true;
-      try { clearTimeout(connectTimeout); } catch (e) {}
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (fallbackTimer) clearTimeout(fallbackTimer);
       cleanupWs();
     };
   }, [wsUrl, cleanupWs]);
-  // Fallback: Use local webcam if WebSocket fails
+  // Webcam / Virtual Camera support (auto-picks OBS Virtual Camera for Dahua if present)
+  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+
+  useEffect(() => {
+    async function pickBestCamera() {
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          const videoDevs = devs.filter((d) => d.kind === "videoinput");
+          if (videoDevs.length > 0) {
+            const obsCam = videoDevs.find((d) => /obs|virtual|dahua/i.test(d.label));
+            if (obsCam) {
+              setSelectedDeviceId(obsCam.deviceId);
+            }
+          }
+        }
+      } catch (e) {}
+    }
+    pickBestCamera();
+  }, [useLocalCamera]);
+
+  // Fallback / Direct Webcam: Use local or virtual webcam
   useEffect(() => {
     if (!useLocalCamera) return;
     let stream = null;
     let videoEl = null;
     async function startLocalCamera() {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const constraints = {
+          video: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true,
+        };
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
         if (videoRef.current) {
           videoEl = videoRef.current;
           videoEl.srcObject = stream;
           videoEl.onloadedmetadata = () => {
             videoEl.play();
             setFrameReady(true);
-            // When falling back to local webcam, mark camera as live so detection can run.
             setCameraStatus(CAMERA_STATUS.LIVE);
           };
         }
       } catch (err) {
-        setCameraError("Unable to access local webcam.");
+        setCameraError("Unable to access camera device.");
       }
     }
     startLocalCamera();
@@ -1127,7 +1189,7 @@ if (uniqueParts.length) {
       if (videoEl) videoEl.srcObject = null;
       if (stream) stream.getTracks().forEach((track) => track.stop());
     };
-  }, [useLocalCamera]);
+  }, [useLocalCamera, selectedDeviceId]);
 
   // ------------------- Detection loop -------------------
   useEffect(() => {

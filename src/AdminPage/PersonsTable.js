@@ -2,6 +2,8 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "../supabaseClient";
 import Swal from "sweetalert2";
 import * as XLSX from "xlsx";
+import * as faceapi from "face-api.js/build/commonjs/index.js";
+import { toFloat32Array, normalizeDescriptor } from "../utils/faceUtils";
 import {
   FiDownload,
   FiArchive,
@@ -11,6 +13,10 @@ import {
   FiMail,
   FiUserPlus,
   FiPlusCircle,
+  FiCamera,
+  FiCheckCircle,
+  FiVideo,
+  FiRefreshCw,
 } from "react-icons/fi";
 import PersonRegistration from "./PersonRegistration";
 import { determineAttendanceStatus } from "./attendanceUtils";
@@ -18,8 +24,15 @@ import { determineAttendanceStatus } from "./attendanceUtils";
 export default function PersonsTable() {
   // Camera state/hooks for Edit Person modal
   const [showCamera, setShowCamera] = useState(false);
+  const [cameraMode, setCameraMode] = useState("dahua"); // Default to Dahua camera stream
+  const [videoDevices, setVideoDevices] = useState([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [detectingFace, setDetectingFace] = useState(false);
+  const [dahuaStatus, setDahuaStatus] = useState("connecting"); // "connecting", "live", "error"
   const cameraVideoRef = useRef(null);
-
+  const dahuaImgRef = useRef(null);
+  const dahuaWsRef = useRef(null);
   const cameraStreamRef = useRef(null);
   const adminLastLocationRef = useRef({ point: "Location unavailable", ts: 0 });
 
@@ -180,61 +193,237 @@ export default function PersonsTable() {
     return locationResult;
   };
 
-  // Start camera when modal opens
-
+  // Load face-api models for facial recognition in Edit Person
   useEffect(() => {
-    // Capture refs at effect start for cleanup
-    const initialVideoRef = cameraVideoRef.current;
-    if (showCamera) {
-      (async () => {
+    async function loadModels() {
+      const LOCAL_URL = "/models";
+      const CDN_URL = "https://justadudewhohacks.github.io/face-api.js/models";
+      try {
+        await Promise.all([
+          faceapi.nets.tinyFaceDetector.loadFromUri(LOCAL_URL),
+          faceapi.nets.faceLandmark68Net.loadFromUri(LOCAL_URL),
+          faceapi.nets.faceRecognitionNet.loadFromUri(LOCAL_URL),
+        ]);
+        setModelsLoaded(true);
+      } catch {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-          if (initialVideoRef) {
-            initialVideoRef.srcObject = stream;
-            cameraStreamRef.current = stream;
-          }
-        } catch (err) {
-          Swal.fire("Camera Error", "Unable to access camera.", "error");
-          setShowCamera(false);
+          await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(CDN_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(CDN_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(CDN_URL),
+          ]);
+          setModelsLoaded(true);
+        } catch (e) {
+          console.warn("Could not load face-api models:", e);
         }
-      })();
-    } else {
-      // Stop camera
+      }
+    }
+    loadModels();
+  }, []);
+
+  // Enumerate video devices for webcam option
+  useEffect(() => {
+    async function getDevices() {
+      try {
+        if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+          const devs = await navigator.mediaDevices.enumerateDevices();
+          const vDevs = devs.filter((d) => d.kind === "videoinput");
+          setVideoDevices(vDevs);
+          if (vDevs.length > 0 && !selectedDeviceId) {
+            const obsCam = vDevs.find((d) => /obs|virtual|dahua/i.test(d.label));
+            if (obsCam) setSelectedDeviceId(obsCam.deviceId);
+            else setSelectedDeviceId(vDevs[0].deviceId);
+          }
+        }
+      } catch (e) {}
+    }
+    getDevices();
+  }, [showCamera, selectedDeviceId]);
+
+  // Helper to extract face descriptor from canvas or image
+  const extractFaceDescriptor = async (imageElementOrCanvas) => {
+    if (!modelsLoaded) {
+      const LOCAL_URL = "/models";
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(LOCAL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(LOCAL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(LOCAL_URL),
+      ]);
+      setModelsLoaded(true);
+    }
+    const detection = await faceapi
+      .detectSingleFace(
+        imageElementOrCanvas,
+        new faceapi.TinyFaceDetectorOptions({
+          inputSize: 320,
+          scoreThreshold: 0.45,
+        })
+      )
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
+    if (!detection || !detection.descriptor) {
+      return null;
+    }
+    const normalized = normalizeDescriptor(
+      toFloat32Array(detection.descriptor)
+    );
+    return Array.from(normalized);
+  };
+
+  // Manage Camera Streams (Dahua WebSocket vs Webcam/OBS)
+  useEffect(() => {
+    if (!showCamera) {
       if (cameraStreamRef.current) {
         cameraStreamRef.current.getTracks &&
           cameraStreamRef.current.getTracks().forEach((track) => track.stop());
         cameraStreamRef.current = null;
       }
-      if (initialVideoRef) {
-        initialVideoRef.srcObject = null;
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = null;
       }
+      if (dahuaWsRef.current) {
+        try { dahuaWsRef.current.close(); } catch (e) {}
+        dahuaWsRef.current = null;
+      }
+      return;
     }
-    // Cleanup on unmount
-    return () => {
-      const localStream = cameraStreamRef.current;
-      if (localStream) {
-        localStream.getTracks &&
-          localStream.getTracks().forEach((track) => track.stop());
+
+    if (cameraMode === "dahua") {
+      if (cameraStreamRef.current) {
+        cameraStreamRef.current.getTracks &&
+          cameraStreamRef.current.getTracks().forEach((track) => track.stop());
         cameraStreamRef.current = null;
       }
-      if (initialVideoRef) {
-        initialVideoRef.srcObject = null;
+      if (cameraVideoRef.current) {
+        cameraVideoRef.current.srcObject = null;
       }
-    };
-  }, [showCamera]);
 
-  // Handler to capture photo from camera
-  const handleCapturePhoto = () => {
-    if (!cameraVideoRef.current) return;
-    const video = cameraVideoRef.current;
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth || 320;
-    canvas.height = video.videoHeight || 240;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-    setEditPerson((prev) => ({ ...prev, registration_photo: dataUrl }));
-    setShowCamera(false);
+      const wsUrl = (process.env.REACT_APP_WS_URL || "ws://localhost:4000").trim();
+      setDahuaStatus("connecting");
+      const ws = new WebSocket(wsUrl);
+      dahuaWsRef.current = ws;
+
+      ws.onopen = () => {
+        setDahuaStatus("live");
+      };
+      ws.onerror = () => {
+        setDahuaStatus("error");
+      };
+      ws.onclose = () => {
+        setDahuaStatus("error");
+      };
+      ws.onmessage = (event) => {
+        if (dahuaImgRef.current) {
+          dahuaImgRef.current.src = event.data;
+        }
+      };
+
+      return () => {
+        try { ws.close(); } catch (e) {}
+        dahuaWsRef.current = null;
+      };
+    } else if (cameraMode === "webcam") {
+      if (dahuaWsRef.current) {
+        try { dahuaWsRef.current.close(); } catch (e) {}
+        dahuaWsRef.current = null;
+      }
+      let stream = null;
+      const initialVideoRef = cameraVideoRef.current;
+      (async () => {
+        try {
+          const constraints = {
+            video: selectedDeviceId ? { deviceId: { exact: selectedDeviceId } } : true,
+          };
+          stream = await navigator.mediaDevices.getUserMedia(constraints);
+          if (initialVideoRef) {
+            initialVideoRef.srcObject = stream;
+            cameraStreamRef.current = stream;
+          }
+        } catch (err) {
+          console.error("Camera access error:", err);
+          Swal.fire("Camera Error", "Unable to access webcam. Please allow camera permissions.", "error");
+        }
+      })();
+      return () => {
+        if (stream) stream.getTracks().forEach((t) => t.stop());
+        if (initialVideoRef) initialVideoRef.srcObject = null;
+      };
+    }
+  }, [showCamera, cameraMode, selectedDeviceId]);
+
+  // Handler to capture photo & extract face descriptor from Dahua / Webcam
+  const handleCapturePhoto = async () => {
+    setDetectingFace(true);
+    try {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      let dataUrl = "";
+
+      if (cameraMode === "dahua") {
+        const img = dahuaImgRef.current;
+        if (!img || !img.naturalWidth || !img.naturalHeight) {
+          Swal.fire({
+            icon: "error",
+            title: "Dahua Stream Unavailable",
+            text: "No video frame received from Dahua camera. Make sure 'npm run stream' is running.",
+          });
+          setDetectingFace(false);
+          return;
+        }
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      } else {
+        const video = cameraVideoRef.current;
+        if (!video || !video.videoWidth || !video.videoHeight) {
+          Swal.fire({
+            icon: "error",
+            title: "Webcam Not Ready",
+            text: "No video frame received from webcam.",
+          });
+          setDetectingFace(false);
+          return;
+        }
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+      }
+
+      // Extract face descriptor
+      const descriptor = await extractFaceDescriptor(canvas);
+      if (!descriptor) {
+        Swal.fire({
+          icon: "warning",
+          title: "No Face Detected",
+          text: "No clear single face was detected in this frame. Please center your face toward the Dahua camera in good lighting, then click Capture again.",
+        });
+        setDetectingFace(false);
+        return;
+      }
+
+      setEditPerson((prev) => ({
+        ...prev,
+        registration_photo: dataUrl,
+        descriptor: descriptor,
+      }));
+      setShowCamera(false);
+
+      Swal.fire({
+        icon: "success",
+        title: "Face Registered Successfully",
+        text: `Face features captured from Dahua camera for ${editPerson?.name || "this person"}! Click "Save Changes" to save.`,
+        timer: 2500,
+        showConfirmButton: false,
+      });
+    } catch (err) {
+      console.error("Face capture error:", err);
+      Swal.fire("Face Recognition Error", err.message || "Could not process face.", "error");
+    } finally {
+      setDetectingFace(false);
+    }
   };
   const [search, setSearch] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
@@ -717,18 +906,51 @@ export default function PersonsTable() {
     return () => window.removeEventListener("keydown", onKey);
   }, [photoModal.visible]);
 
-  const handleEditPhotoChange = (e) => {
+  const handleEditPhotoChange = async (e) => {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     e.target.value = "";
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const dataUrl = reader.result;
       if (typeof dataUrl !== "string") return;
-      setEditPerson((prev) =>
-        prev ? { ...prev, registration_photo: dataUrl } : prev,
-      );
+
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          const descriptor = await extractFaceDescriptor(img);
+          if (!descriptor) {
+            Swal.fire({
+              icon: "warning",
+              title: "No Face Detected",
+              text: "No clear face was detected in the uploaded photo. Please upload a clear 2x2 style photo with the face centered.",
+            });
+            return;
+          }
+
+          setEditPerson((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  registration_photo: dataUrl,
+                  descriptor: descriptor,
+                }
+              : prev
+          );
+
+          Swal.fire({
+            icon: "success",
+            title: "Face Data Loaded",
+            text: `Face features extracted from photo for ${editPerson?.name || "this person"}! Click "Save Changes" to save.`,
+            timer: 2200,
+            showConfirmButton: false,
+          });
+        } catch (err) {
+          console.error("Face extraction error:", err);
+        }
+      };
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
   };
@@ -745,6 +967,7 @@ export default function PersonsTable() {
       sex,
       cash_advance,
       registration_photo,
+      descriptor,
     } = editPerson;
     // Ensure checkboxes are stored as 1/0
     const sssVal = editPerson.sss ? String(editPerson.sss).trim() : null;
@@ -764,6 +987,7 @@ export default function PersonsTable() {
         philhealth: philhealthVal,
         cash_advance,
         registration_photo: registration_photo || null,
+        descriptor: descriptor || null,
       })
       .eq("id", id);
     if (error) {
@@ -785,11 +1009,12 @@ export default function PersonsTable() {
                 philhealth: philhealthVal,
                 cash_advance,
                 registration_photo: registration_photo || null,
+                descriptor: descriptor || null,
               }
             : p,
         ),
       );
-      Swal.fire("Updated!", "", "success");
+      Swal.fire("Updated!", "Person details and face registration updated.", "success");
       handleEditModalClose();
     }
   };
@@ -1174,18 +1399,41 @@ export default function PersonsTable() {
                     flexWrap: "wrap",
                   }}
                 >
-                  {editPerson.registration_photo ? (
-                    <img
-                      src={editPerson.registration_photo}
-                      alt="person"
-                      style={{ ...styles.photoPreview, cursor: 'pointer' }}
-                      onClick={() => openPhotoModal(editPerson.registration_photo, editPerson.name || editPerson.id)}
-                    />
-                  ) : (
-                    <span style={{ color: "#9ca3af", fontSize: "0.9rem" }}>
-                      No photo
-                    </span>
-                  )}
+                  <div style={{ position: "relative" }}>
+                    {editPerson.registration_photo ? (
+                      <img
+                        src={editPerson.registration_photo}
+                        alt="person"
+                        style={{ ...styles.photoPreview, cursor: 'pointer' }}
+                        onClick={() => openPhotoModal(editPerson.registration_photo, editPerson.name || editPerson.id)}
+                      />
+                    ) : (
+                      <span style={{ color: "#9ca3af", fontSize: "0.9rem" }}>
+                        No photo
+                      </span>
+                    )}
+                    {editPerson.descriptor && (
+                      <span
+                        title="Face registered for recognition"
+                        style={{
+                          position: "absolute",
+                          bottom: -4,
+                          right: -4,
+                          background: "#16a34a",
+                          color: "#fff",
+                          fontSize: 10,
+                          padding: "2px 6px",
+                          borderRadius: 8,
+                          fontWeight: 700,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 2,
+                        }}
+                      >
+                        <FiCheckCircle size={10} /> Face OK
+                      </span>
+                    )}
+                  </div>
                   <button
                     type="button"
                     onClick={() =>
@@ -1198,18 +1446,25 @@ export default function PersonsTable() {
                       padding: "8px 16px",
                     }}
                   >
-                    Upload New Photo
+                    Upload Photo
                   </button>
                   <button
                     type="button"
-                    onClick={() => setShowCamera(true)}
+                    onClick={() => {
+                      setCameraMode("dahua");
+                      setShowCamera(true);
+                    }}
                     style={{
                       ...styles.button,
                       ...styles.buttonPrimary,
                       padding: "8px 16px",
+                      background: "#237227",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
                     }}
                   >
-                    Use Camera
+                    <FiCamera /> Use Dahua Camera
                   </button>
                 </div>
                 <input
@@ -1220,7 +1475,7 @@ export default function PersonsTable() {
                   onChange={handleEditPhotoChange}
                 />
 
-                {/* Camera Modal for capturing photo */}
+                {/* Camera Modal for capturing photo from Dahua / Webcam */}
                 {showCamera && (
                   <div
                     style={{
@@ -1229,20 +1484,24 @@ export default function PersonsTable() {
                       left: 0,
                       width: "100vw",
                       height: "100vh",
-                      background: "rgba(0,0,0,0.5)",
+                      background: "rgba(0,0,0,0.65)",
                       zIndex: 2000,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
+                      padding: 16,
+                      boxSizing: "border-box",
                     }}
                   >
                     <div
                       style={{
                         background: "#fff",
-                        padding: 32,
+                        padding: 24,
                         borderRadius: 20,
-                        boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+                        boxShadow: "0 12px 40px rgba(0,0,0,0.3)",
                         position: "relative",
+                        maxWidth: 520,
+                        width: "100%",
                       }}
                     >
                       <button
@@ -1260,22 +1519,202 @@ export default function PersonsTable() {
                       >
                         &times;
                       </button>
-                      <h3 style={{ marginBottom: 16 }}>Capture Photo</h3>
-                      <video
-                        ref={cameraVideoRef}
-                        autoPlay
-                        playsInline
-                        width={320}
-                        height={240}
-                        style={{ borderRadius: 12, background: "#000" }}
-                      />
+
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                        <FiVideo size={22} color="#237227" />
+                        <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "#1e293b" }}>
+                          Face Registration Camera
+                        </h3>
+                      </div>
+
+                      {/* Camera Source Switcher */}
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          marginBottom: 12,
+                          background: "#f1f5f9",
+                          padding: 4,
+                          borderRadius: 10,
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setCameraMode("dahua")}
+                          style={{
+                            flex: 1,
+                            padding: "6px 12px",
+                            border: "none",
+                            borderRadius: 8,
+                            fontWeight: 600,
+                            fontSize: "0.85rem",
+                            cursor: "pointer",
+                            background: cameraMode === "dahua" ? "#237227" : "transparent",
+                            color: cameraMode === "dahua" ? "#ffffff" : "#475569",
+                            transition: "all 0.2s",
+                          }}
+                        >
+                          Dahua IP Camera
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setCameraMode("webcam")}
+                          style={{
+                            flex: 1,
+                            padding: "6px 12px",
+                            border: "none",
+                            borderRadius: 8,
+                            fontWeight: 600,
+                            fontSize: "0.85rem",
+                            cursor: "pointer",
+                            background: cameraMode === "webcam" ? "#237227" : "transparent",
+                            color: cameraMode === "webcam" ? "#ffffff" : "#475569",
+                            transition: "all 0.2s",
+                          }}
+                        >
+                          Webcam / OBS Virtual Cam
+                        </button>
+                      </div>
+
+                      {/* Device Selector for Webcam */}
+                      {cameraMode === "webcam" && videoDevices.length > 1 && (
+                        <div style={{ marginBottom: 12 }}>
+                          <select
+                            value={selectedDeviceId}
+                            onChange={(e) => setSelectedDeviceId(e.target.value)}
+                            style={{
+                              width: "100%",
+                              padding: "6px 10px",
+                              borderRadius: 8,
+                              border: "1px solid #cbd5e1",
+                              fontSize: "0.85rem",
+                            }}
+                          >
+                            {videoDevices.map((d) => (
+                              <option key={d.deviceId} value={d.deviceId}>
+                                {d.label || `Camera ${d.deviceId.slice(0, 5)}`}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {/* Video Stream Display Area */}
+                      <div
+                        style={{
+                          position: "relative",
+                          width: "100%",
+                          height: 280,
+                          background: "#0f172a",
+                          borderRadius: 14,
+                          overflow: "hidden",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {cameraMode === "dahua" ? (
+                          <>
+                            <img
+                              ref={dahuaImgRef}
+                              alt="Dahua Stream"
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                            {dahuaStatus === "connecting" && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  color: "#f8fafc",
+                                  fontSize: 13,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                }}
+                              >
+                                <FiRefreshCw className="spin" /> Connecting to Dahua Camera...
+                              </div>
+                            )}
+                            {dahuaStatus === "error" && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  color: "#fca5a5",
+                                  fontSize: 12,
+                                  textAlign: "center",
+                                  padding: 12,
+                                }}
+                              >
+                                Could not connect to Dahua Stream Server.<br />
+                                Please run <code>npm run stream</code> in your terminal.
+                              </div>
+                            )}
+                            <span
+                              style={{
+                                position: "absolute",
+                                top: 8,
+                                left: 8,
+                                background: dahuaStatus === "live" ? "rgba(22,163,74,0.85)" : "rgba(239,68,68,0.85)",
+                                color: "#fff",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                              }}
+                            >
+                              {dahuaStatus === "live" ? "DAHUA LIVE" : "OFFLINE"}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <video
+                              ref={cameraVideoRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              style={{
+                                width: "100%",
+                                height: "100%",
+                                objectFit: "cover",
+                              }}
+                            />
+                            <span
+                              style={{
+                                position: "absolute",
+                                top: 8,
+                                left: 8,
+                                background: "rgba(37,99,235,0.85)",
+                                color: "#fff",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                padding: "2px 8px",
+                                borderRadius: 6,
+                              }}
+                            >
+                              WEBCAM
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      {/* Capture Actions */}
                       <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
                         <button
                           type="button"
-                          style={{ ...styles.button, ...styles.buttonPrimary }}
+                          disabled={detectingFace}
+                          style={{
+                            ...styles.button,
+                            ...styles.buttonPrimary,
+                            flex: 1,
+                            background: "#237227",
+                            opacity: detectingFace ? 0.7 : 1,
+                          }}
                           onClick={handleCapturePhoto}
                         >
-                          Capture
+                          {detectingFace ? "Detecting Face..." : "Capture & Register Face"}
                         </button>
                         <button
                           type="button"

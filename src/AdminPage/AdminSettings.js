@@ -496,32 +496,35 @@ const styles = {
   },
 };
 
-// Add keyframes for spinner and focus styles
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  input:focus {
-    border-color: #237227 !important;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
-  }
-  input:disabled {
-    background: #f3f4f6 !important;
-    color: #555555 !important;
-    cursor: not-allowed !important;
-    opacity: 1 !important;
-  }
-  button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-  }
-  .buttonPrimary:hover {
-    background: #0f9e6e !important;
-  }
-  .buttonSecondary:hover {
-    background: #d1d5db !important;
-  }
-`;
-document.head.appendChild(styleSheet);
+// Add keyframes for spinner and focus styles safely
+if (typeof document !== "undefined" && !document.getElementById("admin-settings-styles")) {
+  const styleSheet = document.createElement("style");
+  styleSheet.id = "admin-settings-styles";
+  styleSheet.textContent = `
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    input:focus {
+      border-color: #237227 !important;
+      box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
+    }
+    input:disabled {
+      background: #f3f4f6 !important;
+      color: #555555 !important;
+      cursor: not-allowed !important;
+      opacity: 1 !important;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    }
+    .buttonPrimary:hover {
+      background: #0f9e6e !important;
+    }
+    .buttonSecondary:hover {
+      background: #d1d5db !important;
+    }
+  `;
+  document.head.appendChild(styleSheet);
+}
