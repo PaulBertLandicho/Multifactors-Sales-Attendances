@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-// import { supabase } from './supabaseClient';
 import Swal from "sweetalert2";
 import { calculatePayroll } from "./Payroll";
 import PayslipModal from "../AdminPage/PayslipModals/PayslipModal";
@@ -7,7 +6,6 @@ import { getDetailedAttendance } from "./attendanceDetails";
 import { generateAllPayslipsPdf } from "./PayslipModals/generatePayslipPdf";
 import * as XLSX from "xlsx";
 import { FiSearch, FiEye, FiDownload, FiPrinter } from "react-icons/fi";
-
 import { supabase } from "../supabaseClient";
 
 export default function PayrollPage() {
@@ -62,7 +60,6 @@ export default function PayrollPage() {
       const deptData = deptRes.data || [];
       const settingsData = settingsRes.data || {};
       const holidaysData = holidaysRes.data || [];
-      // Ensure payrollDb is always a clean array with no null/undefined entries
       const payrollDb = Array.isArray(payrollRes.data)
         ? payrollRes.data.filter(Boolean)
         : [];
@@ -76,35 +73,28 @@ export default function PayrollPage() {
       let periods = [];
       const periodDays = Number(settingsData.payroll_period_days) || 15;
       personsData.forEach((person) => {
-        // Get all attendance for this person (include both time-in and time-out)
         const personAttendance = attData.filter(
           (a) => a.person_id === person.id,
         );
-        // Sort attendance by date
         const sortedAttendance = [...personAttendance].sort(
           (a, b) => new Date(a.device_time) - new Date(b.device_time),
         );
         if (!sortedAttendance.length) return;
-        // Find the range of dates
         const firstDate = new Date(sortedAttendance[0].device_time);
         const lastDate = new Date(
           sortedAttendance[sortedAttendance.length - 1].device_time,
         );
-        // Start from the firstDate, create periods of periodDays
         let periodStart = new Date(firstDate);
         while (periodStart <= lastDate) {
           let periodEnd = new Date(periodStart);
           periodEnd.setDate(periodEnd.getDate() + periodDays - 1);
-          // Get all attendance in this period
           const periodAttendance = sortedAttendance.filter((a) => {
             const dt = new Date(a.device_time);
             return dt >= periodStart && dt <= periodEnd;
           });
-          // Format period string: yyyy-mm-dd_to_yyyy-mm-dd
           const periodStr = `${periodStart
             .toISOString()
             .slice(0, 10)}_to_${periodEnd.toISOString().slice(0, 10)}`;
-          // Check if this period is already released in payrollDb (defensive against unexpected null rows)
           const alreadyReleased = payrollDb.some(
             (row) =>
               row &&
@@ -119,7 +109,6 @@ export default function PayrollPage() {
               attendance: periodAttendance,
             });
           }
-          // Move to next period
           periodStart.setDate(periodStart.getDate() + periodDays);
         }
       });
@@ -128,7 +117,6 @@ export default function PayrollPage() {
       const payrollPeriods = (
         await Promise.all(
           periods.map(async ({ person, period, attendance }) => {
-            // Calculate payroll for this period only
             const basePayroll = calculatePayroll(
               attendance,
               [person],
@@ -154,7 +142,7 @@ export default function PayrollPage() {
               basePayroll.cashAdvance +
               totalLateDeduction;
             const net = basePayroll.gross - totalDeductions;
-            // Find if this period exists in DB (defensive & avoid duplicates)
+            
             let dbRow = null;
             try {
               const { data: existing, error: selErr } = await supabase
@@ -187,7 +175,6 @@ export default function PayrollPage() {
               };
 
               try {
-                // Try upsert using person_id+period as conflict target (safer against races)
                 const { data: upserted, error: upsertErr } = await supabase
                   .from("payroll_periods")
                   .upsert([payload], { onConflict: ["person_id", "period"] })
@@ -195,7 +182,6 @@ export default function PayrollPage() {
                   .single();
 
                 if (upsertErr) {
-                  // Fallback to insert if upsert isn't supported or fails
                   const { data: inserted, error: insertError } = await supabase
                     .from("payroll_periods")
                     .insert([payload])
@@ -218,7 +204,6 @@ export default function PayrollPage() {
               }
             }
 
-            // Extra safety: if dbRow is still somehow null, skip this entry
             if (!dbRow) {
               return null;
             }
@@ -238,7 +223,6 @@ export default function PayrollPage() {
               attendance,
               released: !!dbRow.released,
               dbId: dbRow.id,
-              // Compute absent count for the period (weekdays only, exclude holidays), up to today
               absentCount: (() => {
                 try {
                   if (!period) return 0;
@@ -253,7 +237,6 @@ export default function PayrollPage() {
                     d <= endDate;
                     d.setDate(d.getDate() + 1)
                   ) {
-                    // weekday only
                     if (d.getDay() === 0 || d.getDay() === 6) continue;
                     allDates.push(new Date(d).toISOString().slice(0, 10));
                   }
@@ -268,7 +251,6 @@ export default function PayrollPage() {
                     }),
                   );
 
-                  // holidaysData is available in outer scope; filter to person's department
                   const holidaysForDept = (holidaysData || []).filter(
                     (h) =>
                       (h.department || "").toLowerCase().trim() ===
@@ -301,8 +283,6 @@ export default function PayrollPage() {
     fetchData();
   }, []);
 
-  // Format a period string like '2026-04-07_to_2026-04-21' into
-  // 'April 07, 2026 to April 21, 2026'. Falls back to original string.
   function formatPeriod(period) {
     if (!period) return "";
     try {
@@ -348,9 +328,6 @@ export default function PayrollPage() {
     return String(period);
   }
 
-  // Removed unused filtered and sortedPersons variables
-
-  // Helper: Check if period has ended based on work-hour settings
   function isPeriodEndedNow(period, settings) {
     if (!period) return false;
     const s = String(period).trim();
@@ -360,7 +337,6 @@ export default function PayrollPage() {
     const end = new Date(endStr);
     if (Number.isNaN(end.getTime())) return false;
     const now = new Date();
-    // If the period end is today, compare to afternoon end time if available
     if (end.getFullYear() === now.getFullYear() && end.getMonth() === now.getMonth() && end.getDate() === now.getDate()) {
       try {
         const hhmm = (settings && settings.afternoon_end) || null;
@@ -375,12 +351,10 @@ export default function PayrollPage() {
       const endOfDay = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999);
       return now >= endOfDay;
     }
-    // For non-today end dates, use end-of-day comparison
     const endOfDay = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999);
     return endOfDay <= now;
   }
 
-  // OPEN PAYSLIP for a period
   const handleShowPayslip = (payrollPeriod) => {
     const { person, payroll, attendance, period } = payrollPeriod;
     const detailedAttendance = getDetailedAttendance(
@@ -396,19 +370,17 @@ export default function PayrollPage() {
     });
     setShowPayslip(true);
   };
-  // RELEASE PAYROLL (by DB id) — works with filtered/sorted lists
+
   const handleReleasePayroll = async (dbId) => {
     const idx = payrollPeriods.findIndex((p) => p.dbId === dbId);
     if (idx === -1) return;
     const period = payrollPeriods[idx];
     if (!period || !period.dbId) return;
     
-    // Determine if this is an advance release (period hasn't ended yet)
     const periodHasEnded = isPeriodEndedNow(period.period, settings);
     const isAdvanceRelease = !periodHasEnded;
     
     try {
-      // Update released flag in Supabase
       const { error: updateErr } = await supabase
         .from("payroll_periods")
         .update({ released: true })
@@ -419,7 +391,6 @@ export default function PayrollPage() {
         prev.map((p) => (p.dbId === dbId ? { ...p, released: true } : p)),
       );
 
-      // Determine who released this payroll
       let releasedBy = "admin";
       try {
         const sessionStr = localStorage.getItem("sb-session");
@@ -431,7 +402,6 @@ export default function PayrollPage() {
         }
       } catch (e) {}
 
-      // Log activity with accurate action type
       try {
         await supabase.from("payroll_activity_logs").insert([
           {
@@ -447,7 +417,6 @@ export default function PayrollPage() {
         Swal.fire("Failed to log payroll release", err.message || err, "error");
       }
 
-      // Optionally auto-create the next payroll period
       try {
         if (settings && settings.auto_create_next_period) {
           const periodDays = Number(settings.payroll_period_days) || 15;
@@ -476,7 +445,6 @@ export default function PayrollPage() {
               released: false,
             };
 
-            // Upsert to avoid duplicates (onConflict person_id+period)
             let created = null;
             try {
               const { data: upserted, error: upsertErr } = await supabase
@@ -539,18 +507,14 @@ export default function PayrollPage() {
 
   const handlePrintPayslip = () => {
     if (!selected) return;
-
     const printWindow = window.open("", "_blank");
-
     printWindow.document.write(
       document.querySelector(".payslip-container")?.outerHTML || "",
     );
-
     printWindow.document.close();
     printWindow.print();
   };
 
-  // Generate one combined PDF containing payslips for all payroll records
   const handleGenerateAllPayslipPdf = async () => {
     if (!payrollPeriods.length) {
       Swal.fire(
@@ -663,7 +627,6 @@ export default function PayrollPage() {
             .filter(Boolean);
         }
 
-        // Fetch cash advance entries for this person within the period (for accurate per-period deduction)
         let cashAdvanceEntries = [];
         let cashAdvanceTotalInPeriod = 0;
         try {
@@ -715,7 +678,6 @@ export default function PayrollPage() {
         const totalDeductions =
           lateDeduction + deductions.reduce((acc, d) => acc + d.value, 0);
 
-        // compute total OT hours (decimal) for this period to include in PDF
         let totalOtMinutes = 0;
         try {
           const sched = payroll && payroll.settings ? payroll.settings : {};
@@ -727,7 +689,6 @@ export default function PayrollPage() {
                 (rec.morningOut && String(rec.morningOut).trim()) || null;
               const aOut =
                 (rec.afternoonOut && String(rec.afternoonOut).trim()) || null;
-              // parse time HH:MM into minutes
               const parseT = (t) => {
                 if (!t) return null;
                 const mm = String(t)
@@ -795,10 +756,8 @@ export default function PayrollPage() {
     );
   };
 
-  // Export to Excel
   const handleExportPayslipExcel = () => {
     if (!payrollPeriods.length) return;
-    // Export each payroll period as a row
     const exportData = payrollPeriods.map((p) => {
       const { person, period, payroll } = p;
       return {
@@ -822,16 +781,13 @@ export default function PayrollPage() {
     XLSX.writeFile(wb, "payroll_summary.xlsx");
   };
 
-  // Compute filtered and sorted payroll periods for display
   const filteredPayrollPeriods = (payrollPeriods || [])
     .filter((entry) => {
       if (!entry) return false;
       const { person } = entry;
       if (!person) return false;
-      // Department filter
       if (departmentFilter && (person.department || "") !== departmentFilter)
         return false;
-      // Search (by name or id)
       if (search && search.trim()) {
         const q = search.trim().toLowerCase();
         const idMatch = String(person.id || "")
@@ -843,47 +799,48 @@ export default function PayrollPage() {
       return true;
     })
     .sort((a, b) => {
-      const nameA = (a.person?.name || "").toLowerCase();
-      const nameB = (b.person?.name || "").toLowerCase();
-      if (nameA < nameB) return sortOrder === "asc" ? -1 : 1;
-      if (nameA > nameB) return sortOrder === "asc" ? 1 : -1;
-      // fallback to id
-      const idA = String(a.person?.id || "");
-      const idB = String(b.person?.id || "");
+      const idA = Number(a.person?.id);
+      const idB = Number(b.person?.id);
+      if (!isNaN(idA) && !isNaN(idB)) {
+        return sortOrder === "asc" ? idA - idB : idB - idA;
+      }
+      const strA = String(a.person?.id || "").toLowerCase();
+      const strB = String(b.person?.id || "").toLowerCase();
       return sortOrder === "asc"
-        ? idA.localeCompare(idB)
-        : idB.localeCompare(idA);
+        ? strA.localeCompare(strB)
+        : strB.localeCompare(strA);
     });
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Payroll Summary</h1>
-        <div style={styles.titleUnderline} />
-        {/* <button
-          style={{ ...styles.button, ...styles.buttonPrimary, marginTop: 16, float: 'right' }}
-          onClick={() => window.location.href = '/admin/released-history'}
-        >
-          Released History Payroll
-        </button> */}
+    <div className="max-w-[1600px] mx-auto my-10 px-8 py-10 bg-white rounded-[32px] shadow-[0_10px_30px_rgba(0,0,0,0.1)] text-gray-800 font-sans">
+      {/* Header */}
+      <div className="text-center mb-10">
+        <h1 className="text-[2.8rem] font-bold text-gray-800 m-0 inline-block">Payroll Summary</h1>
+        <div className="h-1 w-24 bg-[#237227] mx-auto mt-2 rounded-sm" />
       </div>
 
       {/* Filter Bar */}
-      <div style={styles.filterBar}>
-        <div style={styles.filterGroup}>
-          <div style={styles.searchWrapper}>
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-6 p-5 sm:px-6 bg-gray-50 rounded-[20px] border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="relative">
             <input
               type="text"
               placeholder="Search by name or ID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={styles.searchInput}
+              className="pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none min-w-[250px] transition-all"
+              style={{
+                backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "16px center",
+                backgroundSize: "16px",
+              }}
             />
           </div>
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            style={styles.select}
+            className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer min-w-[160px]"
           >
             <option value="">All Departments</option>
             {Array.from(
@@ -897,124 +854,89 @@ export default function PayrollPage() {
           <button
             aria-label="Toggle sort order"
             onClick={() => setSortOrder((s) => (s === "asc" ? "desc" : "asc"))}
-            style={styles.sortToggle}
+            className="px-4 py-2.5 rounded-lg bg-[#237227] text-white text-sm cursor-pointer min-w-[72px] text-center font-semibold border-none"
           >
             {sortOrder === "asc" ? "Asc" : "Desc"}
           </button>
         </div>
-        <button
-          onClick={handleExportPayslipExcel}
-          style={{
-            ...styles.button,
-            ...styles.buttonPrimary,
-          }}
-        >
-          {Icons.download} Export Excel
-        </button>
-        <button
-          onClick={handleGenerateAllPayslipPdf}
-          style={{ ...styles.button, ...styles.buttonPrimary }}
-        >
-          <FiPrinter style={{ marginRight: 8 }} />
-          Generate All Payslips PDF
-        </button>
-        {/* <button
-          style={{ ...styles.button, ...styles.buttonSecondary, marginLeft: 12 }}
-          onClick={() => window.location.href = '/admin/ReleasedPayrollLogs'}
-        >
-          Released Payroll Logs
-        </button> */}
-        {/* <button
-          style={{ ...styles.button, ...styles.buttonSecondary }}
-          onClick={() => (window.location.href = "/admin/released-history")}
-        >
-          <MdHistory style={{ marginRight: 8, fontSize: "1.2em" }} />
-          Released History Payroll
-        </button> */}
+
+        <div className="flex gap-3 flex-wrap items-center">
+          <button
+            onClick={handleExportPayslipExcel}
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
+          >
+            {Icons.download} Export Excel
+          </button>
+          <button
+            onClick={handleGenerateAllPayslipPdf}
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
+          >
+            <FiPrinter className="mr-1" />
+            Generate All Payslips PDF
+          </button>
+        </div>
       </div>
 
-      {/* Table: Payroll by 15-day period */}
-      <div style={styles.tableContainer}>
-        <div style={styles.tableWrapper}>
-          <table style={styles.table}>
+      {/* Table */}
+      <div className="rounded-xl overflow-hidden border border-gray-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
+        <div className="overflow-x-auto max-h-[600px]">
+          <table className="w-full border-collapse text-[0.95rem] min-w-[1200px]">
             <thead>
               <tr>
-                <th style={styles.th}>ID</th>
-                <th style={styles.th}>Name</th>
-                <th style={styles.th}>Department</th>
-                <th style={styles.th}>Period</th>
-                <th style={styles.th}>Daily Rate (₱)</th>
-                <th style={styles.th}>Late Penalty (₱)</th>
-                <th style={styles.th}>Days Present</th>
-                <th style={styles.th}>Late Count</th>
-                <th style={styles.th}>Absent</th>
-                <th style={styles.th}>Payslip</th>
-                <th style={styles.th}>Advance Release</th>
+                {["ID", "Name", "Department", "Period", "Daily Rate (₱)", "Late Penalty (₱)", "Days Present", "Late Count", "Absent", "Payslip", "Advance Release"].map((thText) => (
+                  <th key={thText} className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-semibold px-3 py-4 text-left border-b-2 border-gray-200 tracking-wider uppercase text-[0.8rem]">{thText}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {filteredPayrollPeriods.length === 0 ? (
                 <tr>
-                  <td colSpan={11} style={styles.emptyState}>
+                  <td colSpan={11} className="text-center py-16 px-5 text-gray-500 text-[1.1rem]">
                     No payroll records found.
                   </td>
                 </tr>
               ) : (
                 filteredPayrollPeriods.map((p, idx) => {
                   const { person, period, payroll, released } = p;
-                  const rowStyle = {
-                    ...styles.tr,
-                    backgroundColor: idx % 2 === 0 ? "#f9fafb" : "#ffffff",
-                  };
                   return (
-                    <tr key={person.id + period} style={rowStyle}>
-                      <td style={{ ...styles.td, fontFamily: "monospace" }}>
+                    <tr key={person.id + period} className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                      <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800 font-mono">
                         {person.id}
                       </td>
-                      <td style={styles.td}>{person.name}</td>
-                      <td style={styles.td}>{person.department}</td>
-                      <td style={styles.td}>{formatPeriod(period)}</td>
-                      <td style={styles.td}>
+                      <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">{person.name}</td>
+                      <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">{person.department}</td>
+                      <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">{formatPeriod(period)}</td>
+                      <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">
                         {person.daily_rate != null
                           ? `₱${Number(person.daily_rate).toFixed(2)}`
                           : "-"}
                       </td>
-                      <td style={styles.td}>
+                      <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">
                         {person.late_penalty != null
                           ? `₱${Number(person.late_penalty).toFixed(2)}`
                           : "-"}
                       </td>
-                      <td style={styles.td}>{payroll.daysPresent}</td>
-                      <td style={styles.td}>{payroll.lateCount}</td>
-                      <td style={styles.td}>{p.absentCount ?? 0}</td>
-                      {/* Calculate and display Gross and Net Pay using the exact PayslipModal formulas */}
+                      <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">{payroll.daysPresent}</td>
+                      <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">{payroll.lateCount}</td>
+                      <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">{p.absentCount ?? 0}</td>
 
-                      <td style={styles.td}>
+                      <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">
                         <button
                           onClick={() => handleShowPayslip(p)}
-                          style={{ ...styles.td, ...styles.button,
-                          ...styles.buttonPrimary,
-                          padding: "6px 18px",
-                          fontSize: "0.95rem",
-                          borderRadius: "30px",}}
+                          className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-sm font-medium border-none cursor-pointer bg-[#237227] text-white"
                         >
                           {Icons.eye} View
                         </button>
                       </td>
-                      <td style={styles.td}>
+                      <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">
                         {released ? (
-                          <span style={{ color: "#556156", fontWeight: 600 }}>
+                          <span className="text-[#556156] font-semibold">
                             ✔ Released
                           </span>
                         ) : (
                           <button
                             onClick={() => handleReleasePayroll(p.dbId)}
-                            style={{
-                              ...styles.button,
-                              ...styles.buttonSecondary,
-                              padding: "4px 12px",
-                              fontSize: "0.9em",
-                            }}
+                            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-sm font-medium border border-gray-300 cursor-pointer bg-white text-gray-800"
                           >
                             Advance Release Payroll
                           </button>
@@ -1053,219 +975,3 @@ export default function PayrollPage() {
     </div>
   );
 }
-
-// Light theme styles with green accent
-const styles = {
-  container: {
-    maxWidth: "1600px",
-    margin: "40px auto",
-    padding: "40px 32px",
-    background: "#ffffff",
-    borderRadius: "32px",
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.1)",
-    color: "#1f2937",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-  },
-  header: {
-    textAlign: "center",
-    marginBottom: "40px",
-  },
-  title: {
-    fontSize: "2.8rem",
-    fontWeight: 700,
-    color: "#1f2937",
-    margin: 0,
-    display: "inline-block",
-  },
-  titleUnderline: {
-    height: "4px",
-    width: "100px",
-    background: "#237227", // solid green
-    margin: "8px auto 0",
-    borderRadius: "2px",
-  },
-  filterBar: {
-    display: "flex",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "16px",
-    marginBottom: "24px",
-    padding: "20px 24px",
-    backgroundColor: "#f9fafb",
-    borderRadius: "20px",
-    border: "1px solid #e5e7eb",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-  },
-  filterGroup: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "12px",
-    alignItems: "center",
-  },
-  searchWrapper: {
-    position: "relative",
-  },
-  searchInput: {
-    padding: "12px 16px 12px 40px",
-    fontSize: "0.95rem",
-    borderRadius: "40px",
-    border: "1px solid #d1d5db",
-    backgroundColor: "#ffffff",
-    color: "#1f2937",
-    outline: "none",
-    transition: "all 0.2s",
-    backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "16px center",
-    backgroundSize: "16px",
-    minWidth: "250px",
-  },
-  select: {
-    padding: "12px 20px",
-    fontSize: "0.95rem",
-    borderRadius: "40px",
-    border: "1px solid #d1d5db",
-    backgroundColor: "#ffffff",
-    color: "#1f2937",
-    outline: "none",
-    cursor: "pointer",
-    minWidth: "160px",
-  },
-  sortToggle: {
-    padding: "8px 16px",
-    borderRadius: 22,
-    background: "#f3f4f6",
-    border: "1px solid #e6eef6",
-    color: "#374151",
-    fontSize: "0.95rem",
-    cursor: "pointer",
-    boxShadow: "0 2px 6px rgba(16,24,40,0.06)",
-    minWidth: "72px",
-    textAlign: "center",
-    fontWeight: 600,
-  },
-  button: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "12px 28px",
-    borderRadius: "40px",
-    fontSize: "1rem",
-    fontWeight: 500,
-    border: "none",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
-  },
-  buttonPrimary: {
-    background: "#237227",
-    color: "#ffffff",
-  },
-  buttonSecondary: {
-    background: "#666666",
-    color: "#ffffff",
-  },
-  searchIcon: {
-    position: "absolute",
-    left: "12px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    fontSize: "1rem",
-    color: "#6b7280",
-  },
-
-  viewButton: {
-    padding: "6px 12px",
-    borderRadius: "30px",
-    border: "none",
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    cursor: "pointer",
-    transition: "all 0.2s",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "4px",
-    backgroundColor: "#e5e7eb",
-    color: "#1f2937",
-  },
-  tableContainer: {
-    borderRadius: "20px",
-    overflow: "hidden",
-    border: "1px solid #e5e7eb",
-    backgroundColor: "#ffffff",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-  },
-  tableWrapper: {
-    overflowX: "auto",
-    maxHeight: "600px",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: "0.95rem",
-    minWidth: "1200px",
-  },
-  th: {
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
-    backgroundColor: "#f9fafb",
-    color: "#4b5563",
-    fontWeight: 600,
-    padding: "16px 12px",
-    textAlign: "left",
-    borderBottom: "2px solid #e5e7eb",
-    letterSpacing: "0.03em",
-    textTransform: "uppercase",
-    fontSize: "0.8rem",
-  },
-  td: {
-    padding: "14px 12px",
-    borderBottom: "1px solid #e5e7eb",
-    color: "#1f2937",
-  },
-  tr: {
-    transition: "background 0.2s",
-  },
-  emptyState: {
-    textAlign: "center",
-    padding: "60px 20px",
-    color: "#6b7280",
-    fontSize: "1.1rem",
-  },
-  spinnerContainer: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "300px",
-    background: "#ffffff",
-  },
-  spinner: {
-    width: "50px",
-    height: "50px",
-    border: "4px solid #e5e7eb",
-    borderTop: "4px solid #237227",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-};
-
-// Add global keyframes and focus styles
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  input:focus, select:focus {
-    border-color: #237227 !important;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
-  }
-  button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-  }
-`;
-document.head.appendChild(styleSheet);

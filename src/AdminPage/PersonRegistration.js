@@ -1,5 +1,4 @@
 import React, { useState, useCallback, useRef, useEffect } from "react";
-
 import Swal from "sweetalert2";
 import RegistrationCamera from "../CameraAttendance/RegistrationCamera";
 import PersonDetails from "./PersonDetails";
@@ -16,22 +15,17 @@ const playVoice = (type = "info") => {
   };
 
   try {
-    // Stop any ongoing speech
     window.speechSynthesis.cancel();
 
     const speech = new SpeechSynthesisUtterance(
       messages[type] || messages.info
     );
 
-    // 🌐 Language
     speech.lang = "en-US";
+    speech.rate = 1;
+    speech.pitch = 1;
+    speech.volume = 1;
 
-    // ⚙️ Voice settings
-    speech.rate = 1; // speed (0.8–1.2 is natural)
-    speech.pitch = 1; // tone (0–2)
-    speech.volume = 1; // volume (0–1)
-
-    // 🎤 Optional: Choose a better voice (if available)
     const voices = window.speechSynthesis.getVoices();
     const preferredVoice = voices.find(
       (v) => v.lang === "en-US" && v.name.toLowerCase().includes("female")
@@ -53,13 +47,9 @@ export default function PersonRegistration({ initialImageUrl = null }) {
   const [cameraActive, setCameraActive] = useState(false);
   const modalTimerRef = useRef(null);
 
-  // This handler will be called by CameraPlayer when a new face is detected (not in attendance DB)
-  // Automatically trigger modal with scanPayload (including photoDataUrl) when a new face is detected
   const handleFaceScan = useCallback(
     (scanPayload) => {
-      // Defensive: ignore if already showing modal, pending scan, or missing payload
       if (!scanPayload || showModal || pendingScan) return;
-      // Accept both plain arrays and typed arrays (Float32Array)
       if (
         !scanPayload.descriptor ||
         !(
@@ -81,7 +71,6 @@ export default function PersonRegistration({ initialImageUrl = null }) {
         });
         return;
       }
-      // Show a 3-second countdown before opening the modal
       setCountdown(3);
       let seconds = 3;
       const interval = setInterval(() => {
@@ -95,7 +84,7 @@ export default function PersonRegistration({ initialImageUrl = null }) {
           modalTimerRef.current = setTimeout(() => {
             setShowModal(true);
             modalTimerRef.current = null;
-          }, 100); // minimal delay after countdown
+          }, 100);
         }
       }, 1000);
     },
@@ -111,18 +100,14 @@ export default function PersonRegistration({ initialImageUrl = null }) {
     }
   };
 
-  // If an initial static image URL is provided, open the registration modal
   useEffect(() => {
     if (initialImageUrl) {
-      // create a minimal scanPayload with photo only
       const payload = { photoDataUrl: initialImageUrl, descriptor: null };
       setPendingScan(payload);
       setShowModal(true);
     }
-    // only run on mount/when initialImageUrl changes
   }, [initialImageUrl]);
 
-  // Ensure SweetAlert2 is displayed above this modal by increasing its z-index
   useEffect(() => {
     const styleId = "swal2-zindex-fix";
     if (document.getElementById(styleId)) return;
@@ -140,183 +125,79 @@ export default function PersonRegistration({ initialImageUrl = null }) {
     };
   }, []);
 
-  // Prevent background page from scrolling while the Person Details modal is open
   useEffect(() => {
     if (!showModal) return;
-
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
     return () => {
       document.body.style.overflow = prevOverflow;
     };
   }, [showModal]);
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Register Person Camera
-</h1>
-        <div style={styles.titleUnderline} />
-        {/* <button
-          style={{ ...styles.button, ...styles.buttonPrimary, marginTop: 16, float: 'right' }}
-          onClick={() => window.location.href = '/admin/released-history'}
-        >
-          Released History Payroll
-        </button> */}
+    <div className="max-w-[1600px] mx-auto my-10 px-2.5 py-2.5 text-gray-800 font-sans">
+      {/* Header */}
+      <div className="text-center mb-10">
+        <h1 className="text-[2.8rem] font-bold text-gray-800 m-0 inline-block">
+          Register Person Camera
+        </h1>
+        <div className="h-1 w-24 bg-[#237227] mx-auto mt-2 rounded-sm" />
       </div>
-      <div
-        style={{
-          maxWidth: 600,
-          margin: "40px auto",
-          padding: 24,
-          background: "#fff",
-          borderRadius: 16,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.08)",
-        }}
-      >
+
+      {/* Main Container Card */}
+      <div className="max-w-[600px] mx-auto my-10 p-6 bg-white rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
         {/* Countdown overlay */}
         {countdown > 0 && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100vw",
-              height: "100vh",
-              background: "rgba(0,0,0,0.45)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 110000,
-            }}
-          >
-            <div
-              style={{
-                background: "#fff",
-                borderRadius: 24,
-                padding: "48px 64px",
-                fontSize: "3rem",
-                fontWeight: 700,
-                color: "#237227",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-                border: "2px solid #237227",
-              }}
-            >
+          <div className="fixed inset-0 w-screen h-screen bg-black/45 flex items-center justify-center z-[110000]">
+            <div className="bg-white rounded-3xl px-16 py-12 text-5xl font-bold text-[#237227] shadow-[0_8px_32px_rgba(0,0,0,0.18)] border-2 border-[#237227]">
               {countdown}
             </div>
           </div>
         )}
-        <div
-          style={{
-            marginBottom: 8,
-            minHeight: 380,
-            background: "#0b1120",
-            borderRadius: 12,
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
+
+        {/* Camera View Area */}
+        <div className="mb-2 min-h-[380px] bg-[#0b1120] rounded-xl overflow-hidden relative">
           {cameraActive ? (
             <RegistrationCamera
               onFaceScan={handleFaceScan}
               disabled={showModal || countdown > 0}
             />
           ) : (
-            <div
-              style={{
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#e5e7eb",
-                padding: 16,
-              }}
-            >
-              <div style={{ marginBottom: 12, fontSize: 14 }}>
+            <div className="h-full min-h-[380px] flex flex-col items-center justify-center text-gray-200 p-4">
+              <div className="mb-3 text-sm">
                 Camera is currently off.
               </div>
               <button
                 type="button"
                 onClick={() => setCameraActive(true)}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: 999,
-                  border: "1px solid #4b5563",
-                  background: "#111827",
-                  color: "#e5e7eb",
-                  cursor: "pointer",
-                  fontSize: 13,
-                }}
+                className="px-4 py-2 rounded-full border border-gray-600 bg-gray-900 text-gray-200 cursor-pointer text-[13px] hover:bg-gray-800 transition-colors"
               >
                 Open Camera
               </button>
             </div>
           )}
         </div>
+
+        {/* Camera Toggle Button */}
         {cameraActive && (
-          <div style={{ marginBottom: 18, textAlign: "right" }}>
+          <div className="mb-4 text-right">
             <button
               type="button"
               onClick={() => setCameraActive(false)}
-              style={{
-                padding: "6px 12px",
-                borderRadius: 999,
-                border: "1px solid #d1d5db",
-                background: "#f9fafb",
-                color: "#4b5563",
-                cursor: "pointer",
-                fontSize: 12,
-              }}
+              className="px-3 py-1.5 rounded-full border border-gray-300 bg-gray-50 text-gray-600 cursor-pointer text-xs hover:bg-gray-100 transition-colors"
             >
               Close Camera
             </button>
           </div>
         )}
+
+        {/* Registration Modal */}
         {showModal && (
-          <div
-            style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              width: "100vw",
-              height: "100vh",
-              background: "rgba(0,0,0,0.5)",
-              zIndex: 1000,
-            }}
-          >
-            <div
-              style={{
-                position: "fixed",
-                top: "50%",
-                left: "50%",
-                transform: "translate(-50%,-50%)",
-                background: "#fff",
-                borderRadius: 16,
-                padding: 32,
-                width: 600,
-                maxWidth: "95vw",
-                height: "80vh",
-                maxHeight: "80vh",
-                boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-                border: "1px solid #e5e7eb",
-                overflowY: "auto",
-              }}
-            >
+          <div className="fixed inset-0 w-screen h-screen bg-black/50 z-[1000]">
+            <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl p-8 w-[600px] max-w-[95vw] h-[80vh] max-h-[80vh] shadow-[0_20px_40px_rgba(0,0,0,0.2)] border border-gray-200 overflow-y-auto">
               <button
                 onClick={closeModal}
-                style={{
-                  position: "absolute",
-                  top: 12,
-                  right: 16,
-                  background: "transparent",
-                  border: "none",
-                  color: "#6b7280",
-                  fontSize: "1.8rem",
-                  cursor: "pointer",
-                  lineHeight: 1,
-                }}
+                className="absolute top-3 right-4 bg-transparent border-none text-gray-500 text-[1.8rem] cursor-pointer leading-none hover:text-gray-800 transition-colors"
               >
                 <Icon as={FiX} size={22} ariaLabel="Close" />
               </button>
@@ -332,181 +213,3 @@ export default function PersonRegistration({ initialImageUrl = null }) {
     </div>
   );
 }
-
-const styles = {
-  container: {
-    maxWidth: "1600px",
-    margin: "40px auto",
-    padding: "10px 10px",
-    color: "#1f2937",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-  },
-  header: {
-    textAlign: "center",
-    marginBottom: "40px",
-  },
-  title: {
-    fontSize: "2.8rem",
-    fontWeight: 700,
-    color: "#1f2937",
-    margin: 0,
-    display: "inline-block",
-  },
-  titleUnderline: {
-    height: "4px",
-    width: "100px",
-    background: "#237227",
-    margin: "8px auto 0",
-    borderRadius: "2px",
-  },
-  filterBar: {
-    display: "flex",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "16px",
-    marginBottom: "24px",
-    padding: "20px 24px",
-    backgroundColor: "#f9fafb",
-    borderRadius: "20px",
-    border: "1px solid #e5e7eb",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-  },
-  filterGroup: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "12px",
-    alignItems: "center",
-  },
-  searchWrapper: {
-    position: "relative",
-  },
-  searchInput: {
-    padding: "12px 16px 12px 40px",
-    fontSize: "0.95rem",
-    borderRadius: "40px",
-    border: "1px solid #d1d5db",
-    backgroundColor: "#ffffff",
-    color: "#1f2937",
-    outline: "none",
-    transition: "all 0.2s",
-    backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "16px center",
-    backgroundSize: "16px",
-    minWidth: "250px",
-  },
-  select: {
-    padding: "12px 20px",
-    fontSize: "0.95rem",
-    borderRadius: "40px",
-    border: "1px solid #d1d5db",
-    backgroundColor: "#ffffff",
-    color: "#1f2937",
-    outline: "none",
-    cursor: "pointer",
-    minWidth: "160px",
-  },
-  button: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "12px 28px",
-    borderRadius: "40px",
-    fontSize: "1rem",
-    fontWeight: 500,
-    border: "none",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
-  },
-  buttonPrimary: {
-    background: "#237227",
-    color: "#ffffff",
-  },
-
-  searchIcon: {
-    position: "absolute",
-    left: "12px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    fontSize: "1rem",
-    color: "#6b7280",
-  },
-
-  viewButton: {
-    padding: "6px 12px",
-    borderRadius: "30px",
-    border: "none",
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    cursor: "pointer",
-    transition: "all 0.2s",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "4px",
-    backgroundColor: "#e5e7eb",
-    color: "#1f2937",
-  },
-  tableContainer: {
-    borderRadius: "20px",
-    overflow: "hidden",
-    border: "1px solid #e5e7eb",
-    backgroundColor: "#ffffff",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-  },
-  tableWrapper: {
-    overflowX: "auto",
-    maxHeight: "600px",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: "0.95rem",
-    minWidth: "1200px",
-  },
-  th: {
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
-    backgroundColor: "#f9fafb",
-    color: "#4b5563",
-    fontWeight: 600,
-    padding: "16px 12px",
-    textAlign: "left",
-    borderBottom: "2px solid #e5e7eb",
-    letterSpacing: "0.03em",
-    textTransform: "uppercase",
-    fontSize: "0.8rem",
-  },
-  td: {
-    padding: "14px 12px",
-    borderBottom: "1px solid #e5e7eb",
-    color: "#1f2937",
-  },
-  tr: {
-    transition: "background 0.2s",
-  },
-  emptyState: {
-    textAlign: "center",
-    padding: "60px 20px",
-    color: "#6b7280",
-    fontSize: "1.1rem",
-  },
-  spinnerContainer: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "300px",
-    background: "#ffffff",
-  },
-  spinner: {
-    width: "50px",
-    height: "50px",
-    border: "4px solid #e5e7eb",
-    borderTop: "4px solid #237227",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-};

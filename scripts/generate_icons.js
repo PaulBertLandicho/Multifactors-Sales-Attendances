@@ -6,7 +6,7 @@ const path = require('path');
 
 const publicDir = path.join(__dirname, '..', 'public');
 const imgDir = path.join(publicDir, 'image');
-const src = path.join(imgDir, 'logo512.png');
+const src = path.join(imgDir, 'logo', 'LOGO_3.png');
 
 if (!fs.existsSync(src)) {
   console.error('Source image not found:', src);

@@ -24,6 +24,14 @@ export default function AdminLogin() {
     setError("");
 
     try {
+      if (!supabase || !supabase.auth) {
+        setError(
+          "Supabase client is not configured. Please check environment variables."
+        );
+        setLoading(false);
+        return;
+      }
+
       const { error: loginError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -44,61 +52,66 @@ export default function AdminLogin() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.card}>
-        <div style={styles.headerCentered}>
-          <div style={styles.icon} aria-hidden>
+    <div className="w-full flex-1 flex items-center justify-center py-12 px-4 sm:px-6">
+      <div className="w-full max-w-[420px] bg-white rounded-2xl p-8 shadow-xl shadow-slate-200/60 border border-gray-100">
+        
+        {/* Header Section */}
+        <div className="flex flex-col items-center gap-2 mb-6 text-center pt-1">
+          <div aria-hidden="true" className="mb-1">
             <img
-              src="/image/logo512.png"
+              src="/image/logo/LOGO_3.png"
               alt="Multifactors Sales Logo"
-              style={styles.logoImage}
+              className="w-250 h-150 object-contain mx-auto drop-shadow-sm"
             />
           </div>
-          <h2 style={styles.welcomeTitle}>Welcome back</h2>
-          <div style={styles.headerSub}>
+          <h2 className="text-3xl font-bold text-gray-900 m-0 tracking-tight">
+            Welcome back
+          </h2>
+          <p className="text-sm text-gray-500 mt-0.5">
             Sign in to access the admin dashboard
-          </div>
+          </p>
         </div>
 
-        <form onSubmit={handleLogin} style={styles.form}>
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Email</label>
-            <div style={styles.inputWrapper}>
-              <span style={styles.leftIcon}>
-                <FaEnvelope />
-              </span>
+        {/* Login Form */}
+        <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          
+          {/* Email Input */}
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-sm font-medium text-gray-700">Email</label>
+            <div className="relative flex items-center bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 transition-colors focus-within:border-[#237227]">
+              <FaEnvelope className="text-gray-400 mr-2.5 text-base flex-shrink-0" />
               <input
                 type="email"
                 value={email}
                 placeholder="you@company.com"
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                style={styles.input}
+                className="flex-1 w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 focus-visible:outline-none text-gray-900 text-sm placeholder-gray-400 font-medium"
+                style={{ outline: "none", boxShadow: "none" }}
                 aria-label="Email"
               />
             </div>
           </div>
 
-          <div style={styles.inputGroup}>
-            <label style={styles.label}>Password</label>
-            <div style={styles.inputWrapper}>
-              <span style={styles.leftIcon}>
-                <FaLock />
-              </span>
+          {/* Password Input */}
+          <div className="flex flex-col gap-1.5 text-left">
+            <label className="text-sm font-medium text-gray-700">Password</label>
+            <div className="relative flex items-center bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 transition-colors ">
+              <FaLock className="text-gray-400 mr-2.5 text-base flex-shrink-0" />
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
                 placeholder="Enter your password"
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                style={styles.input}
+                className="flex-1 w-full pr-8 bg-transparent border-none outline-none  text-gray-900 text-sm placeholder-gray-400 font-medium"
+                style={{ outline: "none", boxShadow: "none" }}
                 aria-label="Password"
               />
-
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                style={styles.eyeButton}
+                className="absolute right-3.5 text-gray-400 hover:text-gray-700 focus:outline-none transition-colors p-1 cursor-pointer"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
@@ -106,42 +119,47 @@ export default function AdminLogin() {
             </div>
           </div>
 
-          <div style={styles.rowBetween}>
-            <label style={styles.rememberLabel}>
+          {/* Form Actions (Remember Me & Forgot Password) */}
+          <div className="flex justify-between items-center text-sm mt-1">
+            <label className="flex items-center gap-2 text-gray-600 cursor-pointer hover:text-gray-900 select-none">
               <input
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
-                style={styles.checkbox}
+                className="w-4 h-4 text-[#237227] bg-gray-50 border-gray-300 rounded focus:ring-[#237227] cursor-pointer accent-[#237227]"
               />
-              Remember me
+              <span>Remember me</span>
             </label>
             <button
               type="button"
               onClick={() => {
                 // placeholder: implement forgot password flow
               }}
-              style={styles.forgotLinkButton}
+              className="text-sm text-[#237227] hover:text-[#1a551d] font-medium bg-transparent border-none p-0 cursor-pointer transition-colors hover:underline"
             >
               Forgot password?
             </button>
           </div>
 
-          {error && <div style={styles.error}>{error}</div>}
+          {/* Error Message */}
+          {error && (
+            <div className="text-red-600 text-sm text-center bg-red-50 border border-red-200 py-2.5 px-3 rounded-xl">
+              {error}
+            </div>
+          )}
 
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading}
-            style={{
-              ...styles.button,
-              ...(loading ? styles.buttonDisabled : {}),
-            }}
+            className="mt-2 w-full flex items-center justify-center gap-2 bg-[#237227] hover:bg-[#1a551d] active:bg-[#154617] disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl shadow-md shadow-[#237227]/20 hover:shadow-lg hover:shadow-[#237227]/30 transition-all cursor-pointer"
           >
             {loading ? (
               "Logging in..."
             ) : (
               <>
-                <FaSignInAlt style={styles.signInIcon} /> Sign in
+                <FaSignInAlt className="text-base" />
+                <span>Sign in</span>
               </>
             )}
           </button>
@@ -150,166 +168,3 @@ export default function AdminLogin() {
     </div>
   );
 }
-
-/* STYLES MUST BE OUTSIDE THE COMPONENT */
-const styles = {
-  container: {
-    minHeight: "auto",
-    display: "flex",
-    alignItems: "flex-start",
-    justifyContent: "center",
-    padding: "48px 16px",
-  },
-  card: {
-    maxWidth: "420px",
-    width: "100%",
-    background: "#fff",
-    borderRadius: "16px",
-    padding: "32px",
-    boxShadow: "0 12px 30px rgba(16,24,40,0.08)",
-  },
-  headerCentered: {
-    textAlign: "center",
-    marginBottom: "18px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexDirection: "column",
-    gap: 8,
-    paddingTop: 4,
-  },
-  icon: {
-    fontSize: "40px",
-  },
-  logoImage: {
-    width: 250,
-    height: 150,
-    objectFit: "contain",
-  },
-  welcomeTitle: {
-    margin: 0,
-    fontSize: "20px",
-    fontWeight: 700,
-    color: "#111827",
-  },
-  /* duplicate icon removed */
-  headerSub: {
-    color: "#6b7280",
-    fontSize: "13px",
-    marginTop: "2px",
-  },
-  underline: {
-    width: "56px",
-    height: "4px",
-    background: "#237227",
-    margin: "8px auto",
-    borderRadius: "6px",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "14px",
-  },
-  inputWrapper: {
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-    background: "#fbf6f8",
-    borderRadius: "12px",
-    padding: "10px 12px",
-    border: "1px solid transparent",
-  },
-  leftIcon: {
-    color: "#9ca3af",
-    marginRight: "8px",
-    fontSize: "16px",
-    display: "flex",
-    alignItems: "center",
-  },
-  inputGroup: {
-    display: "flex",
-    flexDirection: "column",
-  },
-  label: {
-    fontSize: "14px",
-    marginBottom: "6px",
-    color: "#374151",
-  },
-  input: {
-    flex: 1,
-    padding: "10px 8px 10px 8px",
-    paddingRight: "40px",
-    borderRadius: "8px",
-    border: "none",
-    background: "transparent",
-    outline: "none",
-    fontSize: "15px",
-    color: "#111827",
-  },
-  button: {
-    padding: "12px",
-    borderRadius: "12px",
-    border: "none",
-    background: "#237227",
-    color: "#fff",
-    cursor: "pointer",
-    fontWeight: 700,
-    fontSize: "16px",
-    width: "100%",
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-    cursor: "not-allowed",
-  },
-  error: {
-    color: "#dc2626",
-    textAlign: "center",
-    fontSize: "14px",
-  },
-  rowBetween: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  forgotLink: {
-    color: "#237227",
-    fontSize: "13px",
-    textDecoration: "none",
-  },
-  forgotLinkButton: {
-    background: "transparent",
-    border: "none",
-    color: "#237227",
-    fontSize: "13px",
-    cursor: "pointer",
-    padding: 0,
-  },
-  checkbox: {
-    marginRight: "8px",
-  },
-  rememberLabel: {
-    display: "inline-flex",
-    alignItems: "center",
-    color: "#374151",
-    fontSize: "14px",
-  },
-  eyeButton: {
-    background: "transparent",
-    border: "none",
-    cursor: "pointer",
-    color: "#6b7280",
-    fontSize: "16px",
-    display: "flex",
-    alignItems: "center",
-    position: "absolute",
-    right: "25px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    padding: 0,
-    lineHeight: 1,
-  },
-  signInIcon: {
-    marginRight: 8,
-    verticalAlign: "middle",
-  },
-};

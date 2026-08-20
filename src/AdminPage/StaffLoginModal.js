@@ -39,6 +39,12 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
     setMessage("");
 
     try {
+      if (!supabase || !supabase.auth) {
+        setError("Supabase client is not configured. Please check environment variables.");
+        setLoading(false);
+        return;
+      }
+
       const { data, error: signInError } =
         await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -53,7 +59,9 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
 
       const role = getSessionRole(data);
       if (role !== SECRETARY_ROLE) {
-        await supabase.auth.signOut();
+        if (supabase && supabase.auth) {
+          await supabase.auth.signOut();
+        }
         setError(
           role === "admin"
             ? "This is the admin account. Please use secretary account instead."
@@ -78,32 +86,52 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
   };
 
   return (
-    <div style={styles.backdrop} onClick={onClose} role="presentation">
-      <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+    /* Backdrop */
+    <div
+      className="fixed inset-0 bg-[rgba(2,6,23,0.68)] backdrop-blur-[6px] flex items-center justify-center z-[200000] p-4"
+      onClick={onClose}
+      role="presentation"
+    >
+      {/* Modal Card */}
+      <div
+        className="w-full max-w-[520px] bg-gradient-to-b from-white to-[#f8fafc] rounded-3xl shadow-[0_30px_80px_rgba(15,23,42,0.35)] border border-slate-200/20 px-6 pt-7 pb-6 relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close Button */}
         <button
           type="button"
           onClick={onClose}
-          style={styles.closeButton}
+          className="absolute top-3.5 right-3.5 w-9 h-9 rounded-full bg-gray-200 text-gray-900 border-none cursor-pointer flex items-center justify-center hover:bg-gray-300 transition-colors"
           aria-label="Close staff login modal"
         >
           <FaTimes />
         </button>
 
-        <div style={styles.badge}>
-          <FaUserShield style={{ marginRight: 8 }} />
+        {/* Badge */}
+        <div className="inline-flex items-center gap-1 px-3.5 py-2 rounded-lg bg-[#237227] text-white text-xs font-extrabold tracking-wide uppercase mb-3.5">
+          <FaUserShield className="mr-2" />
           Secretary Login
         </div>
 
-        <h2 style={styles.title}>Open the attendance account</h2>
-        <p style={styles.subtitle}>
+        {/* Title */}
+        <h2 className="m-0 text-[26px] leading-tight text-slate-900">
+          Open the attendance account
+        </h2>
+
+        {/* Subtitle */}
+        <p className="mt-2.5 mb-5 text-slate-500 leading-relaxed text-sm">
           Sign in with the secretary email and password. Admin accounts must use
           the Admin Login page.
         </p>
 
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <label style={styles.label}>Attendance email</label>
-          <div style={styles.inputRow}>
-            <FaEnvelope style={styles.inputIcon} />
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-2.5">
+          {/* Email */}
+          <label className="text-[13px] font-bold text-slate-700">
+            Attendance email
+          </label>
+          <div className="flex items-center gap-2.5 px-3.5 py-3 rounded-[14px] border border-slate-300 bg-white">
+            <FaEnvelope className="text-slate-500 flex-shrink-0" />
             <input
               name="email"
               type="email"
@@ -111,14 +139,17 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="attendances@gmail.com"
               required
-              style={styles.input}
+              className="flex-1 border-none outline-none text-[15px] bg-transparent text-gray-900 placeholder-gray-400"
+              style={{ border: "none", outline: "none", boxShadow: "none" }}
             />
           </div>
 
-          <label style={styles.label}>Password</label>
-          <div style={styles.inputRow}>
-            <FaLock style={styles.inputIcon} />
-
+          {/* Password */}
+          <label className="text-[13px] font-bold text-slate-700">
+            Password
+          </label>
+          <div className="flex items-center gap-2.5 px-3.5 py-3 rounded-[14px] border border-slate-300 bg-white">
+            <FaLock className="text-slate-500 flex-shrink-0" />
             <input
               name="password"
               type={showPassword ? "text" : "password"}
@@ -126,24 +157,40 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter attendance password"
               required
-              style={styles.input}
+              className="flex-1 border-none outline-none text-[15px] bg-transparent text-gray-900 placeholder-gray-400"
+              style={{ border: "none", outline: "none", boxShadow: "none" }}
             />
-
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              style={styles.eyeButton}
+              className="text-slate-400 hover:text-slate-600 border-none bg-transparent cursor-pointer p-0 flex items-center"
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? <FaEyeSlash /> : <FaEye />}
             </button>
           </div>
 
-          {error && <div style={styles.error}>{error}</div>}
-          {message && <div style={styles.message}>{message}</div>}
+          {/* Error Message */}
+          {error && (
+            <div className="px-3 py-2.5 rounded-xl bg-red-100 text-red-800 text-[13px]">
+              {error}
+            </div>
+          )}
 
-          <button type="submit" disabled={loading} style={styles.button}>
-            <FaSignInAlt style={{ marginRight: 8 }} />
+          {/* Success Message */}
+          {message && (
+            <div className="px-3 py-2.5 rounded-xl bg-green-100 text-green-800 text-[13px]">
+              {message}
+            </div>
+          )}
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-2.5 inline-flex items-center justify-center gap-2 px-[18px] py-3 rounded-[14px] border-none bg-[#237227] text-white text-[15px] font-bold cursor-pointer shadow-[0_14px_30px_rgba(35,114,39,0.25)] hover:bg-[#1a5a1d] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <FaSignInAlt />
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
@@ -151,123 +198,3 @@ export default function StaffLoginModal({ open, onClose, onStaffLoggedIn }) {
     </div>
   );
 }
-
-const styles = {
-  backdrop: {
-    position: "fixed",
-    inset: 0,
-    background: "rgba(2, 6, 23, 0.68)",
-    backdropFilter: "blur(6px)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 200000,
-    padding: 16,
-  },
-  modal: {
-    width: "100%",
-    maxWidth: 520,
-    background: "linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
-    borderRadius: 24,
-    boxShadow: "0 30px 80px rgba(15, 23, 42, 0.35)",
-    border: "1px solid rgba(148, 163, 184, 0.2)",
-    padding: "28px 24px 24px",
-    position: "relative",
-  },
-  closeButton: {
-    position: "absolute",
-    top: 14,
-    right: 14,
-    border: "none",
-    background: "#e5e7eb",
-    color: "#111827",
-    width: 36,
-    height: 36,
-    borderRadius: 999,
-    cursor: "pointer",
-  },
-  badge: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 4,
-    padding: "8px 14px",
-    borderRadius: 999,
-    background: "#dcfce7",
-    color: "#166534",
-    fontSize: 12,
-    fontWeight: 800,
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
-    marginBottom: 14,
-  },
-  title: {
-    margin: 0,
-    fontSize: 26,
-    lineHeight: 1.15,
-    color: "#0f172a",
-  },
-  subtitle: {
-    margin: "10px 0 22px",
-    color: "#475569",
-    lineHeight: 1.6,
-    fontSize: 14,
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: "#334155",
-  },
-  inputRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    padding: "12px 14px",
-    borderRadius: 14,
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-  },
-  inputIcon: {
-    color: "#64748b",
-  },
-  input: {
-    flex: 1,
-    border: "none",
-    outline: "none",
-    fontSize: 15,
-    background: "transparent",
-  },
-  button: {
-    marginTop: 10,
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "12px 18px",
-    borderRadius: 14,
-    border: "none",
-    background: "#237227",
-    color: "#ffffff",
-    fontSize: 15,
-    fontWeight: 700,
-    cursor: "pointer",
-    boxShadow: "0 14px 30px rgba(35, 114, 39, 0.25)",
-  },
-  error: {
-    padding: "10px 12px",
-    borderRadius: 12,
-    background: "#fee2e2",
-    color: "#991b1b",
-    fontSize: 13,
-  },
-  message: {
-    padding: "10px 12px",
-    borderRadius: 12,
-    background: "#dcfce7",
-    color: "#166534",
-    fontSize: 13,
-  },
-};

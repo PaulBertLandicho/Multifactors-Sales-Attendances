@@ -1,26 +1,19 @@
-import { useEffect, useState } from "react";
-// import { supabase } from '../supabaseClient';
+import { Fragment, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useLoading } from "../LoadingContext";
 import { supabase } from "../supabaseClient";
-import { determineExpectedEvent, determineAttendanceStatus, toMinutes } from "./attendanceUtils";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import { MdFilterList } from "react-icons/md";
-import {
-  FiDownload,
-  FiArchive,
-  FiRotateCcw,
-  FiPlus,
-  FiX,
-} from "react-icons/fi";
+import { FiDownload, FiArchive, FiRotateCcw, FiPlus, FiX, FiChevronLeft, FiChevronRight, FiCamera } from "react-icons/fi";
 
 export default function AttendanceTable() {
-  // Search, filter, and sort state
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
-  const [sortKey] = useState("device_time");
-  const [sortOrder, setSortOrder] = useState("desc");
+  const [sortKey] = useState("person_id");
+  const [sortOrder, setSortOrder] = useState("asc");
   const [selectedDate, setSelectedDate] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [records, setRecords] = useState([]);
@@ -29,26 +22,35 @@ export default function AttendanceTable() {
   const { setLoading } = useLoading();
   const [settings, setSettings] = useState(null);
   const [error, setError] = useState(null);
-  // Removed unused form and setForm state
-  // const [showForm, setShowForm] = useState(false); // Removed as unused
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
-  // Helper to format ISO date/time as "April 07, 2026 10:15:30"
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, departmentFilter, selectedDate, showArchived]);
+
   const formatDateTime = (value) => {
     if (!value) return "";
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return "";
-    const datePart = date.toLocaleDateString("en-US", {
-      month: "long",
-      day: "2-digit",
-      year: "numeric",
-    });
-    const timePart = date.toLocaleTimeString(undefined, {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-    // Insert a dash between date and time for clearer separation
+    const datePart = date.toLocaleDateString("en-US", { month: "long", day: "2-digit", year: "numeric" });
+    const timePart = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
     return `${datePart} - ${timePart}`;
+  };
+
+  const showToast = (title, icon = "success") => {
+    Swal.fire({
+      toast: true,
+      position: "top-end",
+      showConfirmButton: false,
+      timer: 2000,
+      icon,
+      title,
+      customClass: {
+        popup: "!rounded-2xl !shadow-[0_10px_25px_rgba(0,0,0,0.1)] !border !border-gray-100 !px-4 !py-2.5 !w-auto !inline-flex !items-center !gap-2.5 font-sans",
+        title: "!text-sm !font-semibold !text-gray-800 !m-0 !whitespace-nowrap",
+      },
+    });
   };
 
   const Icons = {
@@ -60,256 +62,17 @@ export default function AttendanceTable() {
     close: <FiX />,
   };
 
-  // Light theme styles with green accent
-  const styles = {
-    container: {
-      margin: "0 auto",
-      padding: "32px 24px",
-      maxWidth: "1600px",
-      fontFamily:
-        '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-      backgroundColor: "#ffffff",
-      minHeight: "100vh",
-      color: "#1f2937",
-    },
-    header: {
-      marginBottom: "32px",
-      textAlign: "center",
-    },
-    title: {
-      fontSize: "2.5rem",
-      fontWeight: 700,
-      color: "#1f2937",
-      marginBottom: "8px",
-      display: "inline-block",
-    },
-    titleUnderline: {
-      height: "4px",
-      width: "80px",
-      background: "#237227",
-      margin: "0 auto",
-      borderRadius: "2px",
-    },
-    filterBar: {
-      display: "flex",
-      flexWrap: "wrap",
-      justifyContent: "space-between",
-      alignItems: "center",
-      gap: "16px",
-      marginBottom: "24px",
-      padding: "20px 24px",
-      backgroundColor: "#f9fafb",
-      borderRadius: "24px",
-      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-      border: "1px solid #e5e7eb",
-    },
-    filterGroup: {
-      display: "flex",
-      flexWrap: "wrap",
-      gap: "12px",
-      alignItems: "center",
-    },
-    filterInput: {
-      padding: "10px 16px 10px 36px",
-      fontSize: "0.95rem",
-      borderRadius: "40px",
-      border: "1px solid #d1d5db",
-      backgroundColor: "#ffffff",
-      color: "#1f2937",
-      outline: "none",
-      transition: "all 0.2s",
-      backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
-      backgroundRepeat: "no-repeat",
-      backgroundPosition: "12px center",
-      backgroundSize: "16px",
-    },
-    filterSelect: {
-      padding: "10px 16px",
-      fontSize: "0.95rem",
-      borderRadius: "40px",
-      border: "1px solid #d1d5db",
-      backgroundColor: "#ffffff",
-      color: "#1f2937",
-      outline: "none",
-      cursor: "pointer",
-      minWidth: "140px",
-    },
-    sortToggle: {
-      padding: "8px 16px",
-      borderRadius: "22px",
-      background: "#f3f4f6",
-      border: "1px solid #d1d5db",
-      color: "#374151",
-      fontSize: "0.95rem",
-      cursor: "pointer",
-      boxShadow: "0 2px 6px rgba(16,24,40,0.06)",
-      minWidth: "72px",
-      textAlign: "center",
-      fontWeight: 600,
-    },
-    actionButtons: {
-      display: "flex",
-      gap: "12px",
-      flexWrap: "wrap",
-    },
-    button: {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: "8px",
-      padding: "10px 20px",
-      borderRadius: "40px",
-      fontSize: "0.95rem",
-      fontWeight: 500,
-      border: "none",
-      cursor: "pointer",
-      transition: "all 0.2s",
-      boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
-    },
-    buttonPrimary: {
-      background: "#237227",
-      color: "#ffffff",
-    },
-    buttonSecondary: {
-      background: "#e5e7eb",
-      color: "#1f2937",
-      border: "1px solid #d1d5db",
-    },
-    buttonWarning: {
-      background: "#f59e0b",
-      color: "#ffffff",
-    },
-    buttonDanger: {
-      background: "#ef4444",
-      color: "#ffffff",
-    },
-    tableContainer: {
-      borderRadius: "24px",
-      overflow: "hidden",
-      boxShadow: "0 4px 16px rgba(0, 0, 0, 0.08)",
-      backgroundColor: "#ffffff",
-      border: "1px solid #e5e7eb",
-    },
-    table: {
-      width: "100%",
-      borderCollapse: "collapse",
-      fontSize: "0.95rem",
-      minWidth: "1200px",
-    },
-    th: {
-      position: "sticky",
-      top: 0,
-      zIndex: 10,
-      backgroundColor: "#f9fafb",
-      color: "#4b5563",
-      fontWeight: 600,
-      padding: "16px 12px",
-      textAlign: "left",
-      borderBottom: "2px solid #e5e7eb",
-      letterSpacing: "0.03em",
-      textTransform: "uppercase",
-      fontSize: "0.8rem",
-    },
-    td: {
-      padding: "14px 12px",
-      borderBottom: "1px solid #e5e7eb",
-      color: "#1f2937",
-    },
-    trHover: {
-      transition: "background 0.2s",
-    },
-    photoCell: {
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      gap: "4px",
-    },
-    photo: {
-      width: "60px",
-      height: "60px",
-      objectFit: "cover",
-      borderRadius: "12px",
-      border: "2px solid #e5e7eb",
-    },
-    photoTime: {
-      fontSize: "0.7rem",
-      color: "#6b7280",
-    },
-    lateText: {
-      color: "#ef4444",
-      fontWeight: 700,
-    },
-    onTimeText: {
-      color: "#059669",
-      fontWeight: 700,
-    },
-    overtimeText: {
-      color: "#6b7280",
-      fontWeight: 700,
-    },
-    actionCell: {
-      display: "flex",
-      gap: "8px",
-      flexWrap: "wrap",
-    },
-    smallButton: {
-      padding: "6px 12px",
-      borderRadius: "30px",
-      border: "none",
-      fontSize: "0.8rem",
-      fontWeight: 500,
-      cursor: "pointer",
-      transition: "all 0.2s",
-      display: "inline-flex",
-      alignItems: "center",
-      gap: "4px",
-      backgroundColor: "#f3f4f6",
-      color: "#1f2937",
-    },
-    countBadge: {
-      display: "inline-flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "8px 12px",
-      borderRadius: 999,
-      border: "1px solid #e6eef6",
-      background: "#fff",
-      color: "#6b7280",
-      fontSize: "0.95rem",
-      minWidth: "84px",
-      textAlign: "center",
-      marginRight: 8,
-      fontWeight: 600,
-    },
-    emptyState: {
-      textAlign: "center",
-      padding: "60px 20px",
-      color: "#6b7280",
-      fontSize: "1.1rem",
-    },
-  };
-
   useEffect(() => {
     async function fetchData() {
       try {
         setError(null);
-        // Fetch attendance from supabase
-        const { data: attData, error: attErr } = await supabase
-          .from("attendance")
-          .select("*");
+        const { data: attData, error: attErr } = await supabase.from("attendance").select("*");
         if (attErr) throw attErr;
         setRecords(attData || []);
-        // Fetch persons from supabase
-        const { data: personsData, error: personsErr } = await supabase
-          .from("persons")
-          .select("id, name, department");
+        const { data: personsData, error: personsErr } = await supabase.from("persons").select("id, name, department");
         if (personsErr) throw personsErr;
         setPersons(personsData || []);
-        // Fetch work hours settings from supabase
-          const { data: settingsData, error: settingsErr } = await supabase
-            .from("settings")
-            .select("*")
-            .eq("id", 1)
-            .maybeSingle();
+        const { data: settingsData, error: settingsErr } = await supabase.from("settings").select("*").eq("id", 1).maybeSingle();
         if (settingsErr) throw settingsErr;
         setSettings(settingsData || null);
       } catch (err) {
@@ -319,7 +82,7 @@ export default function AttendanceTable() {
       }
     }
     fetchData();
-    const interval = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) fetchData(); }, 60_000); // 60s
+    const interval = setInterval(() => { if (typeof document === 'undefined' || !document.hidden) fetchData(); }, 60_000);
     return () => clearInterval(interval);
   }, [setLoading]);
 
@@ -334,152 +97,122 @@ export default function AttendanceTable() {
 
   useEffect(() => {
     if (!photoModal.visible) return;
-    function onKey(e) {
-      if (e.key === "Escape") closePhotoModal();
-    }
+    function onKey(e) { if (e.key === "Escape") closePhotoModal(); }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [photoModal.visible]);
 
-  // Loading overlay handled by `LoadingContext` provider
-
   if (error) {
-    return <p style={{ color: "red" }}>{error}</p>;
+    return <p className="text-red-500">{error}</p>;
   }
 
-  // Form handlers
-  // compute event/status for an edited attendance time
-  const computeStatusForEdit = async (rec, isoTime) => {
-    if (!settings) return { event: rec.event, status: rec.status };
-    try {
-      const deviceDate = new Date(isoTime);
-      const year = deviceDate.getFullYear();
-      const month = String(deviceDate.getMonth() + 1).padStart(2, "0");
-      const day = String(deviceDate.getDate()).padStart(2, "0");
-      const dayStartIso = `${year}-${month}-${day}T00:00:00.000Z`;
-      const dayEndIso = `${year}-${month}-${day}T23:59:59.999Z`;
-
-      const { data: attData, error: attErr } = await supabase
-        .from("attendance")
-        .select("id,event,device_time")
-        .eq("person_id", rec.person_id)
-        .gte("device_time", dayStartIso)
-        .lte("device_time", dayEndIso)
-        .order("device_time", { ascending: true });
-      if (attErr) throw attErr;
-
-      // find last event before the edited time (exclude the edited record itself)
-      let lastEvent = null;
-      let lastEventDeviceTimeIso = null;
-      if (Array.isArray(attData)) {
-        for (const r of attData) {
-          if (!r || !r.device_time) continue;
-          if (r.id === rec.id) continue;
-          if (new Date(r.device_time).getTime() < deviceDate.getTime()) {
-            lastEvent = r.event;
-            lastEventDeviceTimeIso = r.device_time;
-          }
-        }
-      }
-
-      const currentTime = deviceDate.toTimeString().slice(0, 5);
-      const event = determineExpectedEvent(currentTime, lastEvent, settings, lastEventDeviceTimeIso);
-
-      // detect whether there was a morning time-in (excluding this edited record)
-      let hadMorningTimeIn = false;
-      if (Array.isArray(attData) && attData.length > 0) {
-        const morningStartMinutes = toMinutes(settings.morning_start);
-        const morningEndMinutes = toMinutes(settings.morning_end);
-        for (const row of attData) {
-          if (!row || row.id === rec.id) continue;
-          if (row.event !== "time-in" || !row.device_time) continue;
-          const dt = new Date(row.device_time);
-          const hhmm = dt.toTimeString().slice(0, 5);
-          const minutes = toMinutes(hhmm);
-          if (minutes >= morningStartMinutes && minutes <= morningEndMinutes) {
-            hadMorningTimeIn = true;
-            break;
-          }
-        }
-      }
-
-      const status = determineAttendanceStatus(currentTime, event, settings, hadMorningTimeIn);
-      return { event, status };
-    } catch (e) {
-      console.error("computeStatusForEdit failed", e);
-      return { event: rec.event, status: rec.status };
-    }
-  };
-
-  // open an edit modal and persist edited attendance time, event and status
   const handleEdit = async (rec) => {
     try {
-      // format a Date as local `datetime-local` value (YYYY-MM-DDTHH:MM)
-      const formatForDatetimeLocal = (d) => {
-        const dt = d instanceof Date ? d : new Date(d);
-        const pad = (n) => String(n).padStart(2, "0");
-        const y = dt.getFullYear();
-        const m = pad(dt.getMonth() + 1);
-        const day = pad(dt.getDate());
-        const hh = pad(dt.getHours());
-        const mm = pad(dt.getMinutes());
-        return `${y}-${m}-${day}T${hh}:${mm}`;
-      };
+      const d = rec.device_time ? new Date(rec.device_time) : new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      const defaultTime = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
-      const currentLocal = rec.device_time ? formatForDatetimeLocal(new Date(rec.device_time)) : formatForDatetimeLocal(new Date());
-      const { value } = await Swal.fire({
-        title: `Edit Attendance Time for ${rec.name || rec.person_id}`,
-        input: 'datetime-local',
-        inputValue: currentLocal,
+      const { value: formValues } = await Swal.fire({
+        title: 'Edit Attendance',
+        html: `
+          <div style="text-align: left; margin-top: 1.25rem;">
+            <!-- Time Field (Full Width) -->
+            <div style="margin-bottom: 1rem;">
+              <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #374151; margin-bottom: 0.35rem;">
+                Time
+              </label>
+              <input 
+                id="swal-time" 
+                type="time"
+                step="1"
+                value="${defaultTime}" 
+                style="display: block; width: 100%; padding: 0.65rem 0.85rem; font-size: 0.95rem; border: 1px solid #d1d5db; border-radius: 0.75rem; outline: none; box-sizing: border-box; background: #ffffff; color: #1f2937; cursor: pointer;"
+              />
+            </div>
+
+            <!-- 2-Column Grid for Event and Status -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.5rem;">
+              <!-- Column 1: Event Field -->
+              <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #374151; margin-bottom: 0.35rem;">
+                  Attendance Event
+                </label>
+                <select 
+                  id="swal-event" 
+                  style="display: block; width: 100%; padding: 0.65rem 0.85rem; font-size: 0.95rem; border: 1px solid #d1d5db; border-radius: 0.75rem; outline: none; box-sizing: border-box; background: #ffffff; color: #1f2937; cursor: pointer;"
+                >
+                  <option value="time-in" ${rec.event === 'time-in' ? 'selected' : ''}>Time In</option>
+                  <option value="time-out" ${rec.event === 'time-out' ? 'selected' : ''}>Time Out</option>
+                </select>
+              </div>
+
+              <!-- Column 2: Status Field -->
+              <div>
+                <label style="display: block; font-size: 0.85rem; font-weight: 600; color: #374151; margin-bottom: 0.35rem;">
+                  Attendance Status
+                </label>
+                <select 
+                  id="swal-status" 
+                  style="display: block; width: 100%; padding: 0.65rem 0.85rem; font-size: 0.95rem; border: 1px solid #d1d5db; border-radius: 0.75rem; outline: none; box-sizing: border-box; background: #ffffff; color: #1f2937; cursor: pointer;"
+                >
+                  <option value="on-time" ${rec.status === 'on-time' ? 'selected' : ''}>on-time</option>
+                  <option value="late" ${rec.status === 'late' ? 'selected' : ''}>late</option>
+                  <option value="overtime" ${rec.status === 'overtime' ? 'selected' : ''}>overtime</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        `,
+        focusConfirm: false,
         showCancelButton: true,
         confirmButtonText: 'Save',
+        confirmButtonColor: '#237227',
+        cancelButtonColor: '#E5E7EB',
+        customClass: {
+          popup: '!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.15)] !px-8 !py-8 !max-w-[460px]',
+          title: '!text-gray-800 !text-[1.4rem] !font-bold !mt-1 !mb-0',
+          actions: '!flex !items-center !justify-center !gap-4 !mt-6 !w-full',
+          confirmButton: '!bg-[#237227] hover:!bg-[#1a5a1d] !text-white !font-semibold !rounded-lg !px-7 !py-2.5 !text-sm cursor-pointer !m-0 !min-w-[100px]',
+          cancelButton: '!bg-white !border !border-gray-300 !text-gray-700 !font-semibold !rounded-lg !px-7 !py-2.5 !text-sm cursor-pointer !m-0 !min-w-[100px]',
+        },
+        buttonsStyling: false,
+        didOpen: () => {
+          const timeInput = document.getElementById('swal-time');
+          if (timeInput) {
+            timeInput.addEventListener('click', () => {
+              try {
+                if (typeof timeInput.showPicker === 'function') {
+                  timeInput.showPicker();
+                }
+              } catch (err) {}
+            });
+          }
+        },
+        preConfirm: () => {
+          const timeVal = document.getElementById('swal-time').value.trim();
+          const eventVal = document.getElementById('swal-event').value;
+          const statusVal = document.getElementById('swal-status').value;
+          if (!timeVal) { Swal.showValidationMessage('Time is required'); return false; }
+          const fullTime = timeVal.length === 5 ? `${timeVal}:00` : timeVal;
+          return { time: fullTime, event: eventVal, status: statusVal };
+        }
       });
-      if (!value) return;
-      const iso = new Date(value).toISOString();
-      const { event, status } = await computeStatusForEdit(rec, iso);
+      if (!formValues) return;
+      const { time, event, status } = formValues;
+      const targetDate = rec.device_time ? new Date(rec.device_time) : new Date();
+      const [h, m, s] = time.split(':').map(Number);
+      targetDate.setHours(h || 0, m || 0, s || 0, 0);
+      const iso = targetDate.toISOString();
       const { error } = await supabase.from('attendance').update({ device_time: iso, event, status }).eq('id', rec.id);
-      if (error) {
-        Swal.fire('Error', error.message, 'error');
-        return;
-      }
+      if (error) { Swal.fire('Error', error.message, 'error'); return; }
       setRecords((prev) => prev.map((r) => (r.id === rec.id ? { ...r, device_time: iso, event, status } : r)));
-      Swal.fire('Saved', 'Attendance updated.', 'success');
+      showToast('Attendance updated successfully!');
     } catch (e) {
       console.error('handleEdit failed', e);
       Swal.fire('Error', e.message || String(e), 'error');
     }
   };
 
-  // const handleFormChange = (e) => {
-  //   const { name, value } = e.target;
-  //   setForm((prev) => ({ ...prev, [name]: value }));
-  // };
-
-  // const handleAdd = () => {
-  //   setForm({ person_id: '', event: 'time-in', status: '', method: '', device_time: '' });
-  //   setEditing(null);
-  //   setShowForm(true);
-  // };
-
-  // const handleEdit = (rec) => {
-  //   setForm({
-  //     person_id: rec.person_id,
-  //     event: rec.event,
-  //     status: rec.status,
-  //     method: rec.method,
-  //     device_time: rec.device_time ? new Date(rec.device_time).toISOString().slice(0, 16) : '',
-  //   });
-  //   setEditing(rec);
-  //   showEditModal({
-  //     ...rec,
-  //     device_time: rec.device_time ? new Date(rec.device_time).toISOString().slice(0, 16) : '',
-  //   });
-  // };
-
-  // Show edit form in SweetAlert2 modal
-  // Removed unused showEditModal function
-
-  // Archive (soft delete)
   const handleArchive = async (rec) => {
     const confirm = await Swal.fire({
       title: "Archive Attendance",
@@ -487,106 +220,84 @@ export default function AttendanceTable() {
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Archive",
+      confirmButtonColor: "#237227",
+      cancelButtonColor: "#ffffff",
+      customClass: {
+        popup: "!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.15)] !px-8 !py-8 !max-w-[380px]",
+        title: "!text-gray-800 !text-[1.35rem] !font-bold !mt-2",
+        actions: "!flex !items-center !justify-center !gap-4 !mt-6 !w-full",
+        confirmButton: "!bg-[#237227] hover:!bg-[#1a5a1d] !text-white !font-semibold !rounded-lg !px-6 !py-2.5 !text-sm cursor-pointer !m-0 !min-w-[100px]",
+        cancelButton: "!bg-white !border !border-gray-300 !text-gray-700 !font-semibold !rounded-lg !px-6 !py-2.5 !text-sm cursor-pointer !m-0 !min-w-[100px]",
+      },
+      buttonsStyling: false,
     });
     if (confirm.isConfirmed) {
-      const { error: archErr } = await supabase
-        .from("attendance")
-        .update({ archived: true })
-        .eq("id", rec.id);
+      const { error: archErr } = await supabase.from("attendance").update({ archived: true }).eq("id", rec.id);
       if (archErr) {
-        Swal.fire("Error", archErr.message, "error");
+        Swal.fire({
+          title: "Error",
+          text: archErr.message,
+          icon: "error",
+          confirmButtonText: "OK",
+          customClass: {
+            popup: "!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.15)] !px-8 !py-8 !max-w-[380px]",
+            confirmButton: "!bg-red-500 hover:!bg-red-600 !text-white !font-semibold !rounded-lg !px-8 !py-2.5 !text-sm",
+          },
+          buttonsStyling: false,
+        });
       } else {
-        setRecords((prev) =>
-          prev.map((r) => (r.id === rec.id ? { ...r, archived: true } : r))
-        );
-        Swal.fire("Archived!", "", "success");
+        setRecords((prev) => prev.map((r) => (r.id === rec.id ? { ...r, archived: true } : r)));
+        showToast("Attendance archived successfully!");
       }
     }
   };
 
-  // Restore archived record
   const handleRestore = async (rec) => {
-    const { error: resErr } = await supabase
-      .from("attendance")
-      .update({ archived: false })
-      .eq("id", rec.id);
+    const { error: resErr } = await supabase.from("attendance").update({ archived: false }).eq("id", rec.id);
     if (resErr) {
-      Swal.fire("Error", resErr.message, "error");
+      Swal.fire({
+        title: "Error",
+        text: resErr.message,
+        icon: "error",
+        confirmButtonText: "OK",
+        customClass: {
+          popup: "!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.15)] !px-8 !py-8 !max-w-[380px]",
+          confirmButton: "!bg-red-500 hover:!bg-red-600 !text-white !font-semibold !rounded-lg !px-8 !py-2.5 !text-sm",
+        },
+        buttonsStyling: false,
+      });
     } else {
-      setRecords((prev) =>
-        prev.map((r) => (r.id === rec.id ? { ...r, archived: false } : r))
-      );
-      Swal.fire("Restored!", "", "success");
+      setRecords((prev) => prev.map((r) => (r.id === rec.id ? { ...r, archived: false } : r)));
+      showToast("Attendance restored successfully!");
     }
   };
 
-  // const handleFormSubmit = async (e) => {
-  //   e.preventDefault();
-  //   if (!form.person_id || !form.event || !form.device_time) {
-  //     Swal.fire('Error', 'Person, event, and time are required.', 'error');
-  //     return;
-  //   }
-  //   const payload = {
-  //     person_id: form.person_id,
-  //     event: form.event,
-  //     status: form.status,
-  //     method: form.method,
-  //     device_time: new Date(form.device_time).toISOString(),
-  //   };
-  //   if (editing) {
-  //     // Update
-  //     const { error: upErr } = await supabase.from('attendance').update(payload).eq('id', editing.id);
-  //     if (upErr) {
-  //       Swal.fire('Error', upErr.message, 'error');
-  //       return;
-  //     }
-  //   } else {
-  //     // Insert
-  //     const { error: inErr } = await supabase.from('attendance').insert([payload]);
-  //     if (inErr) {
-  //       Swal.fire('Error', inErr.message, 'error');
-  //       return;
-  //     }
-  //   }
-  //   setShowForm(false);
-  //   setEditing(null);
-  //   setForm({ person_id: '', event: 'time-in', status: '', method: '', device_time: '' });
-  //   // Refresh
-  //   setLoading(true);
-  //   const { data: attData } = await supabase.from('attendance').select('*');
-  //   setRecords(attData || []);
-  //   setLoading(false);
-  // };
-
-  // Sort by device_time descending (latest first)
-  // Filter and sort records
   const filteredRecords = records.filter((r) => {
     if (r.archived) return false;
     const person = persons.find((p) => p.id === r.person_id) || {};
-    // Search by name or person_id
-    const matchesSearch =
-      !search ||
-      (person.name &&
-        person.name.toLowerCase().includes(search.toLowerCase())) ||
-      (r.person_id && r.person_id.toLowerCase().includes(search.toLowerCase()));
-    // Status filter
+    const matchesSearch = !search || (person.name && person.name.toLowerCase().includes(search.toLowerCase())) || (r.person_id && r.person_id.toLowerCase().includes(search.toLowerCase()));
     const matchesStatus = !statusFilter || (r.status || "") === statusFilter;
-    // Department filter
-    const matchesDept =
-      !departmentFilter || (person.department || "") === departmentFilter;
-    // Date filter (match full yyyy-mm-dd)
-    const recordDate = r.device_time
-      ? new Date(r.device_time).toISOString().slice(0, 10)
-      : null;
+    const matchesDept = !departmentFilter || (person.department || "") === departmentFilter;
+    const recordDate = r.device_time ? new Date(r.device_time).toISOString().slice(0, 10) : null;
     const matchesDate = !selectedDate || recordDate === selectedDate;
     return matchesSearch && matchesStatus && matchesDept && matchesDate;
   });
 
   const sortedRecords = [...filteredRecords].sort((a, b) => {
     let aVal, bVal;
-    if (sortKey === "device_time") {
-      aVal = new Date(a.device_time);
-      bVal = new Date(b.device_time);
+    if (sortKey === "person_id") {
+      const aNum = Number(a.person_id);
+      const bNum = Number(b.person_id);
+      if (!isNaN(aNum) && !isNaN(bNum)) {
+        aVal = aNum;
+        bVal = bNum;
+      } else {
+        aVal = String(a.person_id || "").toLowerCase();
+        bVal = String(b.person_id || "").toLowerCase();
+      }
+    } else if (sortKey === "device_time") {
+      aVal = new Date(a.device_time).getTime() || 0;
+      bVal = new Date(b.device_time).getTime() || 0;
     } else if (sortKey === "name") {
       const aPerson = persons.find((p) => p.id === a.person_id) || {};
       const bPerson = persons.find((p) => p.id === b.person_id) || {};
@@ -601,12 +312,19 @@ export default function AttendanceTable() {
       aVal = (a[sortKey] || "").toLowerCase();
       bVal = (b[sortKey] || "").toLowerCase();
     }
+
     if (aVal < bVal) return sortOrder === "asc" ? -1 : 1;
     if (aVal > bVal) return sortOrder === "asc" ? 1 : -1;
-    return 0;
+
+    // Tie-breaker: sort by person_id (numeric ascending)
+    const aIdNum = Number(a.person_id);
+    const bIdNum = Number(b.person_id);
+    if (!isNaN(aIdNum) && !isNaN(bIdNum)) {
+      return aIdNum - bIdNum;
+    }
+    return String(a.person_id || "").localeCompare(String(b.person_id || ""));
   });
 
-  // Archived records (not filtered)
   const archivedRecords = [...records]
     .filter((r) => r.archived)
     .filter((r) => {
@@ -614,7 +332,19 @@ export default function AttendanceTable() {
       const rd = r.device_time ? new Date(r.device_time).toISOString().slice(0, 10) : null;
       return rd === selectedDate;
     })
-    .sort((a, b) => new Date(b.device_time) - new Date(a.device_time));
+    .sort((a, b) => {
+      const aIdNum = Number(a.person_id);
+      const bIdNum = Number(b.person_id);
+      if (!isNaN(aIdNum) && !isNaN(bIdNum)) {
+        return aIdNum - bIdNum;
+      }
+      return String(a.person_id || "").localeCompare(String(b.person_id || ""));
+    });
+
+  const activeRecords = showArchived ? archivedRecords : sortedRecords;
+  const totalPages = Math.max(1, Math.ceil(activeRecords.length / itemsPerPage));
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedRecords = activeRecords.slice(startIndex, startIndex + itemsPerPage);
 
   const columns = [
     { key: "photo", label: "Photo" },
@@ -623,13 +353,11 @@ export default function AttendanceTable() {
     { key: "name", label: "Employee Name" },
     { key: "department", label: "Department" },
     { key: "point", label: "Location" },
-    // { key: 'shift', label: 'Shift' },
     { key: "work_hours", label: "Work Hours" },
     { key: "status", label: "Attendance Status" },
     { key: "method", label: "Attendance Method" },
   ];
 
-  // Export to Excel
   const handleExportExcel = () => {
     if (!Array.isArray(sortedRecords) || !Array.isArray(persons)) return;
     const exportData = sortedRecords.map((row) => {
@@ -652,85 +380,113 @@ export default function AttendanceTable() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Attendance Records</h1>
-        <div style={styles.titleUnderline} />
+    <div className="mx-auto px-6 pt-2 pb-8 max-w-[1600px] font-sans bg-white min-h-screen text-gray-800">
+
+      {/* Header */}
+      <div className="mb-8 text-center">
+        <h1 className="text-[2.5rem] font-bold text-gray-800 mb-2 inline-block">Attendance Records</h1>
+        <div className="h-1 w-20 bg-[#237227] mx-auto rounded-sm" />
       </div>
 
       {/* Filter Bar */}
-      <div style={styles.filterBar}>
-        <div style={styles.filterGroup}>
-          <div style={{ position: "relative" }}>
-            <span style={styles.searchIcon}>{Icons.search}</span>
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-6 px-6 py-5 bg-gray-50 rounded-3xl shadow-[0_4px_12px_rgba(0,0,0,0.05)] border border-gray-200">
+        {/* Left filter group */}
+        <div className="flex flex-wrap gap-3 items-center">
+          {/* Search */}
+          <div className="relative">
             <input
               type="text"
               placeholder="Search name or ID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={styles.filterInput}
+              className="pl-9 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none transition-all"
+              style={{
+                backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "12px center",
+                backgroundSize: "16px",
+              }}
             />
           </div>
+
+          {/* Status Filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={styles.filterSelect}
+            className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer min-w-[140px]"
           >
             <option value="">All Status</option>
             <option value="late">Late</option>
             <option value="on-time">On-time</option>
             <option value="overtime">Overtime</option>
           </select>
+
+          {/* Department Filter */}
           <select
             value={departmentFilter}
             onChange={(e) => setDepartmentFilter(e.target.value)}
-            style={styles.filterSelect}
+            className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer min-w-[140px]"
           >
             <option value="">All Departments</option>
-            {Array.from(
-              new Set(persons.map((p) => p.department).filter(Boolean))
-            ).map((dept) => (
-              <option key={dept} value={dept}>
-                {dept}
-              </option>
+            {Array.from(new Set(persons.map((p) => p.department).filter(Boolean))).map((dept) => (
+              <option key={dept} value={dept}>{dept}</option>
             ))}
           </select>
+
+          {/* Date Filter */}
           <input
             type="date"
             value={selectedDate}
             onChange={(e) => setSelectedDate(e.target.value)}
-            style={styles.filterSelect}
+            className="px-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer min-w-[140px]"
           />
+
+          {/* Clear Date */}
           {selectedDate && (
             <button
               onClick={() => setSelectedDate("")}
-              style={{ ...styles.smallButton, marginLeft: 4 }}
+              className="flex items-center gap-1 px-3 py-2 rounded-lg border-none text-xs font-semibold cursor-pointer bg-gray-100 text-gray-800"
             >
               {Icons.close} Clear
             </button>
           )}
+
+          {/* Sort Toggle */}
           <button
             aria-label="Toggle sort order"
             onClick={() => setSortOrder((s) => (s === "asc" ? "desc" : "asc"))}
-            style={styles.sortToggle}
+            className="px-4 py-2.5 rounded-lg bg-[#237227] text-white text-sm cursor-pointer min-w-[72px] text-center font-semibold border-none"
           >
             {sortOrder === "asc" ? "Asc" : "Desc"}
           </button>
+
+          {/* Attendance Camera Button */}
+          <button
+            onClick={() => navigate("/")}
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#237227] text-white text-sm cursor-pointer font-semibold border-none"
+            title="Open Attendance Camera"
+          >
+            <FiCamera className="text-base" /> Attendance Camera
+          </button>
         </div>
 
-        <div style={styles.actionButtons}>
-          <div style={styles.countBadge}>
+        {/* Right action buttons */}
+        <div className="flex gap-3 flex-wrap items-center">
+          {/* Record count badge */}
+          <div className="inline-flex items-center justify-center px-3.5 py-2 rounded-lg border border-[#237227] bg-white text-[#1a5a1d] text-sm min-w-[84px] text-center mr-1 font-semibold">
             {(showArchived ? archivedRecords.length : sortedRecords.length) + " records"}
           </div>
+
           <button
             onClick={() => setShowArchived((a) => !a)}
-            style={{ ...styles.button, ...styles.buttonSecondary }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border border-[#237227] cursor-pointer bg-gray-100 text-[#1a5a1d]"
           >
             {Icons.archive} {showArchived ? "Show Active" : "Show Archived"}
           </button>
+
           <button
             onClick={handleExportExcel}
-            style={{ ...styles.button, ...styles.buttonPrimary }}
+            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
           >
             {Icons.download} Export Excel
           </button>
@@ -738,254 +494,283 @@ export default function AttendanceTable() {
       </div>
 
       {/* Table */}
-      <div style={styles.tableContainer}>
-        <div style={{ overflowX: "auto", maxHeight: "600px" }}>
-          <table style={styles.table}>
+      <div className="rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.08)] bg-white border border-gray-200">
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[0.95rem] min-w-[1200px]">
             <thead>
               <tr>
                 {columns.map((col) => (
-                  <th key={col.key} style={styles.th}>
+                  <th
+                    key={col.key}
+                    className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-semibold px-3 py-4 text-left border-b-2 border-gray-200 tracking-wide uppercase text-[0.8rem]"
+                  >
                     {col.label}
                   </th>
                 ))}
-                <th style={styles.th}>Actions</th>
+                <th className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-semibold px-3 py-4 text-left border-b-2 border-gray-200 tracking-wide uppercase text-[0.8rem]">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
-              {(showArchived ? archivedRecords : sortedRecords).length === 0 ? (
+              {activeRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={columns.length + 1} style={styles.emptyState}>
-                    {showArchived
-                      ? "No archived attendance records found."
-                      : "No attendance records found."}
+                  <td
+                    colSpan={columns.length + 1}
+                    className="text-center py-16 px-5 text-gray-500 text-[1.1rem]"
+                  >
+                    {showArchived ? "No archived attendance records found." : "No attendance records found."}
                   </td>
                 </tr>
               ) : (
-                (showArchived ? archivedRecords : sortedRecords).map(
-                  (row, idx) => {
-                    const person =
-                      persons.find((p) => p.id === row.person_id) || {};
-                    const rowStyle = {
-                      ...styles.trHover,
-                      backgroundColor: idx % 2 === 0 ? "#f9fafb" : "#ffffff",
-                    };
-                    return (
-                      <tr key={row.id} style={rowStyle}>
-                        {columns.map((col) => {
-                          if (col.key === "photo") {
-                            return (
-                              <td key="photo" style={styles.td}>
-                                {row.photo ? (
-                                  <div style={styles.photoCell}>
-                                    <img
-                                      src={row.photo}
-                                      alt="scan"
-                                          style={{ ...styles.photo, cursor: 'pointer' }}
-                                          onClick={() => openPhotoModal(row.photo, person.name || row.person_id)}
-                                    />
-                                    <span style={styles.photoTime}>
-                                      {row.device_time
-                                        ? new Date(
-                                            row.device_time
-                                          ).toLocaleString(undefined, {
-                                            hour: "2-digit",
-                                            minute: "2-digit",
-                                            second: "2-digit",
-                                          })
-                                        : ""}
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span style={{ color: "#9ca3af" }}>
-                                    No photo
-                                  </span>
-                                )}
-                              </td>
-                            );
-                          }
-                          let value = row[col.key];
-                          if (col.key === "name") value = person.name || "";
-                          if (col.key === "department")
-                            value = person.department || "";
-                          if (col.key === "device_time" && row[col.key])
-                            value = formatDateTime(row[col.key]);
-                          if (col.key === "shift") {
-                            if (!settings) value = "-";
-                            else {
-                              const time = new Date(row.device_time);
-                              const hour = time.getHours();
-                              const minute = time.getMinutes();
-                              const totalMinutes = hour * 60 + minute;
-                              const morningStart = settings.morning_start
-                                ? settings.morning_start.split(":").map(Number)
-                                : [0, 0];
-                              const morningEnd = settings.morning_end
-                                ? settings.morning_end.split(":").map(Number)
-                                : [0, 0];
-                              const afternoonStart = settings.afternoon_start
-                                ? settings.afternoon_start
-                                    .split(":")
-                                    .map(Number)
-                                : [0, 0];
-                              const afternoonEnd = settings.afternoon_end
-                                ? settings.afternoon_end.split(":").map(Number)
-                                : [0, 0];
-                              const morningStartMin =
-                                morningStart[0] * 60 + morningStart[1];
-                              const morningEndMin =
-                                morningEnd[0] * 60 + morningEnd[1];
-                              const afternoonStartMin =
-                                afternoonStart[0] * 60 + afternoonStart[1];
-                              const afternoonEndMin =
-                                afternoonEnd[0] * 60 + afternoonEnd[1];
-                              if (
-                                totalMinutes >= morningStartMin &&
-                                totalMinutes <= morningEndMin
-                              )
-                                value = "Morning Shift";
-                              else if (
-                                totalMinutes >= afternoonStartMin &&
-                                totalMinutes <= afternoonEndMin
-                              )
-                                value = "Afternoon Shift";
-                              else value = "-";
-                            }
-                          }
-                          if (col.key === "work_hours") {
-                            if (!settings) {
-                              value = "-";
-                            } else {
-                              let label = "";
-                              let configTime = "";
-                              if (row.event === "time-in") {
-                                // Show Morning In or Afternoon In based on device_time proximity
-                                label = "Morning In";
-                                configTime = settings.morning_start;
-                                // If device_time is after morning_end, use Afternoon In
-                                if (
-                                  settings.morning_end &&
-                                  settings.afternoon_start
-                                ) {
-                                  const d = new Date(row.device_time);
-                                  const minutes =
-                                    d.getHours() * 60 + d.getMinutes();
-                                  const morningEnd = settings.morning_end
-                                    .split(":")
-                                    .map(Number);
-                                  const morningEndMin =
-                                    morningEnd[0] * 60 + morningEnd[1];
-                                  const morningGrace = Number(settings.morning_grace_minutes) || 0;
-                                  // Treat times within the morning end + grace as still morning
-                                  if (minutes > morningEndMin + morningGrace) {
-                                    label = "Afternoon In";
-                                    configTime = settings.afternoon_start;
-                                  }
-                                }
-                              } else if (row.event === "time-out") {
-                                label = "Morning Out";
-                                configTime = settings.morning_end;
-                                // If device_time is after morning_end, use Afternoon Out
-                                if (
-                                  settings.morning_end &&
-                                  settings.afternoon_end
-                                ) {
-                                  const d = new Date(row.device_time);
-                                  const minutes =
-                                    d.getHours() * 60 + d.getMinutes();
-                                  const morningEnd = settings.morning_end
-                                    .split(":")
-                                    .map(Number);
-                                  const morningEndMin =
-                                    morningEnd[0] * 60 + morningEnd[1];
-                                  const morningGrace = Number(settings.morning_grace_minutes) || 0;
-                                  // Treat times within the morning end + grace as still morning
-                                  if (minutes > morningEndMin + morningGrace) {
-                                    label = "Afternoon Out";
-                                    configTime = settings.afternoon_end;
-                                  }
-                                }
-                              } else {
-                                value = "-";
-                              }
-                              value =
-                                label && configTime
-                                  ? `${label}: ${configTime}`
-                                  : "-";
-                            }
-                          }
-                          const isLate = col.key === "status" && value === "late";
-                          const isOnTime = col.key === "status" && value === "on-time";
-                          const isOvertime = col.key === "status" && value === "overtime";
-                          const cellStyle = {
-                            ...styles.td,
-                            fontFamily:
-                              col.key === "person_id" ? "monospace" : "inherit",
-                            wordBreak: col.key === "point" ? "break-word" : "normal",
-                            maxWidth: col.key === "point" ? "220px" : "none",
-                            color: isLate
-                              ? styles.lateText.color
-                              : isOnTime
-                              ? styles.onTimeText.color
-                              : isOvertime
-                              ? styles.overtimeText.color
-                              : styles.td.color,
-                            fontWeight: isLate || isOnTime || isOvertime ? 600 : 400,
-                          };
+                paginatedRecords.map((row, idx) => {
+                  const person = persons.find((p) => p.id === row.person_id) || {};
+                  return (
+                    <tr
+                      key={row.id}
+                      className={`${idx % 2 === 0 ? "bg-gray-50" : "bg-white"}`}
+                    >
+                      {columns.map((col) => {
+                        if (col.key === "photo") {
                           return (
-                            <td key={col.key} style={cellStyle}>
-                              {value || "-"}
+                            <td key="photo" className="px-3 py-3.5 border-b border-gray-200 text-gray-800">
+                              {row.photo ? (
+                                <div className="flex flex-col items-center gap-1">
+                                  <img
+                                    src={row.photo}
+                                    alt="scan"
+                                    className="w-[60px] h-[60px] object-cover rounded-xl border-2 border-gray-200 cursor-pointer hover:opacity-80 transition-opacity"
+                                    onClick={() => openPhotoModal(row.photo, person.name || row.person_id)}
+                                  />
+                                  <span className="text-[0.7rem] text-gray-500">
+                                    {row.device_time ? new Date(row.device_time).toLocaleString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : ""}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-gray-400">No photo</span>
+                              )}
                             </td>
                           );
-                        })}
-                        <td style={styles.td}>
-                          <div style={styles.actionCell}>
-                            {!row.archived ? (
-                              <>
-                                <button
-                                  onClick={() => handleEdit(row)}
-                                  style={styles.smallButton}
-                                >
-                                  Edit Time
-                                </button>
-                                <button
-                                  onClick={() => handleArchive(row)}
-                                  style={styles.smallButton}
-                                >
-                                  {Icons.archive} Archive
-                                </button>
-                              </>
-                            ) : (
+                        }
+
+                        let value = row[col.key];
+                        if (col.key === "name") value = person.name || "";
+                        if (col.key === "department") value = person.department || "";
+                        if (col.key === "device_time" && row[col.key]) value = formatDateTime(row[col.key]);
+                        if (col.key === "work_hours") {
+                          if (!settings) {
+                            value = "-";
+                          } else {
+                            let label = "";
+                            let configTime = "";
+                            if (row.event === "time-in") {
+                              label = "Morning In";
+                              configTime = settings.morning_start;
+                              if (settings.morning_end && settings.afternoon_start) {
+                                const d = new Date(row.device_time);
+                                const minutes = d.getHours() * 60 + d.getMinutes();
+                                const morningEnd = settings.morning_end.split(":").map(Number);
+                                const morningEndMin = morningEnd[0] * 60 + morningEnd[1];
+                                const morningGrace = Number(settings.morning_grace_minutes) || 0;
+                                if (minutes > morningEndMin + morningGrace) {
+                                  label = "Afternoon In";
+                                  configTime = settings.afternoon_start;
+                                }
+                              }
+                            } else if (row.event === "time-out") {
+                              label = "Morning Out";
+                              configTime = settings.morning_end;
+                              if (settings.morning_end && settings.afternoon_end) {
+                                const d = new Date(row.device_time);
+                                const minutes = d.getHours() * 60 + d.getMinutes();
+                                const morningEnd = settings.morning_end.split(":").map(Number);
+                                const morningEndMin = morningEnd[0] * 60 + morningEnd[1];
+                                const morningGrace = Number(settings.morning_grace_minutes) || 0;
+                                if (minutes > morningEndMin + morningGrace) {
+                                  label = "Afternoon Out";
+                                  configTime = settings.afternoon_end;
+                                }
+                              }
+                            } else {
+                              value = "-";
+                            }
+                            value = label && configTime ? `${label}: ${configTime}` : "-";
+                          }
+                        }
+
+                        if (col.key === "status") {
+                          const normStatus = String(value || "").toLowerCase().trim();
+                          let badgeStyle = "bg-gray-100 text-gray-700 border border-gray-200";
+                          if (normStatus === "on-time" || normStatus === "ontime" || normStatus === "on_time") {
+                            badgeStyle = "bg-[#237227]/10 text-[#237227] border border-[#237227]/30";
+                          } else if (normStatus === "late") {
+                            badgeStyle = "bg-red-50 text-red-600 border border-red-200";
+                          } else if (normStatus === "overtime") {
+                            badgeStyle = "bg-blue-50 text-blue-600 border border-blue-200";
+                          }
+
+                          return (
+                            <td key={col.key} className="px-3 py-3.5 border-b border-gray-200">
+                              {value ? (
+                                <span className={`inline-flex items-center justify-center px-3 py-1 rounded-full text-xs font-semibold ${badgeStyle}`}>
+                                  {value}
+                                </span>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
+                          );
+                        }
+
+                        return (
+                          <td
+                            key={col.key}
+                            className={[
+                              "px-3 py-3.5 border-b border-gray-200",
+                              col.key === "person_id" ? "font-mono" : "",
+                              col.key === "point" ? "break-words max-w-[220px]" : "",
+                              "text-gray-800",
+                            ].join(" ")}
+                          >
+                            {value || "-"}
+                          </td>
+                        );
+                      })}
+
+                      {/* Actions */}
+                      <td className="px-3 py-3.5 border-b border-gray-200">
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {!row.archived ? (
+                            <>
                               <button
-                                onClick={() => handleRestore(row)}
-                                style={styles.smallButton}
+                                onClick={() => handleEdit(row)}
+                                className="flex items-center justify-center py-1.5 px-2 rounded-lg border-none text-[0.78rem] font-semibold cursor-pointer bg-[#237227] text-white hover:bg-[#1a5a1d] transition-colors whitespace-nowrap"
                               >
-                                {Icons.restore} Restore
+                                Edit Time
                               </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  }
-                )
+                              <button
+                                onClick={() => handleArchive(row)}
+                                className="flex items-center justify-center py-1.5 px-2 rounded-lg border border-gray-300 text-[0.78rem] font-semibold cursor-pointer bg-white text-gray-700 whitespace-nowrap"
+                              >
+                                Archive
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              onClick={() => handleRestore(row)}
+                              className="col-span-2 flex items-center justify-center py-1.5 px-2 rounded-lg border border-gray-300 text-[0.78rem] font-semibold cursor-pointer bg-white text-gray-700 whitespace-nowrap"
+                            >
+                              Restore
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Footer */}
+        {activeRecords.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4 bg-gray-50 border-t border-gray-200">
+            {/* Left: Record Count Info */}
+            <div className="text-sm text-gray-600">
+              Showing <span className="font-semibold text-gray-800">{startIndex + 1}</span> to{" "}
+              <span className="font-semibold text-gray-800">
+                {Math.min(startIndex + itemsPerPage, activeRecords.length)}
+              </span>{" "}
+              of <span className="font-semibold text-gray-800">{activeRecords.length}</span> records
+            </div>
+
+            {/* Right: Page Navigation with Chevron Icons */}
+            <div className="flex items-center gap-1.5">
+              {/* Previous Page Button */}
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="inline-flex items-center justify-center w-9 h-9 rounded-xl border border-gray-300 bg-white text-gray-700 text-sm font-medium transition-all hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"
+                title="Previous Page"
+              >
+                <FiChevronLeft className="text-lg" />
+              </button>
+
+              {/* Page Number Buttons */}
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((pageNum) => {
+                  if (totalPages <= 7) return true;
+                  if (pageNum === 1 || pageNum === totalPages) return true;
+                  if (Math.abs(pageNum - currentPage) <= 1) return true;
+                  return false;
+                })
+                .map((pageNum, idx, arr) => {
+                  const prevPage = arr[idx - 1];
+                  const showEllipsis = prevPage && pageNum - prevPage > 1;
+
+                  return (
+                    <Fragment key={pageNum}>
+                      {showEllipsis && (
+                        <span className="px-1 text-gray-400 select-none text-sm">...</span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`inline-flex items-center justify-center min-w-[36px] h-9 px-2.5 rounded-xl text-sm font-semibold transition-all ${
+                          currentPage === pageNum
+                            ? "bg-[#237227] text-white shadow-sm"
+                            : "border border-gray-300 bg-white text-gray-700 hover:bg-gray-100"
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    </Fragment>
+                  );
+                })}
+
+              {/* Next Page Button */}
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="inline-flex items-center justify-center w-9 h-9 rounded-xl border border-gray-300 bg-white text-gray-700 text-sm font-medium transition-all hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white"
+                title="Next Page"
+              >
+                <FiChevronRight className="text-lg" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-      {/* Photo modal for AttendanceTable */}
+
+      {/* Photo Modal */}
       {photoModal.visible && (
         <div
           onClick={() => closePhotoModal()}
-          style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          className="fixed inset-0 bg-black/60 z-[10000] flex items-center justify-center p-5"
         >
-          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90%', maxHeight: '90%', borderRadius: 8, overflow: 'hidden', background: '#fff', padding: 12, boxShadow: '0 12px 40px rgba(2,6,23,0.4)' }}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button onClick={() => closePhotoModal()} aria-label="Close photo" style={{ background: 'transparent', border: 'none', color: '#0f172a', fontSize: 22, cursor: 'pointer' }}>×</button>
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-[90%] max-h-[90%] rounded-lg overflow-hidden bg-white p-3 shadow-[0_12px_40px_rgba(2,6,23,0.4)]"
+          >
+            <div className="flex justify-end">
+              <button
+                onClick={() => closePhotoModal()}
+                aria-label="Close photo"
+                className="bg-transparent border-none text-slate-900 text-[22px] cursor-pointer leading-none hover:text-red-500 transition-colors"
+              >
+                ×
+              </button>
             </div>
-            <div style={{ textAlign: 'center' }}>
-              <img src={photoModal.src} alt={photoModal.title} style={{ maxWidth: '100%', maxHeight: '80vh', display: 'block', margin: '0 auto' }} />
-              {photoModal.title && <div style={{ marginTop: 8, color: '#0f172a' }}>{photoModal.title}</div>}
+            <div className="text-center">
+              <img
+                src={photoModal.src}
+                alt={photoModal.title}
+                className="max-w-full max-h-[80vh] block mx-auto"
+              />
+              {photoModal.title && <div className="mt-2 text-slate-900">{photoModal.title}</div>}
             </div>
           </div>
         </div>

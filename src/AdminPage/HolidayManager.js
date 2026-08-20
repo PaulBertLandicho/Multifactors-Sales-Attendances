@@ -1,20 +1,15 @@
-// HolidayManager.js
-// Component for managing multiple holidays per month per department
-
 import React, { useEffect, useState } from "react";
 import Swal from "sweetalert2";
 import { FiCalendar, FiTrash2, FiClock, FiX } from "react-icons/fi";
 import Icon from "../components/Icon";
 import { supabase } from "../supabaseClient";
 
-// Global HolidayManager for all departments
 export default function HolidayManagerGlobal({
   regularRate = 100,
   specialRate = 30,
 }) {
   const [regularHolidays, setRegularHolidays] = useState([]);
   const [specialHolidays, setSpecialHolidays] = useState([]);
-  // Set default month to current month (YYYY-MM)
   const getDefaultMonth = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -23,7 +18,6 @@ export default function HolidayManagerGlobal({
   };
   const [month, setMonth] = useState(getDefaultMonth());
 
-  // Clear pending holidays when month changes
   useEffect(() => {
     setRegularHolidays([]);
     setSpecialHolidays([]);
@@ -34,7 +28,6 @@ export default function HolidayManagerGlobal({
     async function fetchAllHolidays() {
       if (!month) return;
       const [year, monthNum] = month.split("-");
-      // Fetch only global holidays (department is null) for this month
       const { data, error } = await supabase
         .from("holidays")
         .select("date, type, id")
@@ -47,7 +40,6 @@ export default function HolidayManagerGlobal({
     fetchAllHolidays();
   }, [month, saving]);
 
-  // Delete a saved holiday from DB
   const handleDeleteSavedHoliday = async (holiday) => {
     if (
       !window.confirm(
@@ -62,7 +54,7 @@ export default function HolidayManagerGlobal({
       .eq("date", holiday.date)
       .eq("type", holiday.type);
     if (error) Swal.fire("Error", error.message, "error");
-    setSaving((s) => !s); // trigger refresh
+    setSaving((s) => !s);
   };
 
   const addHoliday = (type) => {
@@ -127,61 +119,58 @@ export default function HolidayManagerGlobal({
   };
 
   return (
-    <div style={holidayStyles.container}>
-      <div style={holidayStyles.sectionHeader}>
-        <h2 style={holidayStyles.sectionTitle}>
-          Manage Holidays{" "}
-          <div style={holidayStyles.titleUnderline} />
-        </h2>
+    <div className="bg-slate-50 rounded-3xl p-6 sm:p-8 mx-auto max-w-[900px] shadow-[0_6px_24px_rgba(16,185,129,0.08)] border border-gray-200 font-sans text-gray-800">
+      {/* Header */}
+      <div className="text-center mb-6">
+        <h2 className="text-3xl font-bold text-gray-800 m-0 inline-block">Manage Holidays</h2>
+        <div className="h-1 w-24 bg-[#237227] mx-auto mt-2 rounded-sm" />
       </div>
 
       {/* Month Selector */}
-      <div style={holidayStyles.monthRow}>
-        <label style={holidayStyles.monthLabel}>
-          <span style={{ marginRight: 10, fontWeight: 500 }}>Month:</span>
+      <div className="flex justify-center items-center mb-6">
+        <label className="text-base text-gray-700 font-medium flex items-center">
+          <span className="mr-2.5 font-medium">Month:</span>
           <input
             type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            style={holidayStyles.monthInput}
+            className="ml-2 px-3.5 py-2 rounded-xl border border-gray-300 text-base bg-white text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all cursor-pointer"
           />
         </label>
       </div>
 
       {/* Saved Holidays Card */}
       {month && allHolidays.length > 0 && (
-        <div style={holidayStyles.card}>
-          <div style={holidayStyles.cardHeader}>
-            <span style={holidayStyles.cardIcon}>
+        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(16,185,129,0.07)] p-5 sm:px-6 mb-6 border border-gray-200">
+          <div className="flex items-center gap-2.5 mb-3">
+            <span className="text-2xl text-emerald-700">
               <Icon as={FiCalendar} size={22} ariaLabel="Holidays" />
             </span>
-            <span style={holidayStyles.cardTitle}>
+            <span className="font-semibold text-lg text-gray-800">
               All Global Holidays for {month} (Saved)
             </span>
           </div>
-          <ul style={holidayStyles.holidayList}>
+          <ul className="list-none p-0 m-0 space-y-2">
             {allHolidays.map((h, idx) => (
               <li
                 key={h.id || idx}
-                style={{
-                  ...holidayStyles.holidayListItem,
-                  color: h.type === "regular" ? "#237227" : "#f59e42",
-                }}
+                className={`flex items-center bg-gray-100 rounded-lg px-3.5 py-2 font-medium text-base shadow-sm ${
+                  h.type === "regular" ? "text-[#237227]" : "text-amber-600"
+                }`}
               >
-                <span style={holidayStyles.holidayDate}>{h.date}</span>
-                <span style={holidayStyles.holidayType}>
+                <span className="flex-1 font-semibold tracking-wide text-gray-800">{h.date}</span>
+                <span className="ml-3 text-[0.98rem] font-medium opacity-90">
                   {h.type === "regular" ? "Regular Holiday" : "Special Holiday"}
                 </span>
                 <button
                   onClick={() => handleDeleteSavedHoliday(h)}
-                  style={holidayStyles.deleteButton}
+                  className="ml-4 bg-rose-600 text-white border-none rounded-md px-2.5 py-1 cursor-pointer text-sm inline-flex items-center"
                   title="Delete holiday"
                 >
                   <Icon
                     as={FiTrash2}
                     ariaLabel="Delete holiday"
                     color="#ffffff"
-                    style={{ marginRight: 8 }}
                   />
                 </button>
               </li>
@@ -192,23 +181,23 @@ export default function HolidayManagerGlobal({
 
       {/* Pending Holidays Card */}
       {(regularHolidays.length > 0 || specialHolidays.length > 0) && (
-        <div style={holidayStyles.cardPending}>
-          <div style={holidayStyles.cardHeaderPending}>
-            <span style={holidayStyles.cardIconPending}>
+        <div className="bg-amber-50 rounded-2xl shadow-[0_1px_4px_rgba(251,191,36,0.08)] p-4 sm:px-5 mb-6 border border-amber-200">
+          <div className="flex items-center gap-2.5 mb-2.5">
+            <span className="text-xl text-amber-600">
               <Icon as={FiClock} size={20} ariaLabel="Pending" />
             </span>
-            <span style={holidayStyles.cardTitlePending}>
+            <span className="font-semibold text-[1.05rem] text-amber-800">
               Pending Holidays for {month} (To Save)
             </span>
           </div>
-          <ul style={holidayStyles.holidayListPending}>
+          <ul className="list-none p-0 m-0 space-y-1 text-sm">
             {regularHolidays.filter(Boolean).map((date, idx) => (
-              <li key={"reg-" + idx} style={{ color: "#237227" }}>
+              <li key={"reg-" + idx} className="text-[#237227] font-medium">
                 {date} (Regular Holiday)
               </li>
             ))}
             {specialHolidays.filter(Boolean).map((date, idx) => (
-              <li key={"spec-" + idx} style={{ color: "#f59e42" }}>
+              <li key={"spec-" + idx} className="text-amber-600 font-medium">
                 {date} (Special Holiday)
               </li>
             ))}
@@ -217,72 +206,72 @@ export default function HolidayManagerGlobal({
       )}
 
       {/* Add Holidays Cards */}
-      <div style={holidayStyles.cardsRow}>
+      <div className="flex gap-6 mb-8 flex-wrap justify-center">
         {/* Regular Holidays Card */}
-        <div style={holidayStyles.addCard}>
-          <div style={holidayStyles.addCardHeader}>
-            <span style={holidayStyles.addCardTitle}>
+        <div className="bg-white rounded-2xl shadow-[0_1px_4px_rgba(16,185,129,0.06)] p-5 min-w-[270px] flex-1 border border-gray-200 flex flex-col items-stretch">
+          <div className="flex items-center gap-2.5 mb-3">
+            <span className="font-semibold text-[1.08rem] text-gray-800">
               Regular Holidays{" "}
-              <span style={{ color: "#237227", fontWeight: 600 }}>
+              <span className="text-[#237227] font-semibold">
                 ({regularRate}%)
               </span>
             </span>
           </div>
           {regularHolidays.map((date, idx) => (
-            <div key={idx} style={holidayStyles.addHolidayRow}>
+            <div key={idx} className="flex items-center mb-2">
               <input
                 type="date"
                 value={date}
                 onChange={(e) => updateHoliday("regular", idx, e.target.value)}
-                style={holidayStyles.addHolidayInput}
+                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-base bg-gray-50 text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
               />
               <button
                 onClick={() => removeHoliday("regular", idx)}
-                style={holidayStyles.removeButton}
+                className="ml-2 bg-rose-600 text-white border-none rounded-md px-2.5 py-2 cursor-pointer"
                 title="Remove date"
               >
-                <Icon as={FiX} ariaLabel="Remove date" />
+                <Icon as={FiX} ariaLabel="Remove date" color="#ffffff" />
               </button>
             </div>
           ))}
           <button
             onClick={() => addHoliday("regular")}
-            style={holidayStyles.addButton}
+            className="mt-2 bg-[#237227] text-white border-none rounded-lg py-2 font-semibold text-base cursor-pointer"
           >
             + Add Regular Holiday
           </button>
         </div>
 
         {/* Special Holidays Card */}
-        <div style={holidayStyles.addCard}>
-          <div style={holidayStyles.addCardHeader}>
-            <span style={holidayStyles.addCardTitle}>
+        <div className="bg-white rounded-2xl shadow-[0_1px_4px_rgba(16,185,129,0.06)] p-5 min-w-[270px] flex-1 border border-gray-200 flex flex-col items-stretch">
+          <div className="flex items-center gap-2.5 mb-3">
+            <span className="font-semibold text-[1.08rem] text-gray-800">
               Special Holidays{" "}
-              <span style={{ color: "#f59e42", fontWeight: 600 }}>
+              <span className="text-amber-500 font-semibold">
                 ({specialRate}%)
               </span>
             </span>
           </div>
           {specialHolidays.map((date, idx) => (
-            <div key={idx} style={holidayStyles.addHolidayRow}>
+            <div key={idx} className="flex items-center mb-2">
               <input
                 type="date"
                 value={date}
                 onChange={(e) => updateHoliday("special", idx, e.target.value)}
-                style={holidayStyles.addHolidayInput}
+                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-base bg-gray-50 text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
               />
               <button
                 onClick={() => removeHoliday("special", idx)}
-                style={holidayStyles.removeButton}
+                className="ml-2 bg-rose-600 text-white border-none rounded-md px-2.5 py-2 cursor-pointer"
                 title="Remove date"
               >
-                <Icon as={FiX} ariaLabel="Remove date" />
+                <Icon as={FiX} ariaLabel="Remove date" color="#ffffff" />
               </button>
             </div>
           ))}
           <button
             onClick={() => addHoliday("special")}
-            style={holidayStyles.addButton}
+            className="mt-2 bg-[#237227] text-white border-none rounded-lg py-2 font-semibold text-base cursor-pointer"
           >
             + Add Special Holiday
           </button>
@@ -290,11 +279,11 @@ export default function HolidayManagerGlobal({
       </div>
 
       {/* Save Button */}
-      <div style={holidayStyles.saveRow}>
+      <div className="flex justify-center mt-4">
         <button
           onClick={handleSave}
-          style={holidayStyles.saveButton}
           disabled={saving}
+          className="bg-[#237227] text-white border-none rounded-lg px-9 py-3 font-bold text-base cursor-pointer shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {saving ? "Saving..." : "Save Holidays"}
         </button>
@@ -302,231 +291,3 @@ export default function HolidayManagerGlobal({
     </div>
   );
 }
-
-// --- Styles for enhanced UI ---
-const holidayStyles = {
-  container: {
-    background: "#f8fafc",
-    borderRadius: "24px",
-    padding: "32px 24px",
-    margin: "0 auto",
-    maxWidth: "900px",
-    boxShadow: "0 6px 24px rgba(16,185,129,0.08)",
-    border: "1px solid #e5e7eb",
-  },
-  sectionHeader: {
-    textAlign: "center",
-    marginBottom: "24px",
-  },
-  sectionTitle: {
-    fontSize: "2rem",
-    fontWeight: 700,
-    color: "#1f2937",
-    margin: 0,
-  },
-  monthRow: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  monthLabel: {
-    fontSize: "1.1rem",
-    color: "#374151",
-    fontWeight: 500,
-    display: "flex",
-    alignItems: "center",
-  },
-  monthInput: {
-    marginLeft: 8,
-    padding: "8px 14px",
-    borderRadius: "10px",
-    border: "1px solid #d1d5db",
-    fontSize: "1rem",
-    background: "#fff",
-    color: "#1f2937",
-    outline: "none",
-    transition: "border-color 0.2s",
-  },
-  card: {
-    background: "#fff",
-    borderRadius: "18px",
-    boxShadow: "0 2px 8px rgba(16,185,129,0.07)",
-    padding: "20px 24px",
-    marginBottom: 24,
-    border: "1px solid #e5e7eb",
-  },
-  cardHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    marginBottom: 12,
-  },
-  cardIcon: {
-    fontSize: "1.5rem",
-  },
-  cardTitle: {
-    fontWeight: 600,
-    fontSize: "1.15rem",
-    color: "#1f2937",
-  },
-  holidayList: {
-    listStyle: "none",
-    padding: 0,
-    margin: 0,
-  },
-  holidayListItem: {
-    display: "flex",
-    alignItems: "center",
-    background: "#f3f4f6",
-    borderRadius: "8px",
-    padding: "8px 14px",
-    marginBottom: 8,
-    fontWeight: 500,
-    fontSize: "1rem",
-    boxShadow: "0 1px 2px rgba(16,185,129,0.04)",
-  },
-  holidayDate: {
-    flex: 1,
-    fontWeight: 600,
-    letterSpacing: "0.5px",
-  },
-  holidayType: {
-    marginLeft: 12,
-    fontSize: "0.98rem",
-    fontWeight: 500,
-    opacity: 0.85,
-  },
-  deleteButton: {
-    marginLeft: 16,
-    background: "#e11d48",
-    color: "#fff",
-    border: "none",
-    borderRadius: "6px",
-    padding: "4px 10px",
-    cursor: "pointer",
-    fontSize: "1.1rem",
-    transition: "background 0.2s",
-  },
-  cardPending: {
-    background: "#fef9c3",
-    borderRadius: "14px",
-    boxShadow: "0 1px 4px rgba(251,191,36,0.08)",
-    padding: "16px 20px",
-    marginBottom: 24,
-    border: "1px solid #fde68a",
-  },
-  cardHeaderPending: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    marginBottom: 10,
-  },
-  cardIconPending: {
-    fontSize: "1.3rem",
-  },
-  cardTitlePending: {
-    fontWeight: 600,
-    fontSize: "1.05rem",
-    color: "#b45309",
-  },
-  holidayListPending: {
-    listStyle: "none",
-    padding: 0,
-    margin: 0,
-  },
-   titleUnderline: {
-    height: "4px",
-    width: "100px",
-    background: "#237227", // solid green
-    margin: "8px auto 0",
-    borderRadius: "2px",
-  },
-  cardsRow: {
-    display: "flex",
-    gap: "24px",
-    marginBottom: 32,
-    flexWrap: "wrap",
-    justifyContent: "center",
-  },
-  addCard: {
-    background: "#fff",
-    borderRadius: "14px",
-    boxShadow: "0 1px 4px rgba(16,185,129,0.06)",
-    padding: "18px 20px",
-    minWidth: "270px",
-    flex: "1 1 270px",
-    border: "1px solid #e5e7eb",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "stretch",
-  },
-  addCardHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "10px",
-    marginBottom: 10,
-  },
-  addCardTitle: {
-    fontWeight: 600,
-    fontSize: "1.08rem",
-    color: "#1f2937",
-  },
-  addHolidayRow: {
-    display: "flex",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  addHolidayInput: {
-    flex: 1,
-    padding: "8px 12px",
-    borderRadius: "8px",
-    border: "1px solid #d1d5db",
-    fontSize: "1rem",
-    background: "#f9fafb",
-    color: "#1f2937",
-    outline: "none",
-    transition: "border-color 0.2s",
-  },
-  removeButton: {
-    marginLeft: 8,
-    background: "#e11d48",
-    color: "#fff",
-    border: "none",
-    borderRadius: "6px",
-    padding: "4px 10px",
-    cursor: "pointer",
-    fontSize: "1.1rem",
-    transition: "background 0.2s",
-  },
-  addButton: {
-    marginTop: 8,
-    background: "#237227",
-    color: "#fff",
-    border: "none",
-    borderRadius: "8px",
-    padding: "8px 0",
-    fontWeight: 600,
-    fontSize: "1rem",
-    cursor: "pointer",
-    transition: "background 0.2s",
-  },
-  saveRow: {
-    display: "flex",
-    justifyContent: "center",
-    marginTop: 16,
-  },
-  saveButton: {
-    background: "#237227",
-    color: "#fff",
-    border: "none",
-    borderRadius: "20px",
-    padding: "12px 36px",
-    fontWeight: 700,
-    fontSize: "1.1rem",
-    cursor: "pointer",
-    boxShadow: "0 2px 8px rgba(16,185,129,0.10)",
-    transition: "background 0.2s",
-    opacity: 1,
-  },
-};

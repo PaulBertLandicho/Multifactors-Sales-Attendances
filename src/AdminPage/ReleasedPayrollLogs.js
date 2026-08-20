@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import { supabase } from "../supabaseClient";
-import { FiSearch, FiEye, FiDownload } from "react-icons/fi";
+import { FiDownload } from "react-icons/fi";
+
 export default function ReleasedPayrollLogs() {
   const [logs, setLogs] = useState([]);
   const [page, setPage] = useState(0);
@@ -11,11 +12,7 @@ export default function ReleasedPayrollLogs() {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState("timestamp");
   const [sortOrder, setSortOrder] = useState("desc");
-  const Icons = {
-    search: <FiSearch />,
-    download: <FiDownload color="#ffffff" style={{ marginRight: 8 }} />,
-    eye: <FiEye />,
-  };
+
   useEffect(() => {
     let mounted = true;
     async function fetchLogsPage(p = 0) {
@@ -46,7 +43,6 @@ export default function ReleasedPayrollLogs() {
     }
     fetchLogsPage(0);
 
-    // realtime subscription to new logs — prepend to current list
     const sub = supabase
       .channel("public:payroll_activity_logs")
       .on(
@@ -56,7 +52,6 @@ export default function ReleasedPayrollLogs() {
           try {
             const newRow = payload.new;
             setLogs((prev) => {
-              // avoid duplicate if already loaded
               if (!prev || !prev.length) return [newRow];
               if (prev.some((r) => r.id === newRow.id)) return prev;
               return [newRow, ...prev];
@@ -71,13 +66,10 @@ export default function ReleasedPayrollLogs() {
       mounted = false;
       try {
         supabase.removeChannel(sub);
-      } catch (e) {
-        /* older clients */
-      }
+      } catch (e) {}
     };
   }, [pageSize]);
 
-  // Filter and sorting
   const filteredLogs = logs.filter((log) => {
     const searchLower = search.toLowerCase();
     return (
@@ -108,7 +100,6 @@ export default function ReleasedPayrollLogs() {
     return 0;
   });
 
-  // Sorting handler
   const handleSort = (key) => {
     if (sortKey === key) {
       setSortOrder(sortOrder === "asc" ? "desc" : "asc");
@@ -118,7 +109,6 @@ export default function ReleasedPayrollLogs() {
     }
   };
 
-  // Export to Excel
   const handleExportExcel = () => {
     if (!Array.isArray(sortedLogs)) return;
     const exportData = sortedLogs.map((row) => ({
@@ -135,66 +125,61 @@ export default function ReleasedPayrollLogs() {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Payroll Released Activity Logs</h1>
-        <div style={styles.titleUnderline} />
+    <div className="max-w-[1600px] mx-auto my-10 px-8 py-10 bg-white rounded-[32px] shadow-[0_10px_30px_rgba(0,0,0,0.1)] text-gray-800 font-sans">
+      {/* Header */}
+      <div className="text-center mb-10">
+        <h1 className="text-[2.8rem] font-bold text-gray-800 m-0 inline-block">Payroll Released Activity Logs</h1>
+        <div className="h-1 w-24 bg-[#237227] mx-auto mt-2 rounded-sm" />
       </div>
-      {/* Filter Bar - match PersonsTable */}
-      <div style={styles.filterBar}>
-        <div
-          style={{
-            display: "flex",
-            gap: "12px",
-            alignItems: "center",
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={styles.searchWrapper}>
+
+      {/* Filter Bar */}
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-6 p-5 sm:px-6 bg-gray-50 rounded-[20px] border border-gray-200 shadow-md">
+        <div className="flex gap-3 items-center flex-wrap">
+          <div className="relative">
             <input
               type="text"
               placeholder="Search name or ID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={styles.searchInput}
+              className="pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none min-w-[250px] transition-all"
+              style={{
+                backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "16px center",
+                backgroundSize: "16px",
+              }}
             />
           </div>
         </div>
         <button
           onClick={handleExportExcel}
-          style={{ ...styles.button, ...styles.buttonPrimary }}
+          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
         >
-          {Icons.download} Export Excel
+          <FiDownload color="#ffffff" className="mr-1 inline" /> Export Excel
         </button>
       </div>
-      <div style={styles.tableContainer}>
-        <div style={styles.tableWrapper}>
-          <table style={styles.table}>
+
+      {/* Table Container */}
+      <div className="rounded-xl overflow-hidden border border-gray-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
+        <div className="overflow-x-auto max-h-[600px]">
+          <table className="w-full border-collapse text-[0.95rem] min-w-[1200px]">
             <thead>
               <tr>
-                <th style={styles.th} onClick={() => handleSort("timestamp")}>
+                <th className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-semibold px-3 py-4 text-left border-b-2 border-gray-200 tracking-wider uppercase text-[0.8rem] cursor-pointer" onClick={() => handleSort("timestamp")}>
                   Timestamp{" "}
                   {sortKey === "timestamp" && (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                {/* <th
-                  style={styles.th}
-                  onClick={() => handleSort("payroll_period_id")}
-                >
-                  Payroll Period ID{" "}
-                  {sortKey === "payroll_period_id" &&
-                    (sortOrder === "asc" ? "▲" : "▼")}
-                </th> */}
-                <th style={styles.th} onClick={() => handleSort("person_name")}>
+                <th className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-semibold px-3 py-4 text-left border-b-2 border-gray-200 tracking-wider uppercase text-[0.8rem] cursor-pointer" onClick={() => handleSort("person_name")}>
                   Person Name{" "}
                   {sortKey === "person_name" &&
                     (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th style={styles.th} onClick={() => handleSort("released_by")}>
+                <th className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-semibold px-3 py-4 text-left border-b-2 border-gray-200 tracking-wider uppercase text-[0.8rem] cursor-pointer" onClick={() => handleSort("released_by")}>
                   Released By{" "}
                   {sortKey === "released_by" &&
                     (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
-                <th style={styles.th} onClick={() => handleSort("action")}>
+                <th className="sticky top-0 z-10 bg-gray-50 text-gray-500 font-semibold px-3 py-4 text-left border-b-2 border-gray-200 tracking-wider uppercase text-[0.8rem] cursor-pointer" onClick={() => handleSort("action")}>
                   Action{" "}
                   {sortKey === "action" && (sortOrder === "asc" ? "▲" : "▼")}
                 </th>
@@ -203,7 +188,7 @@ export default function ReleasedPayrollLogs() {
             <tbody>
               {sortedLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={styles.emptyState}>
+                  <td colSpan={5} className="text-center py-16 px-5 text-gray-500 text-[1.1rem]">
                     No activity logs found.
                   </td>
                 </tr>
@@ -211,25 +196,21 @@ export default function ReleasedPayrollLogs() {
                 sortedLogs.map((log, idx) => (
                   <tr
                     key={log.id}
-                    style={{
-                      ...styles.tr,
-                      backgroundColor: idx % 2 === 0 ? "#f9fafb" : "#fff",
-                    }}
+                    className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
                   >
-                    <td style={styles.td}>
+                    <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">
                       {new Date(log.timestamp).toLocaleString()}
                     </td>
-                    {/* <td style={styles.td}>{log.payroll_period_id}</td> */}
-                    <td style={styles.td}>{log.person_name}</td>
-                    <td style={styles.td}>{log.released_by}</td>
-                    <td style={styles.td}>{log.action}</td>
+                    <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">{log.person_name}</td>
+                    <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800">{log.released_by}</td>
+                    <td className="p-3.5 px-3 border-b border-gray-200 text-gray-800 font-medium text-[#237227]">{log.action}</td>
                   </tr>
                 ))
               )}
             </tbody>
           </table>
         </div>
-        <div style={{ padding: 12, textAlign: "center" }}>
+        <div className="p-3 text-center">
           {hasMore ? (
             <button
               onClick={async () => {
@@ -256,221 +237,15 @@ export default function ReleasedPayrollLogs() {
                   setLoadingPage(false);
                 }
               }}
-              style={{
-                marginTop: 8,
-                padding: "8px 14px",
-                borderRadius: 8,
-                background: "#fff",
-                border: "1px solid #e5e7eb",
-                cursor: "pointer",
-              }}
+              className="mt-2 px-3.5 py-2 rounded-lg bg-white border border-gray-200 text-gray-700 cursor-pointer hover:bg-gray-50 transition-colors shadow-sm"
             >
               {loadingPage ? "Loading..." : "Load more"}
             </button>
           ) : (
-            <div style={{ color: "#6b7280", fontSize: 13 }}>No more logs</div>
+            <div className="text-gray-500 text-xs">No more logs</div>
           )}
         </div>
       </div>
     </div>
   );
 }
-// Light theme styles with green accent
-const styles = {
-  container: {
-    maxWidth: "1600px",
-    margin: "40px auto",
-    padding: "40px 32px",
-    background: "#ffffff",
-    borderRadius: "32px",
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.1)",
-    color: "#1f2937",
-    fontFamily:
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-  },
-  header: {
-    textAlign: "center",
-    marginBottom: "40px",
-  },
-  title: {
-    fontSize: "2.8rem",
-    fontWeight: 700,
-    color: "#1f2937",
-    margin: 0,
-    display: "inline-block",
-  },
-  titleUnderline: {
-    height: "4px",
-    width: "100px",
-    background: "#237227",
-    margin: "8px auto 0",
-    borderRadius: "2px",
-  },
-  filterBar: {
-    display: "flex",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: "16px",
-    marginBottom: "24px",
-    padding: "20px 24px",
-    backgroundColor: "#f9fafb",
-    borderRadius: "20px",
-    border: "1px solid #e5e7eb",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-  },
-  filterGroup: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: "12px",
-    alignItems: "center",
-  },
-  searchWrapper: {
-    position: "relative",
-  },
-  searchInput: {
-    padding: "12px 16px 12px 40px",
-    fontSize: "0.95rem",
-    borderRadius: "40px",
-    border: "1px solid #d1d5db",
-    backgroundColor: "#ffffff",
-    color: "#1f2937",
-    outline: "none",
-    transition: "all 0.2s",
-    backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
-    backgroundRepeat: "no-repeat",
-    backgroundPosition: "16px center",
-    backgroundSize: "16px",
-    minWidth: "250px",
-  },
-  select: {
-    padding: "12px 20px",
-    fontSize: "0.95rem",
-    borderRadius: "40px",
-    border: "1px solid #d1d5db",
-    backgroundColor: "#ffffff",
-    color: "#1f2937",
-    outline: "none",
-    cursor: "pointer",
-    minWidth: "160px",
-  },
-  button: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "8px",
-    padding: "12px 28px",
-    borderRadius: "40px",
-    fontSize: "1rem",
-    fontWeight: 500,
-    border: "none",
-    cursor: "pointer",
-    transition: "all 0.2s",
-    boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)",
-  },
-  buttonPrimary: {
-    background: "#237227",
-    color: "#ffffff",
-  },
-
-  searchIcon: {
-    position: "absolute",
-    left: "12px",
-    top: "50%",
-    transform: "translateY(-50%)",
-    fontSize: "1rem",
-    color: "#6b7280",
-  },
-
-  viewButton: {
-    padding: "6px 12px",
-    borderRadius: "30px",
-    border: "none",
-    fontSize: "0.85rem",
-    fontWeight: 500,
-    cursor: "pointer",
-    transition: "all 0.2s",
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "4px",
-    backgroundColor: "#e5e7eb",
-    color: "#1f2937",
-  },
-  tableContainer: {
-    borderRadius: "20px",
-    overflow: "hidden",
-    border: "1px solid #e5e7eb",
-    backgroundColor: "#ffffff",
-    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
-  },
-  tableWrapper: {
-    overflowX: "auto",
-    maxHeight: "600px",
-  },
-  table: {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: "0.95rem",
-    minWidth: "1200px",
-  },
-  th: {
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
-    backgroundColor: "#f9fafb",
-    color: "#4b5563",
-    fontWeight: 600,
-    padding: "16px 12px",
-    textAlign: "left",
-    borderBottom: "2px solid #e5e7eb",
-    letterSpacing: "0.03em",
-    textTransform: "uppercase",
-    fontSize: "0.8rem",
-  },
-  td: {
-    padding: "14px 12px",
-    borderBottom: "1px solid #e5e7eb",
-    color: "#1f2937",
-  },
-  tr: {
-    transition: "background 0.2s",
-  },
-  emptyState: {
-    textAlign: "center",
-    padding: "60px 20px",
-    color: "#6b7280",
-    fontSize: "1.1rem",
-  },
-  spinnerContainer: {
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    minHeight: "300px",
-    background: "#ffffff",
-  },
-  spinner: {
-    width: "50px",
-    height: "50px",
-    border: "4px solid #e5e7eb",
-    borderTop: "4px solid #237227",
-    borderRadius: "50%",
-    animation: "spin 1s linear infinite",
-  },
-};
-
-// Add global keyframes and focus styles
-const styleSheet = document.createElement("style");
-styleSheet.textContent = `
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  input:focus, select:focus {
-    border-color: #237227 !important;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2) !important;
-  }
-  button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-  }
-`;
-document.head.appendChild(styleSheet);

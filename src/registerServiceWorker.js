@@ -3,6 +3,7 @@ export default function registerServiceWorker() {
   const swUrl = '/service-worker.js';
   navigator.serviceWorker.register(swUrl).then((reg) => {
     console.log('Service worker registered:', reg);
+    try { reg.update(); } catch (e) {}
     // Listen for messages from SW
     navigator.serviceWorker.addEventListener('message', (ev) => {
       try {
