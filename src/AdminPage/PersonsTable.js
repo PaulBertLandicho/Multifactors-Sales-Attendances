@@ -1287,7 +1287,7 @@ export default function PersonsTable() {
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, name: e.target.value })
                     }
-                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border focus:border-[#237227]"
                   />
                 </div>
                 <div className="mb-4.5 block">
@@ -1299,7 +1299,7 @@ export default function PersonsTable() {
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, department: e.target.value })
                     }
-                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none cursor-pointer focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none cursor-pointer focus:border-[#237227]"
                   >
                     <option value="">(Select department)</option>
                     {departments && departments.length
@@ -1332,7 +1332,7 @@ export default function PersonsTable() {
                         phone_number: e.target.value,
                       })
                     }
-                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border focus:border-[#237227]"
                   />
                 </div>
                 <div className="mb-4.5 block">
@@ -1344,7 +1344,7 @@ export default function PersonsTable() {
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, email: e.target.value })
                     }
-                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border focus:border-[#237227]"
                   />
                 </div>
 
@@ -1357,7 +1357,7 @@ export default function PersonsTable() {
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, address: e.target.value })
                     }
-                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border focus:border-[#237227]"
                   />
                 </div>
                 <div className="mb-4.5 block">
@@ -1369,7 +1369,7 @@ export default function PersonsTable() {
                     onChange={(e) =>
                       setEditPerson({ ...editPerson, sex: e.target.value })
                     }
-                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none cursor-pointer focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+                    className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none cursor-pointer focus:border-[#237227]"
                   >
                     <option value="">Select sex</option>
                     <option value="Male">Male</option>
@@ -1392,7 +1392,7 @@ export default function PersonsTable() {
                         onChange={(e) =>
                           setEditPerson({ ...editPerson, sss: e.target.value })
                         }
-                        className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+                        className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border focus:border-[#237227]"
                       />
                     </div>
 
@@ -1407,7 +1407,7 @@ export default function PersonsTable() {
                         onChange={(e) =>
                           setEditPerson({ ...editPerson, pag_ibig: e.target.value })
                         }
-                        className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+                        className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border focus:border-[#237227]"
                       />
                     </div>
 
@@ -1422,7 +1422,7 @@ export default function PersonsTable() {
                         onChange={(e) =>
                           setEditPerson({ ...editPerson, philhealth: e.target.value })
                         }
-                        className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+                        className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border focus:border-[#237227]"
                       />
                     </div>
                   </div>
@@ -1438,7 +1438,7 @@ export default function PersonsTable() {
                       placeholder="Amount"
                       value={newCashAmount}
                       onChange={(e) => setNewCashAmount(e.target.value)}
-                      className="max-w-[160px] px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+                      className="max-w-[160px] px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border focus:border-[#237227]"
                     />
                     <input
                       id="cash-advance-note"
@@ -1446,7 +1446,7 @@ export default function PersonsTable() {
                       placeholder="Note (optional)"
                       value={newCashNote}
                       onChange={(e) => setNewCashNote(e.target.value)}
-                      className="flex-1 px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+                      className="flex-1 px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border focus:border-[#237227]"
                     />
                     <button
                       type="button"
@@ -1536,14 +1536,14 @@ export default function PersonsTable() {
               </div>
               <div>
                 <label htmlFor="admin-attendance-event" className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Event</label>
-                <select id="admin-attendance-event" name="admin-attendance-event" value={adminModal.event} onChange={(e) => setAdminModal((s) => ({ ...s, event: e.target.value }))} className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none cursor-pointer focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]">
+                <select id="admin-attendance-event" name="admin-attendance-event" value={adminModal.event} onChange={(e) => setAdminModal((s) => ({ ...s, event: e.target.value }))} className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none cursor-pointer focus:border-[#237227]">
                   <option value="time-in">Time In</option>
                   <option value="time-out">Time Out</option>
                 </select>
               </div>
               <div>
                 <label htmlFor="admin-attendance-datetime" className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Date & time</label>
-                <input id="admin-attendance-datetime" name="admin-attendance-datetime" type="datetime-local" value={adminModal.datetime} onChange={(e) => setAdminModal((s) => ({ ...s, datetime: e.target.value }))} className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)] focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]" />
+                <input id="admin-attendance-datetime" name="admin-attendance-datetime" type="datetime-local" value={adminModal.datetime} onChange={(e) => setAdminModal((s) => ({ ...s, datetime: e.target.value }))} className="w-full px-3.5 py-3 text-base rounded-xl border border-[#e6eef6] bg-white text-slate-900 outline-none transition-all box-border focus:border-[#237227]" />
               </div>
               <div>
                 <label className="block text-[0.85rem] font-semibold text-gray-700 mb-2">Location</label>

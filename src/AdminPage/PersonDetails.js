@@ -641,7 +641,7 @@ export default function PersonDetails({
               name="name"
               value={form.name}
               onChange={onChange}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227]"
             />
           </div>
 
@@ -654,7 +654,7 @@ export default function PersonDetails({
               name="phone_number"
               value={form.phone_number}
               onChange={onChange}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227]"
             />
           </div>
 
@@ -668,7 +668,7 @@ export default function PersonDetails({
               type="email"
               value={form.email}
               onChange={onChange}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227]"
             />
           </div>
 
@@ -681,7 +681,7 @@ export default function PersonDetails({
               name="address"
               value={form.address}
               onChange={onChange}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227]"
             />
           </div>
 
@@ -694,7 +694,7 @@ export default function PersonDetails({
               name="sex"
               value={form.sex}
               onChange={onChange}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer focus:border-[#237227]"
             >
               <option value="">Select sex</option>
               <option value="Male">Male</option>
@@ -711,7 +711,7 @@ export default function PersonDetails({
             <select
               value={customDepartment ? "" : form.department}
               onChange={handleDepartmentChange}
-              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+              className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none cursor-pointer focus:border-[#237227]"
             >
               <option value="">Select department</option>
               {departmentList.map((dept) => (
@@ -727,7 +727,7 @@ export default function PersonDetails({
                   placeholder="Enter department"
                   value={customDeptValue}
                   onChange={handleCustomDeptChange}
-                  className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)]"
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-gray-300 bg-white text-gray-800 outline-none transition-all focus:border-[#237227]"
                 />
               </div>
             )}

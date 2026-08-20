@@ -140,7 +140,7 @@ export default function AdminSidebar({ onLogout }) {
         {/* Logout */}
         <button
           onClick={onLogout}
-          className="flex items-center justify-center gap-3 bg-[#666666] text-white border-none rounded-[14px] mx-4 mb-16 py-4 text-[1.1rem] font-semibold cursor-pointer transition-all duration-200 hover:bg-[#df4343] hover:-translate-y-0.5 hover:shadow-[0_8px_20px_rgba(220,38,38,0.3)]"
+          className="flex items-center justify-center gap-3 bg-[#666666] text-white border-none rounded-[14px] mx-4 mb-16 py-4 text-[1.1rem] font-semibold cursor-pointer transition-all duration-200 hover:bg-[#df4343]  hover:shadow-lg"
         >
           <FiLogOut className="text-[1.4rem]" />
           <span>Logout</span>

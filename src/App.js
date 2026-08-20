@@ -20,12 +20,13 @@ import ReleasedHistoryPayroll from "./AdminPage/ReleasedHistoryPayroll";
 import ReleasedPayrollLogs from "./AdminPage/ReleasedPayrollLogs";
 import AdminSettings from "./AdminPage/AdminSettings";
 import AttendanceTable from "./AdminPage/AttendanceTable";
-import AdminSidebar from "./AdminPage/AdminSidebar";
+import AdminSidebar from "./components/AdminSidebar";
 import DepartmentRates from "./AdminPage/DepartmentRates";
 import PersonsTable from "./AdminPage/PersonsTable";
 import StaffLoginModal from "./AdminPage/StaffLoginModal";
 import {
   ADMIN_ROLE,
+  SECRETARY_ROLE,
   STAFF_ROLES,
   getLoginRedirectPath,
   getSessionRole,
@@ -86,8 +87,8 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   // const isAdminPath = location.pathname.startsWith("/admin");
-  const isCameraPath = location.pathname === "/" || location.pathname === "";
-  const isAdminLoginPath = location.pathname === "/admin";
+  const isCameraPath = location.pathname === "/camera" || location.pathname === "/attendance-camera";
+  const isAdminLoginPath = location.pathname === "/" || location.pathname === "/admin";
   const currentRole = getSessionRole(session);
   const hasStaffAccess = hasAllowedRole(session, STAFF_ROLES);
 
@@ -115,14 +116,14 @@ function App() {
       }
     }
     localStorage.removeItem("sb-session");
-    window.location.href = "/admin";
+    window.location.href = "/";
   };
 
   const ProtectedRoute = ({ allowedRoles = STAFF_ROLES, children }) =>
     hasAllowedRole(session, allowedRoles) ? (
       children
     ) : (
-      <Navigate to="/admin" replace />
+      <Navigate to="/" replace />
     );
 
   useEffect(() => {
@@ -180,7 +181,7 @@ function App() {
               {isAdminLoginPath ? (
                 <button
                   type="button"
-                  onClick={() => navigate("/")}
+                  onClick={() => navigate("/camera")}
                   className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer transition-colors"
                 >
                   <FiCamera className="align-middle" />
@@ -190,7 +191,7 @@ function App() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => navigate("/admin")}
+                    onClick={() => navigate("/")}
                     className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer transition-colors"
                   >
                     <FiLogIn className="align-middle" />
@@ -205,9 +206,37 @@ function App() {
 
 
         <Routes>
-          {/* Camera / Home route */}
+          {/* Default / Admin Login route */}
           <Route
             path="/"
+            element={
+              currentRole === ADMIN_ROLE ? (
+                <Navigate to={getLoginRedirectPath(session)} />
+              ) : currentRole === SECRETARY_ROLE ? (
+                <Navigate to="/camera" />
+              ) : (
+                <AdminLogin />
+              )
+            }
+          />
+
+          {/* Admin Login alias */}
+          <Route
+            path="/admin"
+            element={
+              currentRole === ADMIN_ROLE ? (
+                <Navigate to={getLoginRedirectPath(session)} />
+              ) : currentRole === SECRETARY_ROLE ? (
+                <Navigate to="/camera" />
+              ) : (
+                <AdminLogin />
+              )
+            }
+          />
+
+          {/* Camera / Home route */}
+          <Route
+            path="/camera"
             element={
               <div className="max-w-[900px] mx-auto">
                 {hasStaffAccess ? (
@@ -283,45 +312,6 @@ function App() {
                   </div>
                 )}
               </div>
-            }
-          />
-
-          {/* Staff Login route */}
-          <Route
-            path="/staff-login"
-            element={
-              <div className="max-w-[900px] mx-auto">
-                <div className="mt-6 px-7 py-10 rounded-3xl bg-gradient-to-b from-[#0f172a] to-[#111827] text-[#e5e7eb] text-center border border-white/[0.08] shadow-sm">
-                  <div className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-[rgba(35,114,39,0.16)] text-[#86efac] text-xs font-bold tracking-wide uppercase mb-3.5">
-                    Staff login
-                  </div>
-                  <h2 className="m-0 text-[26px] leading-snug text-white">
-                    Open the secretary account
-                  </h2>
-                  <p className="max-w-[560px] mx-auto mt-3.5 mb-6 text-[15px] leading-relaxed text-slate-300">
-                    Use the popup login to sign in with the staff email and password.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowStaffLogin(true)}
-                    className="px-5 py-3 rounded-lg border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer shadow-sm transition-colors"
-                  >
-                    Open Staff Login
-                  </button>
-                </div>
-              </div>
-            }
-          />
-
-          {/* Admin Login */}
-          <Route
-            path="/admin"
-            element={
-              currentRole === ADMIN_ROLE ? (
-                <Navigate to={getLoginRedirectPath(session)} />
-              ) : (
-                <AdminLogin />
-              )
             }
           />
 

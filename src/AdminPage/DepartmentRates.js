@@ -276,7 +276,7 @@ export default function DepartmentRates() {
                 name={`department-name-${row.department || idx}`}
                 value={row.department}
                 onChange={(e) => handleChange(idx, "department", e.target.value)}
-                className="text-xl font-semibold text-gray-800 border border-gray-300 rounded-lg px-2.5 py-1 flex-1 min-w-[100px] outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                className="text-xl font-semibold text-gray-800 border border-gray-300 rounded-lg px-2.5 py-1 flex-1 min-w-[100px] outline-none focus:border-[#237227] transition-all"
               />
               <button
                 onClick={() => handleSave(idx)}
@@ -373,7 +373,7 @@ export default function DepartmentRates() {
                     min="0"
                     value={row.daily_rate || 0}
                     onChange={(e) => handleChange(idx, "daily_rate", e.target.value)}
-                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] transition-all"
                   />
                 </div>
 
@@ -392,7 +392,7 @@ export default function DepartmentRates() {
                     min="0"
                     value={row.late_penalty || 0}
                     onChange={(e) => handleChange(idx, "late_penalty", e.target.value)}
-                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] transition-all"
                   />
                 </div>
               </div>
@@ -414,7 +414,7 @@ export default function DepartmentRates() {
                     min="0"
                     value={row.regular_holiday_rate || 100}
                     onChange={(e) => handleChange(idx, "regular_holiday_rate", e.target.value)}
-                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] transition-all"
                   />
                 </div>
 
@@ -433,7 +433,7 @@ export default function DepartmentRates() {
                     min="0"
                     value={row.special_holiday_rate || 30}
                     onChange={(e) => handleChange(idx, "special_holiday_rate", e.target.value)}
-                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] transition-all"
                   />
                 </div>
               </div>
@@ -464,7 +464,7 @@ export default function DepartmentRates() {
                     min="0"
                     value={row.sss || 0}
                     onChange={(e) => handleChange(idx, "sss", e.target.value)}
-                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] transition-all"
                   />
                 </div>
 
@@ -484,7 +484,7 @@ export default function DepartmentRates() {
                     min="0"
                     value={row.pag_ibig || 0}
                     onChange={(e) => handleChange(idx, "pag_ibig", e.target.value)}
-                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] transition-all"
                   />
                 </div>
 
@@ -504,7 +504,7 @@ export default function DepartmentRates() {
                     min="0"
                     value={row.philhealth || 0}
                     onChange={(e) => handleChange(idx, "philhealth", e.target.value)}
-                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                    className="px-3 py-2.5 text-base rounded-xl border border-gray-300 bg-white text-gray-800 outline-none w-full box-border focus:border-[#237227] transition-all"
                   />
                 </div>
               </div>

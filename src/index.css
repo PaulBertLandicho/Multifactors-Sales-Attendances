@@ -18,7 +18,10 @@ code {
 
 input:focus,
 input:focus-visible,
-input:focus-within {
+input:focus-within,
+select:focus,
+select:focus-visible,
+select:focus-within {
   outline: none !important;
   box-shadow: none !important;
 }

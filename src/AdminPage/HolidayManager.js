@@ -134,7 +134,7 @@ export default function HolidayManagerGlobal({
             type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="ml-2 px-3.5 py-2 rounded-xl border border-gray-300 text-base bg-white text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all cursor-pointer"
+            className="ml-2 px-3.5 py-2 rounded-xl border border-gray-300 text-base bg-white text-gray-800 outline-none focus:border-[#237227] transition-all cursor-pointer"
           />
         </label>
       </div>
@@ -223,7 +223,7 @@ export default function HolidayManagerGlobal({
                 type="date"
                 value={date}
                 onChange={(e) => updateHoliday("regular", idx, e.target.value)}
-                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-base bg-gray-50 text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-base bg-gray-50 text-gray-800 outline-none focus:border-[#237227] transition-all"
               />
               <button
                 onClick={() => removeHoliday("regular", idx)}
@@ -258,7 +258,7 @@ export default function HolidayManagerGlobal({
                 type="date"
                 value={date}
                 onChange={(e) => updateHoliday("special", idx, e.target.value)}
-                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-base bg-gray-50 text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-base bg-gray-50 text-gray-800 outline-none focus:border-[#237227] transition-all"
               />
               <button
                 onClick={() => removeHoliday("special", idx)}

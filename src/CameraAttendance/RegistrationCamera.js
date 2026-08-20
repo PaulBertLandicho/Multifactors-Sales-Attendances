@@ -567,19 +567,12 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
   }, [modelsLoaded, useLocalCamera, disabled, onFaceScan, persons]);
 
   return (
-    <div>
-      <div
-        style={{
-          position: "relative",
-          width: "100%",
-          aspectRatio: "16/9",
-          background: "#0b1120",
-        }}
-      >
+    <div className="w-full">
+      <div className="relative w-full aspect-video bg-[#0b1120] rounded-xl overflow-hidden shadow-md">
         {useLocalCamera ? (
           <video
             ref={videoRef}
-            style={{ width: "100%", borderRadius: 12 }}
+            className="w-full h-full object-cover rounded-xl"
             autoPlay
             muted
             playsInline
@@ -588,50 +581,28 @@ export default function RegistrationCamera({ onFaceScan, disabled }) {
           <img
             ref={imgRef}
             alt="Camera Stream"
-            style={{ width: "100%", borderRadius: 12 }}
+            className="w-full h-full object-cover rounded-xl"
           />
         )}
         <canvas
           ref={canvasRef}
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            width: "100%",
-            height: "100%",
-            pointerEvents: "none",
-          }}
+          className="absolute top-0 left-0 w-full h-full pointer-events-none"
         />
       </div>
 
       {/* Optional: manual photo upload for registration (e.g., 2x2 ID photo) */}
-      <div
-        style={{
-          marginTop: 12,
-          display: "flex",
-          justifyContent: "center",
-          gap: 8,
-        }}
-      >
+      <div className="mt-3 flex justify-center gap-2">
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          style={{ display: "none" }}
+          className="hidden"
           onChange={handleImageUpload}
         />
         <button
           type="button"
           onClick={() => fileInputRef.current && fileInputRef.current.click()}
-          style={{
-            padding: "6px 12px",
-            borderRadius: 8,
-            border: "1px solid #4b5563",
-            background: "#111827",
-            color: "#e5e7eb",
-            cursor: "pointer",
-            fontSize: 13,
-          }}
+          className="px-3.5 py-1.5 rounded-lg border border-gray-600 bg-gray-900 text-gray-200 text-[13px] font-medium cursor-pointer shadow-sm transition-colors"
         >
           Upload 2x2 Photo Instead
         </button>

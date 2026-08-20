@@ -217,7 +217,7 @@ export default function AdminSettings() {
               name="morning_start"
               value={settings.morning_start}
               onChange={handleChange}
-              className="w-full px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all box-border cursor-pointer"
+              className="w-full px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] transition-all box-border cursor-pointer"
             />
           </div>
           <div className="mb-5">
@@ -247,7 +247,7 @@ export default function AdminSettings() {
                 onChange={handleChange}
                 min="0"
                 step="1"
-                className="w-[100px] px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                className="w-[100px] px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] transition-all"
               />
               <span className="text-gray-500 text-sm font-medium">min</span>
             </div>
@@ -275,7 +275,7 @@ export default function AdminSettings() {
               name="afternoon_start"
               value={settings.afternoon_start}
               onChange={handleChange}
-              className="w-full px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all box-border cursor-pointer"
+              className="w-full px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] transition-all box-border cursor-pointer"
             />
           </div>
           <div className="mb-5">
@@ -288,7 +288,7 @@ export default function AdminSettings() {
               name="afternoon_end"
               value={settings.afternoon_end}
               onChange={handleChange}
-              className="w-full px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all box-border cursor-pointer"
+              className="w-full px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] transition-all box-border cursor-pointer"
             />
           </div>
           <div className="mb-5">
@@ -304,7 +304,7 @@ export default function AdminSettings() {
                 onChange={handleChange}
                 min="0"
                 step="1"
-                className="w-[100px] px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                className="w-[100px] px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] transition-all"
               />
               <span className="text-gray-500 text-sm font-medium">min</span>
             </div>
@@ -335,7 +335,7 @@ export default function AdminSettings() {
                 onChange={handleChange}
                 min="1"
                 step="1"
-                className="w-[100px] px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                className="w-[100px] px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] transition-all"
               />
               <span className="text-gray-500 text-sm font-medium">occurrences</span>
             </div>
@@ -362,7 +362,7 @@ export default function AdminSettings() {
                 min="1"
                 max="31"
                 step="1"
-                className="w-[100px] px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.2)] transition-all"
+                className="w-[100px] px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] transition-all"
               />
               <span className="text-gray-500 text-sm font-medium">days</span>
             </div>
