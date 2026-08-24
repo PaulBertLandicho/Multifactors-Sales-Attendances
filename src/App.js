@@ -178,16 +178,7 @@ function App() {
               </div>
 
               {/* RIGHT — Button */}
-              {isAdminLoginPath ? (
-                <button
-                  type="button"
-                  onClick={() => navigate("/camera")}
-                  className="flex items-center gap-2 px-3.5 py-2 rounded-lg border border-[#237227] bg-[#237227] text-white text-sm font-bold cursor-pointer transition-colors"
-                >
-                  <FiCamera className="align-middle" />
-                  Attendance Camera
-                </button>
-              ) : (
+              {!isAdminLoginPath && (
                 <div className="flex items-center gap-2">
                   <button
                     type="button"

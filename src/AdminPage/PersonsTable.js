@@ -1019,15 +1019,7 @@ export default function PersonsTable() {
               reader.readAsDataURL(f);
             }}
           />
-          <button
-            onClick={() => {
-              setRegModalImage(null);
-              setShowRegModal(true);
-            }}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold border-none cursor-pointer bg-[#237227] text-white"
-          >
-            {Icons.add} Open Register Camera
-          </button>
+
         </div>
 
         <button

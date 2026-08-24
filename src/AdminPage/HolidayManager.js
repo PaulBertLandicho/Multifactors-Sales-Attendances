@@ -40,21 +40,93 @@ export default function HolidayManagerGlobal({
     fetchAllHolidays();
   }, [month, saving]);
 
+  const showToast = (title, icon = "success") => {
+    Swal.fire({
+      toast: true,
+      position: "top-end",
+      showConfirmButton: false,
+      timer: 2500,
+      icon,
+      title,
+      customClass: {
+        popup: "!rounded-2xl !shadow-[0_10px_25px_rgba(0,0,0,0.1)] !border !border-gray-100 !px-4 !py-2.5 !w-auto !inline-flex !items-center !gap-2.5 font-sans",
+        title: "!text-sm !font-semibold !text-gray-800 !m-0 !whitespace-nowrap",
+      },
+    });
+  };
+
+  const showModalAlert = ({ title, text, html, icon = "success", confirmText = "OK" }) => {
+    Swal.fire({
+      icon,
+      title,
+      text,
+      html,
+      width: "380px",
+      padding: "1.5rem",
+      confirmButtonText: confirmText,
+      confirmButtonColor: "#237227",
+      iconColor: icon === "success" ? "#237227" : icon === "error" ? "#ef4444" : "#f59e0b",
+      customClass: {
+        popup: "!rounded-3xl !shadow-2xl !border !border-gray-100 font-sans",
+        title: "!text-lg !font-bold !text-gray-800 !mt-2",
+        htmlContainer: "!text-sm !text-gray-600 !mt-1",
+        icon: "!scale-75 !my-2",
+        confirmButton: "!px-8 !py-2.5 !min-w-[110px] !rounded-xl !font-semibold !text-sm cursor-pointer !shadow-[0_4px_10px_rgba(35,114,39,0.3)] !bg-[#237227] hover:!bg-[#1a5a1d] !text-white !border-none",
+      },
+    });
+  };
+
   const handleDeleteSavedHoliday = async (holiday) => {
-    if (
-      !window.confirm(
-        `Delete holiday on ${holiday.date} (${holiday.type}) for all departments?`,
-      )
-    )
-      return;
-    const { error } = await supabase
-      .from("holidays")
-      .delete()
-      .is("department", null)
-      .eq("date", holiday.date)
-      .eq("type", holiday.type);
-    if (error) Swal.fire("Error", error.message, "error");
-    setSaving((s) => !s);
+    const isRegular = holiday.type === "regular";
+    const typeLabel = isRegular ? "Regular Holiday" : "Special Holiday";
+
+    const result = await Swal.fire({
+      title: "Delete Holiday?",
+      html: `
+        <div class="text-gray-600 text-sm mt-1 leading-relaxed">
+          Are you sure you want to delete the <b class="${isRegular ? "text-[#237227]" : "text-amber-600"}">${typeLabel}</b> on <b class="text-gray-800">${holiday.date}</b> for all departments?
+        </div>
+      `,
+      icon: "warning",
+      iconColor: "#ef4444",
+      showCancelButton: true,
+      confirmButtonText: "Yes, Delete",
+      cancelButtonText: "Cancel",
+      width: "400px",
+      padding: "1.75rem",
+      customClass: {
+        popup: "!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.15)] !border !border-gray-100 font-sans",
+        title: "!text-xl !font-bold !text-gray-800 !mt-2",
+        htmlContainer: "!text-sm !text-gray-600",
+        icon: "!scale-90 !my-2",
+        actions: "!flex !items-center !justify-center !gap-3 !mt-5 !w-full",
+        confirmButton: "!bg-[#ef4444] hover:!bg-[#dc2626] !text-white !font-semibold !rounded-xl !px-6 !py-2.5 !text-sm !border-none cursor-pointer !m-0 !shadow-sm transition-all",
+        cancelButton: "!bg-white hover:!bg-gray-50 !text-gray-700 !font-semibold !rounded-xl !px-6 !py-2.5 !text-sm !border !border-gray-300 cursor-pointer !m-0 transition-all",
+      },
+      buttonsStyling: false,
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from("holidays")
+        .delete()
+        .is("department", null)
+        .eq("date", holiday.date)
+        .eq("type", holiday.type);
+
+      if (error) throw error;
+
+      showToast("Holiday deleted successfully!");
+      setSaving((s) => !s);
+    } catch (error) {
+      showModalAlert({
+        title: "Delete Failed",
+        text: error.message || "Failed to delete holiday.",
+        icon: "error",
+      });
+    }
   };
 
   const addHoliday = (type) => {
@@ -84,13 +156,30 @@ export default function HolidayManagerGlobal({
 
   const handleSave = async () => {
     if (!month) {
-      Swal.fire("Please select a month.", "", "warning");
+      showModalAlert({
+        title: "Month Required",
+        text: "Please select a month before saving holidays.",
+        icon: "warning",
+      });
       return;
     }
+
+    const regDates = regularHolidays.filter(Boolean);
+    const specDates = specialHolidays.filter(Boolean);
+
+    if (regDates.length === 0 && specDates.length === 0) {
+      showModalAlert({
+        title: "No Holidays to Save",
+        text: "Please add at least one holiday date to save.",
+        icon: "info",
+      });
+      return;
+    }
+
     setSaving(true);
     const [year, monthNum] = month.split("-");
     const inserts = [];
-    for (const date of regularHolidays.filter(Boolean)) {
+    for (const date of regDates) {
       inserts.push({
         department: null,
         date,
@@ -99,7 +188,7 @@ export default function HolidayManagerGlobal({
         year: parseInt(year),
       });
     }
-    for (const date of specialHolidays.filter(Boolean)) {
+    for (const date of specDates) {
       inserts.push({
         department: null,
         date,
@@ -108,14 +197,23 @@ export default function HolidayManagerGlobal({
         year: parseInt(year),
       });
     }
-    if (inserts.length) {
+
+    try {
       const { error } = await supabase.from("holidays").insert(inserts);
-      if (error) Swal.fire("Error saving holidays", error.message, "error");
-      else Swal.fire("Global holidays saved!", "", "success");
-    } else {
-      Swal.fire("No holidays to save.", "", "info");
+      if (error) throw error;
+
+      showToast("Global holidays saved successfully!");
+      setRegularHolidays([]);
+      setSpecialHolidays([]);
+    } catch (error) {
+      showModalAlert({
+        title: "Error Saving Holidays",
+        text: error.message || "Failed to save holidays.",
+        icon: "error",
+      });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
