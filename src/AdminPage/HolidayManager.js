@@ -63,15 +63,17 @@ export default function HolidayManagerGlobal({
       html,
       width: "380px",
       padding: "1.5rem",
+      backdrop: false,
       confirmButtonText: confirmText,
       confirmButtonColor: "#237227",
       iconColor: icon === "success" ? "#237227" : icon === "error" ? "#ef4444" : "#f59e0b",
       customClass: {
+        container: "!bg-transparent !backdrop-blur-none",
         popup: "!rounded-3xl !shadow-2xl !border !border-gray-100 font-sans",
         title: "!text-lg !font-bold !text-gray-800 !mt-2",
         htmlContainer: "!text-sm !text-gray-600 !mt-1",
         icon: "!scale-75 !my-2",
-        confirmButton: "!px-8 !py-2.5 !min-w-[110px] !rounded-xl !font-semibold !text-sm cursor-pointer !shadow-[0_4px_10px_rgba(35,114,39,0.3)] !bg-[#237227] hover:!bg-[#1a5a1d] !text-white !border-none",
+        confirmButton: "!px-8 !py-2.5 !min-w-[110px] !rounded-xl !font-semibold !text-sm cursor-pointer !shadow-[0_4px_10px_rgba(35,114,39,0.3)] !bg-[#237227] !text-white !border-none",
       },
     });
   };
@@ -94,14 +96,16 @@ export default function HolidayManagerGlobal({
       cancelButtonText: "Cancel",
       width: "400px",
       padding: "1.75rem",
+      backdrop: false,
       customClass: {
+        container: "!bg-transparent !backdrop-blur-none",
         popup: "!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.15)] !border !border-gray-100 font-sans",
         title: "!text-xl !font-bold !text-gray-800 !mt-2",
         htmlContainer: "!text-sm !text-gray-600",
         icon: "!scale-90 !my-2",
         actions: "!flex !items-center !justify-center !gap-3 !mt-5 !w-full",
-        confirmButton: "!bg-[#ef4444] hover:!bg-[#dc2626] !text-white !font-semibold !rounded-xl !px-6 !py-2.5 !text-sm !border-none cursor-pointer !m-0 !shadow-sm transition-all",
-        cancelButton: "!bg-white hover:!bg-gray-50 !text-gray-700 !font-semibold !rounded-xl !px-6 !py-2.5 !text-sm !border !border-gray-300 cursor-pointer !m-0 transition-all",
+        confirmButton: "!bg-[#ef4444] !text-white !font-semibold !rounded-xl !px-6 !py-2.5 !text-sm !border-none cursor-pointer !m-0 !shadow-sm",
+        cancelButton: "!bg-white !text-gray-700 !font-semibold !rounded-xl !px-6 !py-2.5 !text-sm !border !border-gray-300 cursor-pointer !m-0",
       },
       buttonsStyling: false,
     });
