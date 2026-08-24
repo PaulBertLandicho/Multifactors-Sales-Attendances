@@ -221,7 +221,7 @@ export default function HolidayManagerGlobal({
   };
 
   return (
-    <div className="bg-slate-50 rounded-3xl p-6 sm:p-8 mx-auto max-w-[900px] shadow-[0_6px_24px_rgba(16,185,129,0.08)] border border-gray-200 font-sans text-gray-800">
+    <div className="bg-slate-50 rounded-3xl p-6 sm:p-8 mx-auto max-w-[900px] shadow-md border border-gray-200 font-sans text-gray-800">
       {/* Header */}
       <div className="text-center mb-6">
         <h2 className="text-3xl font-bold text-gray-800 m-0 inline-block">Manage Holidays</h2>
@@ -243,7 +243,7 @@ export default function HolidayManagerGlobal({
 
       {/* Saved Holidays Card */}
       {month && allHolidays.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(16,185,129,0.07)] p-5 sm:px-6 mb-6 border border-gray-200">
+        <div className="bg-white rounded-2xl shadow-md p-5 sm:px-6 mb-6 border border-gray-200">
           <div className="flex items-center gap-2.5 mb-3">
             <span className="text-2xl text-emerald-700">
               <Icon as={FiCalendar} size={22} ariaLabel="Holidays" />
@@ -283,7 +283,7 @@ export default function HolidayManagerGlobal({
 
       {/* Pending Holidays Card */}
       {(regularHolidays.length > 0 || specialHolidays.length > 0) && (
-        <div className="bg-amber-50 rounded-2xl shadow-[0_1px_4px_rgba(251,191,36,0.08)] p-4 sm:px-5 mb-6 border border-amber-200">
+        <div className="bg-amber-50 rounded-2xl shadow-md p-4 sm:px-5 mb-6 border border-amber-200">
           <div className="flex items-center gap-2.5 mb-2.5">
             <span className="text-xl text-amber-600">
               <Icon as={FiClock} size={20} ariaLabel="Pending" />
@@ -310,7 +310,7 @@ export default function HolidayManagerGlobal({
       {/* Add Holidays Cards */}
       <div className="flex gap-6 mb-8 flex-wrap justify-center">
         {/* Regular Holidays Card */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_4px_rgba(16,185,129,0.06)] p-5 min-w-[270px] flex-1 border border-gray-200 flex flex-col items-stretch">
+        <div className="bg-white rounded-2xl shadow-md p-5 min-w-[270px] flex-1 border border-gray-200 flex flex-col items-stretch">
           <div className="flex items-center gap-2.5 mb-3">
             <span className="font-semibold text-[1.08rem] text-gray-800">
               Regular Holidays{" "}
@@ -345,7 +345,7 @@ export default function HolidayManagerGlobal({
         </div>
 
         {/* Special Holidays Card */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_4px_rgba(16,185,129,0.06)] p-5 min-w-[270px] flex-1 border border-gray-200 flex flex-col items-stretch">
+        <div className="bg-white rounded-2xl shadow-md p-5 min-w-[270px] flex-1 border border-gray-200 flex flex-col items-stretch">
           <div className="flex items-center gap-2.5 mb-3">
             <span className="font-semibold text-[1.08rem] text-gray-800">
               Special Holidays{" "}

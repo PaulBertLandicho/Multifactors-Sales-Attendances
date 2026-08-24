@@ -1179,7 +1179,7 @@ export default function Dashboard() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="max-w-[90%] max-h-[90%] rounded-lg overflow-hidden bg-white p-3 shadow-[0_12px_40px_rgba(2,6,23,0.4)]"
+            className="max-w-[90%] max-h-[90%] rounded-lg overflow-hidden bg-white p-3 shadow-md"
           >
             <div className="flex justify-end">
               <button
@@ -1203,7 +1203,7 @@ export default function Dashboard() {
         <div
           onMouseEnter={() => { try { if (tooltipHideTimerRef.current) { clearTimeout(tooltipHideTimerRef.current); tooltipHideTimerRef.current = null; } } catch (e) {} setTooltip(t => ({ ...t, visible: true })); }}
           onMouseLeave={() => scheduleHideTooltip()}
-          className="fixed bg-white border border-[#e6eef6] rounded-lg p-3 shadow-[0_8px_24px_rgba(2,6,23,0.06)] z-[9999] max-w-[300px]"
+          className="fixed bg-white border border-[#e6eef6] rounded-lg p-3 shadow-md z-[9999] max-w-[300px]"
           style={{ left: tooltip.x, top: tooltip.y }}
         >
           <div className="font-bold text-[#237227] mb-2">{tooltip.title}</div>

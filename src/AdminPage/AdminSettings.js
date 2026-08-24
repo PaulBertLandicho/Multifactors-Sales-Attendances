@@ -134,19 +134,15 @@ export default function AdminSettings() {
       });
     } else {
       Swal.fire({
+        icon: "success",
         title: "Settings updated!",
         html: `<p style="color:#6b7280;font-size:0.92rem;margin:0">Your work hours settings have been saved successfully.</p>`,
-        iconHtml: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" fill="none" style="width:56px;height:56px">
-          <circle cx="26" cy="26" r="25" stroke="#237227" stroke-width="2" fill="#f0faf0"/>
-          <path d="M14 27l8 8 16-16" stroke="#237227" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>`,
         confirmButtonText: "Got it!",
         customClass: {
           popup:
             "!rounded-3xl !shadow-[0_24px_60px_rgba(0,0,0,0.12)] !px-8 !py-8 !max-w-[380px]",
           title: "!text-gray-800 !text-[1.4rem] !font-bold !mt-3 !mb-1",
           htmlContainer: "!mt-1 !mb-4",
-          icon: "!border-none !bg-transparent !mb-0",
           confirmButton:
             "!bg-[#237227] !text-white !font-semibold !rounded-lg !px-10 !py-2.5 !text-sm !shadow-none !border-none cursor-pointer",
         },
@@ -158,7 +154,7 @@ export default function AdminSettings() {
   };
 
   return (
-    <div className="max-w-[1200px] mx-auto mt-2 mb-10 px-8 py-10 bg-white rounded-[32px] shadow-[0_10px_30px_rgba(0,0,0,0.1)] text-gray-800 font-sans">
+    <div className="max-w-[1200px] mx-auto mt-2 mb-10 px-8 py-10 bg-white rounded-[32px] shadow-md text-gray-800 font-sans">
       {/* Header & Tabs */}
       <div className="text-center mb-10">
         <h1 className="text-[2.6rem] font-bold text-gray-800 m-0 inline-block">Settings</h1>
@@ -200,7 +196,7 @@ export default function AdminSettings() {
           {/* Three cards in a row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {/* Morning Shift Card */}
-        <div className="bg-gray-50 rounded-3xl p-6 sm:p-7 border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col transition-all hover:shadow-md">
+        <div className="bg-gray-50 rounded-3xl p-6 sm:p-7 border border-gray-200 shadow-md flex flex-col transition-all hover:shadow-md">
           <div className="flex items-center gap-3 mb-6">
             <span className="text-[2rem] text-amber-500">
               <Icon as={FiSun} size={28} ariaLabel="Morning shift" />
@@ -258,7 +254,7 @@ export default function AdminSettings() {
         </div>
 
         {/* Afternoon Shift Card */}
-        <div className="bg-gray-50 rounded-3xl p-6 sm:p-7 border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col transition-all hover:shadow-md">
+        <div className="bg-gray-50 rounded-3xl p-6 sm:p-7 border border-gray-200 shadow-md flex flex-col transition-all hover:shadow-md">
           <div className="flex items-center gap-3 mb-6">
             <span className="text-[2rem] text-indigo-500">
               <Icon as={FiMoon} size={28} ariaLabel="Afternoon shift" />
@@ -315,7 +311,7 @@ export default function AdminSettings() {
         </div>
 
         {/* Late Count Limit & Payroll Length Card */}
-        <div className="bg-gray-50 rounded-3xl p-6 sm:p-7 border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col transition-all hover:shadow-md">
+        <div className="bg-gray-50 rounded-3xl p-6 sm:p-7 border border-gray-200 shadow-md flex flex-col transition-all hover:shadow-md">
           <div className="flex items-center gap-3 mb-6">
             <span className="text-[2rem] text-amber-600">
               <Icon as={FiAlertTriangle} size={24} ariaLabel="Warning" />
@@ -333,7 +329,7 @@ export default function AdminSettings() {
                 name="late_count_limit"
                 value={settings.late_count_limit}
                 onChange={handleChange}
-                min="1"
+                min="1" 
                 step="1"
                 className="w-[100px] px-4 py-3 text-base rounded-2xl border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] transition-all"
               />

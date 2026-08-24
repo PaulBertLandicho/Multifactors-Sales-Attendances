@@ -11,6 +11,7 @@ import {
   FiMail,
   FiUserPlus,
   FiPlusCircle,
+  FiSearch,
 } from "react-icons/fi";
 import PersonRegistration from "./PersonRegistration";
 import { determineAttendanceStatus } from "./attendanceUtils";
@@ -962,23 +963,18 @@ export default function PersonsTable() {
         <div className="flex flex-wrap gap-3 items-end">
           <div className="relative">
             <label htmlFor="persons-search" className="block mb-1 text-xs text-gray-600 font-semibold">Search</label>
-            <input
-              id="persons-search"
-              name="persons-search"
-              type="text"
-              placeholder="Search name or ID"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none min-w-[250px] transition-all focus:border-[#237227] focus:outline-none focus:ring-0 focus:shadow-none"
-              style={{
-                outline: "none",
-                boxShadow: "none",
-                backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "16px center",
-                backgroundSize: "16px",
-              }}
-            />
+            <div className="relative flex items-center">
+              <FiSearch className="absolute left-3.5 text-gray-400 text-base pointer-events-none" />
+              <input
+                id="persons-search"
+                name="persons-search"
+                type="text"
+                placeholder="Search name or ID"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none min-w-[250px] transition-all focus:border-[#237227] focus:outline-none focus:ring-0 focus:shadow-none"
+              />
+            </div>
           </div>
           <div>
             <label htmlFor="persons-department-filter" className="block mb-1 text-xs text-gray-600 font-semibold">Department</label>

@@ -812,7 +812,7 @@ export default function PayrollPage() {
     });
 
   return (
-    <div className="max-w-[1600px] mx-auto my-10 px-8 py-10 bg-white rounded-[32px] shadow-[0_10px_30px_rgba(0,0,0,0.1)] text-gray-800 font-sans">
+    <div className="max-w-[1600px] mx-auto my-10 px-8 py-10 bg-white rounded-[32px] shadow-lg text-gray-800 font-sans">
       {/* Header */}
       <div className="text-center mb-10">
         <h1 className="text-[2.8rem] font-bold text-gray-800 m-0 inline-block">Payroll Summary</h1>
@@ -820,21 +820,16 @@ export default function PayrollPage() {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-wrap justify-between items-center gap-4 mb-6 p-5 sm:px-6 bg-gray-50 rounded-[20px] border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
+      <div className="flex flex-wrap justify-between items-center gap-4 mb-6 p-5 sm:px-6 bg-gray-50 rounded-[20px] border border-gray-200 shadow-md">
         <div className="flex flex-wrap gap-3 items-center">
-          <div className="relative">
+          <div className="relative flex items-center">
+            <FiSearch className="absolute left-3.5 text-gray-400 text-base pointer-events-none" />
             <input
               type="text"
               placeholder="Search by name or ID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none min-w-[250px] transition-all"
-              style={{
-                backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "16px center",
-                backgroundSize: "16px",
-              }}
+              className="pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] min-w-[250px] transition-all"
             />
           </div>
           <select
@@ -878,7 +873,7 @@ export default function PayrollPage() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl overflow-hidden border border-gray-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.05)]">
+      <div className="rounded-xl overflow-hidden border border-gray-200 bg-white shadow-md">
         <div className="overflow-x-auto max-h-[600px]">
           <table className="w-full border-collapse text-[0.95rem] min-w-[1200px]">
             <thead>

@@ -4,7 +4,7 @@ import { supabase } from "../supabaseClient";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import { MdFilterList } from "react-icons/md";
-import { FiDownload, FiArchive, FiRotateCcw, FiPlus, FiX, FiChevronLeft, FiChevronRight } from "react-icons/fi";
+import { FiDownload, FiArchive, FiRotateCcw, FiPlus, FiX, FiChevronLeft, FiChevronRight, FiSearch } from "react-icons/fi";
 
 export default function AttendanceTable() {
   const [search, setSearch] = useState("");
@@ -391,19 +391,14 @@ export default function AttendanceTable() {
         {/* Left filter group */}
         <div className="flex flex-wrap gap-3 items-center">
           {/* Search */}
-          <div className="relative">
+          <div className="relative flex items-center">
+            <FiSearch className="absolute left-3 text-gray-400 text-base pointer-events-none" />
             <input
               type="text"
               placeholder="Search name or ID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none transition-all"
-              style={{
-                backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "12px center",
-                backgroundSize: "16px",
-              }}
+              className="pl-9 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] transition-all"
             />
           </div>
 
@@ -485,7 +480,7 @@ export default function AttendanceTable() {
       </div>
 
       {/* Table */}
-      <div className="rounded-xl overflow-hidden shadow-[0_4px_16px_rgba(0,0,0,0.08)] bg-white border border-gray-200">
+      <div className="rounded-xl overflow-hidden shadow-md bg-white border border-gray-200">
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-[0.95rem] min-w-[1200px]">
             <thead>

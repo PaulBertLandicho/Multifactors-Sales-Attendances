@@ -240,7 +240,7 @@ export default function DepartmentRates() {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto mt-2 mb-10 px-6 sm:px-8 py-10 bg-white rounded-[32px] shadow-[0_10px_30px_rgba(0,0,0,0.1)] text-gray-800 font-sans">
+    <div className="max-w-[1600px] mx-auto mt-2 mb-10 px-6 sm:px-8 py-10 bg-white rounded-[32px] shadow-md text-gray-800 font-sans">
 
       {/* Header */}
       <div className="text-center mb-8">
@@ -263,7 +263,7 @@ export default function DepartmentRates() {
         {rates.map((row, idx) => (
           <div
             key={row.department}
-            className="w-full bg-gray-50 rounded-3xl p-6 sm:p-7 border border-gray-200 shadow-[0_4px_12px_rgba(0,0,0,0.05)] flex flex-col transition-all"
+            className="w-full bg-gray-50 rounded-3xl p-6 sm:p-7 border border-gray-200 shadow-md flex flex-col transition-all"
           >
             {/* Card Header */}
             <div className="flex items-center gap-2.5 mb-6 flex-wrap sm:flex-nowrap">
@@ -344,7 +344,7 @@ export default function DepartmentRates() {
                           title: "text-lg font-bold text-gray-800",
                           htmlContainer: "text-xs text-gray-500",
                           icon: "scale-75 my-2",
-                          confirmButton: "px-10 py-2.5 min-w-[120px] rounded-lg font-semibold text-sm cursor-pointer shadow-[0_4px_10px_rgba(16,185,129,0.3)]",
+                          confirmButton: "px-10 py-2.5 min-w-[120px] rounded-lg font-semibold text-sm cursor-pointer shadow-md",
                         },
                       });
                       fetchRates();

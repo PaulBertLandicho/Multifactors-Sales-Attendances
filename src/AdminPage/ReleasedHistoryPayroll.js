@@ -4,7 +4,7 @@ import { supabase } from "../supabaseClient";
 import PayslipModal from "./PayslipModals/PayslipModal";
 import { getDetailedAttendance } from "./attendanceDetails";
 import { calculatePayroll } from "./Payroll";
-import { FiDownload, FiEye } from "react-icons/fi";
+import { FiDownload, FiEye, FiSearch } from "react-icons/fi";
 
 export default function ReleasedHistoryPayroll() {
   const [releasedPayrolls, setReleasedPayrolls] = useState([]);
@@ -222,19 +222,14 @@ export default function ReleasedHistoryPayroll() {
       {/* Filter Bar */}
       <div className="flex flex-wrap justify-between items-center gap-4 mb-6 p-5 sm:px-6 bg-gray-50 rounded-[20px] border border-gray-200 shadow-md">
         <div className="flex gap-3 items-center flex-wrap">
-          <div className="relative">
+          <div className="relative flex items-center">
+            <FiSearch className="absolute left-3.5 text-gray-400 text-base pointer-events-none" />
             <input
               type="text"
               placeholder="Search name or ID"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none min-w-[250px] transition-all"
-              style={{
-                backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%236b7280" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>')`,
-                backgroundRepeat: "no-repeat",
-                backgroundPosition: "16px center",
-                backgroundSize: "16px",
-              }}
+              className="pl-10 pr-4 py-2.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-800 outline-none focus:border-[#237227] min-w-[250px] transition-all"
             />
           </div>
           <select
