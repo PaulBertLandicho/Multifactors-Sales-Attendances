@@ -1,14 +1,12 @@
 import { Fragment, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useLoading } from "../LoadingContext";
 import { supabase } from "../supabaseClient";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 import { MdFilterList } from "react-icons/md";
-import { FiDownload, FiArchive, FiRotateCcw, FiPlus, FiX, FiChevronLeft, FiChevronRight, FiCamera } from "react-icons/fi";
+import { FiDownload, FiArchive, FiRotateCcw, FiPlus, FiX, FiChevronLeft, FiChevronRight } from "react-icons/fi";
 
 export default function AttendanceTable() {
-  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("");
@@ -460,14 +458,7 @@ export default function AttendanceTable() {
             {sortOrder === "asc" ? "Asc" : "Desc"}
           </button>
 
-          {/* Attendance Camera Button */}
-          <button
-            onClick={() => navigate("/camera")}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#237227] text-white text-sm cursor-pointer font-semibold border-none"
-            title="Open Attendance Camera"
-          >
-            <FiCamera className="text-base" /> Attendance Camera
-          </button>
+
         </div>
 
         {/* Right action buttons */}
