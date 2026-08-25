@@ -462,7 +462,7 @@ export default function AttendanceTable() {
 
           {/* Attendance Camera Button */}
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate("/attendance-camera")}
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#237227] text-white text-sm cursor-pointer font-semibold border-none"
             title="Open Attendance Camera"
           >

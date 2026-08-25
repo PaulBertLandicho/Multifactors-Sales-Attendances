@@ -79,7 +79,7 @@ function App() {
   const location = useLocation();
   const navigate = useNavigate();
   // const isAdminPath = location.pathname.startsWith("/admin");
-  const isCameraPath = location.pathname === "/" || location.pathname === "";
+  const isCameraPath = location.pathname === "/attendance-camera";
   const isAdminLoginPath = location.pathname === "/admin";
   const currentRole = getSessionRole(session);
   const hasStaffAccess = hasAllowedRole(session, STAFF_ROLES);
@@ -160,22 +160,7 @@ function App() {
                   </span>
                 </h1>
               </div>
-              {isAdminLoginPath ? (
-                <button
-                  type="button"
-                  onClick={() => navigate("/")}
-                  style={styles.adminButton}
-                >
-                  <span
-                    style={{ display: "inline-flex", alignItems: "center" }}
-                  >
-                    <FiCamera
-                      style={{ marginRight: 8, verticalAlign: "middle" }}
-                    />
-                    Attendance Camera
-                  </span>
-                </button>
-              ) : (
+              {!isAdminLoginPath && (
                 <div style={styles.headerActions}>
                   {/* <button
                     type="button"
@@ -211,8 +196,15 @@ function App() {
           </div>
         )}
         <Routes>
+          {/* Startup route */}
           <Route
             path="/"
+            element={<Navigate to="/admin" replace />}
+          />
+
+          {/* Camera route */}
+          <Route
+            path="/attendance-camera"
             element={
               <div style={{ maxWidth: 900, margin: "0 auto" }}>
                 {hasStaffAccess ? (
